@@ -1,0 +1,212 @@
+"use client";
+
+import { useState, useMemo, useCallback } from "react";
+import type {
+  ChannelConfig,
+  ChannelDefaults,
+  ProductRow,
+  AnalysisResult,
+  BrandRoyaltyTable,
+  Overrides,
+  ChannelFlags,
+} from "@/lib/pricing/types";
+import { analyzeProduct } from "@/lib/pricing/engine";
+import { brandKey } from "@/lib/pricing/helpers";
+
+export type StatusFilter = "all" | "pass" | "below" | "loss" | "unpriced";
+
+interface ChannelWithDb {
+  id: string;
+  name: string;
+  tabLabel: string;
+  shippingMode: string;
+  priceField: string;
+  fallbackPriceField?: string | null;
+  hasCoupon: boolean;
+  hasTax: boolean;
+  hasCommission: boolean;
+  hasTopSellerDisc: boolean;
+  hasPromotedListing: boolean;
+  hasFvfFixed: boolean;
+  hasCardProcessing: boolean;
+  hasPpc: boolean;
+  hasAdvertising: boolean;
+  hasPerSkuCommission: boolean;
+  hasFallback: boolean;
+  hasAsin: boolean;
+  defaults: Record<string, unknown>;
+  blockedBrands: string[];
+}
+
+function toChannelConfig(ch: ChannelWithDb): ChannelConfig {
+  return {
+    id: ch.id,
+    name: ch.name,
+    tabLabel: ch.tabLabel,
+    shippingMode: ch.shippingMode as "std" | "mcf" | "fba",
+    priceField: ch.priceField,
+    fallbackPriceField: ch.fallbackPriceField ?? undefined,
+    flags: {
+      coupon: ch.hasCoupon,
+      tax: ch.hasTax,
+      comm: ch.hasCommission,
+      tsd: ch.hasTopSellerDisc,
+      promo: ch.hasPromotedListing,
+      fvf: ch.hasFvfFixed,
+      cc: ch.hasCardProcessing,
+      ppc: ch.hasPpc,
+      ad: ch.hasAdvertising,
+      commSku: ch.hasPerSkuCommission,
+      fb: ch.hasFallback,
+      asin: ch.hasAsin,
+    },
+    defaults: ch.defaults as unknown as ChannelDefaults,
+  };
+}
+
+export function useAnalysis(
+  channels: ChannelWithDb[],
+  products: ProductRow[],
+  brandRoyalties: BrandRoyaltyTable,
+) {
+  const [activeTab, setActiveTab] = useState<string>(channels[0]?.id ?? "");
+  const [overrides, setOverrides] = useState<Overrides>({});
+  const [settingsMap, setSettingsMap] = useState<Record<string, Record<string, unknown>>>(() => {
+    const m: Record<string, Record<string, unknown>> = {};
+    for (const ch of channels) m[ch.id] = { ...(ch.defaults as Record<string, unknown>) };
+    return m;
+  });
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<string>("sku");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const configs = useMemo(() => channels.map(toChannelConfig), [channels]);
+
+  const blockedBrands = useMemo(() => {
+    const m: Record<string, Set<string>> = {};
+    for (const ch of channels) {
+      m[ch.id] = new Set((ch.blockedBrands ?? []).map((b: string) => brandKey(b)));
+    }
+    return m;
+  }, [channels]);
+
+  const results = useMemo(() => {
+    const all: Record<string, AnalysisResult[]> = {};
+    for (const cfg of configs) {
+      const settings = settingsMap[cfg.id] as unknown as ChannelDefaults;
+      const blocked = blockedBrands[cfg.id];
+      all[cfg.id] = products
+        .filter((p) => !blocked?.has(brandKey(p.brand)))
+        .map((p) => analyzeProduct(p, cfg, settings, overrides, brandRoyalties));
+    }
+    return all;
+  }, [configs, products, settingsMap, overrides, brandRoyalties, blockedBrands]);
+
+  const filteredResults = useMemo(() => {
+    const channelResults = results[activeTab] ?? [];
+    return channelResults.filter((r) => {
+      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        if (
+          !r.sku.toLowerCase().includes(q) &&
+          !(r.name ?? "").toLowerCase().includes(q) &&
+          !(r.brand ?? "").toLowerCase().includes(q)
+        )
+          return false;
+      }
+      return true;
+    });
+  }, [results, activeTab, statusFilter, search]);
+
+  const sortedResults = useMemo(() => {
+    const sorted = [...filteredResults];
+    sorted.sort((a, b) => {
+      let av: number | string = "";
+      let bv: number | string = "";
+      switch (sortKey) {
+        case "sku": av = a.sku; bv = b.sku; break;
+        case "name": av = a.name ?? ""; bv = b.name ?? ""; break;
+        case "cost": av = a.cost ?? 0; bv = b.cost ?? 0; break;
+        case "price": av = a.price; bv = b.price; break;
+        case "gm": av = a.gm; bv = b.gm; break;
+        case "net": av = a.net; bv = b.net; break;
+        case "rec": av = a.rec ?? 0; bv = b.rec ?? 0; break;
+        case "delta": av = a.deltaPct ?? 0; bv = b.deltaPct ?? 0; break;
+        case "brand": av = a.brand ?? ""; bv = b.brand ?? ""; break;
+        default: av = a.sku; bv = b.sku;
+      }
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }, [filteredResults, sortKey, sortDir]);
+
+  const kpis = useMemo(() => {
+    const channelResults = results[activeTab] ?? [];
+    const valid = channelResults.filter((r) => !r.invalid);
+    const atGoal = valid.filter((r) => r.status === "pass").length;
+    const below = valid.filter((r) => r.status === "below").length;
+    const loss = valid.filter((r) => r.status === "loss").length;
+    const unpriced = valid.filter((r) => r.status === "unpriced").length;
+    const priced = valid.filter((r) => r.price > 0);
+    const avgGm = priced.length > 0 ? priced.reduce((s, r) => s + r.gm, 0) / priced.length : 0;
+    const totalMargin = priced.reduce((s, r) => s + r.net, 0);
+    const needRepricing = valid.filter((r) => r.rec != null && r.rec !== r.price).length;
+
+    return { total: valid.length, atGoal, below, loss, unpriced, avgGm, totalMargin, needRepricing };
+  }, [results, activeTab]);
+
+  const setOverride = useCallback((channelId: string, sku: string, field: "price" | "ship", value: number | undefined) => {
+    setOverrides((prev) => {
+      const next = { ...prev };
+      if (!next[channelId]) next[channelId] = {};
+      if (!next[channelId][sku]) next[channelId][sku] = {};
+      if (value === undefined) {
+        delete next[channelId][sku][field];
+        if (Object.keys(next[channelId][sku]).length === 0) delete next[channelId][sku];
+      } else {
+        next[channelId][sku][field] = value;
+      }
+      return next;
+    });
+  }, []);
+
+  const updateSetting = useCallback((channelId: string, key: string, value: unknown) => {
+    setSettingsMap((prev) => ({
+      ...prev,
+      [channelId]: { ...prev[channelId], [key]: value },
+    }));
+  }, []);
+
+  function handleSort(key: string) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  return {
+    configs,
+    activeTab,
+    setActiveTab,
+    results,
+    filteredResults: sortedResults,
+    kpis,
+    statusFilter,
+    setStatusFilter,
+    search,
+    setSearch,
+    sortKey,
+    sortDir,
+    handleSort,
+    overrides,
+    setOverride,
+    settingsMap,
+    updateSetting,
+  };
+}

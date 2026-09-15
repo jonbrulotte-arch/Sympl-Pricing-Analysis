@@ -18,7 +18,18 @@ export const SECTIONS = [
   { id: "rules", title: "Repricing rules", note: "How recommended prices are rounded and judged." },
 ];
 
-export const FIELDS_UI = [
+export interface FieldUiDef {
+  sec: string;
+  key: string;
+  label: string;
+  hint?: string;
+  unit?: string;
+  type?: string;
+  flag?: string;
+  opts?: [string, string][];
+}
+
+export const FIELDS_UI: FieldUiDef[] = [
   { sec: "market", key: "coupon", label: "Coupon discount", unit: "%", flag: "coupon" },
   { sec: "market", key: "tax", label: "Sales tax collected", hint: "(on the post-coupon price)", unit: "%", flag: "tax" },
   { sec: "market", key: "comm", label: "Category commission", unit: "%", flag: "comm" },
