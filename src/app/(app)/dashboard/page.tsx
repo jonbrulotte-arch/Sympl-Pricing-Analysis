@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Building2, Upload, BarChart3, Plus, FileSpreadsheet, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
