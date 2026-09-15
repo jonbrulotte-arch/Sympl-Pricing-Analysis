@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  ANALYST
+}
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  name         String
+  passwordHash String
+  role         Role           @default(ANALYST)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  customers    CustomerUser[]
+  analyses     Analysis[]
+  imports      Import[]
+}
+
+model Customer {
+  id             String         @id @default(uuid())
+  name           String
+  slug           String         @unique
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  users          CustomerUser[]
+  channels       SalesChannel[]
+  products       Product[]
+  brandRoyalties BrandRoyalty[]
+  analyses       Analysis[]
+  imports        Import[]
+}
+
+model CustomerUser {
+  customerId String
+  userId     String
+  role       String   @default("member")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([customerId, userId])
+}
+
+model SalesChannel {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  name         String
+  slug         String
+  tabLabel     String
+  shippingMode String  @default("std") // "std" | "mcf" | "fba"
+  priceField   String  // which import column maps to this channel's price
+  fallbackPriceField String? // import field name to fall back to when price is blank
+  sortOrder    Int     @default(0)
+  isDefault    Boolean @default(false)
+
+  // Feature flags — which fee types this channel charges
+  hasCoupon           Boolean @default(false)
+  hasTax              Boolean @default(false) // eBay-style tax amplification
+  hasCommission       Boolean @default(false)
+  hasTopSellerDisc    Boolean @default(false)
+  hasPromotedListing  Boolean @default(false)
+  hasFvfFixed         Boolean @default(false)
+  hasCardProcessing   Boolean @default(false)
+  hasPpc              Boolean @default(false)
+  hasAdvertising      Boolean @default(false)
+  hasPerSkuCommission Boolean @default(false)
+  hasFallback         Boolean @default(false)
+  hasAsin             Boolean @default(false)
+
+  // Default fee rates and settings (JSON)
+  defaults      Json @default("{}")
+  blockedBrands Json @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  priceHistories  PriceHistory[]
+  analysisResults AnalysisResult[]
+
+  @@unique([customerId, slug])
+}
+
+model Product {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  sku         String
+  name        String?
+  brand       String?
+  asin        String?
+  fbaClass    String?
+  amzCategory String?
+  amzItemType String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  costHistories   CostHistory[]
+  priceHistories  PriceHistory[]
+  analysisResults AnalysisResult[]
+
+  @@unique([customerId, sku])
+}
+
+model CostHistory {
+  id         String   @id @default(uuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cost       Decimal  @db.Decimal(10, 4)
+  recordedAt DateTime @default(now())
+  importId   String?
+
+  @@index([productId, recordedAt])
+}
+
+model PriceHistory {
+  id         String       @id @default(uuid())
+  productId  String
+  product    Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  channelId  String
+  channel    SalesChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  price      Decimal      @db.Decimal(10, 4)
+  recordedAt DateTime     @default(now())
+  importId   String?
+
+  @@index([productId, channelId, recordedAt])
+}
+
+model BrandRoyalty {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  brandKey   String
+  brandName  String
+  value      Decimal  @db.Decimal(10, 4)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([customerId, brandKey])
+}
+
+model Analysis {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  name        String?
+  importId    String?  @unique
+  import      Import?  @relation(fields: [importId], references: [id])
+  settings    Json
+  createdAt   DateTime @default(now())
+
+  results AnalysisResult[]
+}
+
+model AnalysisResult {
+  id         String       @id @default(uuid())
+  analysisId String
+  analysis   Analysis     @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product      @relation(fields: [productId], references: [id])
+  channelId  String
+  channel    SalesChannel @relation(fields: [channelId], references: [id])
+
+  price        Decimal? @db.Decimal(10, 4)
+  cost         Decimal? @db.Decimal(10, 4)
+  shipping     Decimal? @db.Decimal(10, 4)
+  netMargin    Decimal? @db.Decimal(10, 4)
+  grossMargin  Decimal? @db.Decimal(10, 6)
+  recPrice     Decimal? @db.Decimal(10, 4)
+  recGm        Decimal? @db.Decimal(10, 6)
+  status       String
+  feeBreakdown Json
+
+  @@index([analysisId, channelId])
+  @@index([productId, channelId])
+}
+
+model Import {
+  id           String   @id @default(uuid())
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  fileName     String
+  sheetName    String?
+  rowCount     Int      @default(0)
+  columnMap    Json     @default("{}")
+  headerSig    String?
+  status       String   @default("pending")
+  errors       Json?
+  createdAt    DateTime @default(now())
+
+  analysis Analysis?
+}
+
+model SavedMapping {
+  id              String   @id @default(uuid())
+  customerId      String
+  headerSignature String
+  columnMap       Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([customerId, headerSignature])
+}
