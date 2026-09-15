@@ -10,6 +10,7 @@ export const ROUND_OPTS: [string, string][] = [
 ];
 
 export const SECTIONS = [
+  { id: "goal", title: "Goal", note: "Any SKU on this channel landing under this gets a recommended list price that clears it." },
   { id: "market", title: "Marketplace assumptions", note: "Applied to every SKU on this channel." },
   { id: "royalty", title: "Royalty", note: "Charged on the sale after coupons, not on the list price. Used when the sheet has no royalty value for a SKU." },
   { id: "returns", title: "Returns and warranty", note: "Allowance for returns and defects, taken as a share of the sale after discounts." },
@@ -30,6 +31,7 @@ export interface FieldUiDef {
 }
 
 export const FIELDS_UI: FieldUiDef[] = [
+  { sec: "goal", key: "goal", label: "Goal net GM%", unit: "%" },
   { sec: "market", key: "coupon", label: "Coupon discount", unit: "%", flag: "coupon" },
   { sec: "market", key: "tax", label: "Sales tax collected", hint: "(on the post-coupon price)", unit: "%", flag: "tax" },
   { sec: "market", key: "comm", label: "Category commission", unit: "%", flag: "comm" },
