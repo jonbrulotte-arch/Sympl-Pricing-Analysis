@@ -1,0 +1,2363 @@
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Channel Pricing Profitability Analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --paper:#EEF1F0; --surface:#FFFFFF;
+    --ink:#101A22; --ink-2:#42535F; --ink-3:#75868F;
+    --line:#D8E0E4; --line-strong:#B6C3C9;
+    --accent:#14507D; --accent-soft:#E6EEF5;
+    --loss:#A32219; --loss-soft:#FBEAE8;
+    --gain:#0B6B49; --warn:#8A5A00; --warn-soft:#FBF1DF;
+    --edit:#7A4B9E; --edit-soft:#F2ECF7;
+    --radius:3px;
+    --num:"Archivo","Helvetica Neue",Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:"Archivo","Helvetica Neue",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{margin:0;font-weight:600;letter-spacing:-0.01em}
+  button{font:inherit;cursor:pointer}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .num{font-variant-numeric:tabular-nums}
+  .hide{display:none !important}
+
+  .shell{display:grid;grid-template-columns:312px minmax(0,1fr);min-height:100vh}
+  .rail{background:var(--surface);border-right:1px solid var(--line);padding:20px 20px 40px}
+  main{min-width:0;padding:20px 26px 80px}
+
+  .masthead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .masthead h1{font-size:19px;line-height:1.2}
+  .masthead p{margin:0;color:var(--ink-3);font-size:12.5px}
+
+  /* channel tabs */
+  .tabs{display:flex;gap:0;margin:14px 0 0;border-bottom:1px solid var(--line-strong);overflow-x:auto}
+  .tabs button{
+    border:1px solid transparent;border-bottom:none;background:transparent;color:var(--ink-2);
+    padding:8px 14px 7px;font-size:13px;white-space:nowrap;margin-bottom:-1px;display:flex;align-items:center;gap:7px;
+  }
+  .tabs button:hover{color:var(--ink);background:#F6F8F8}
+  .tabs button[aria-selected=true]{background:var(--surface);border-color:var(--line-strong);color:var(--ink);font-weight:600}
+  .tabs .badge{font-family:var(--num);font-size:11px;font-variant-numeric:tabular-nums;background:var(--loss-soft);color:var(--loss);padding:0 5px;border-radius:8px}
+  .tabs .badge.zero{background:#E4F1EB;color:var(--gain)}
+
+  /* rail */
+  .chan{font-size:12px;color:var(--ink-3);margin:0 0 10px}
+  .chan b{color:var(--ink);font-weight:600;font-size:13px;display:block}
+  .goal{border:1px solid var(--ink);padding:12px 13px 13px}
+  .goal label{display:block;font-size:12px;color:var(--ink-2);margin-bottom:6px}
+  .goal-input{display:flex;align-items:center;gap:6px}
+  .goal-input input{width:100%;border:none;border-bottom:2px solid var(--ink);background:transparent;font-family:var(--num);font-size:38px;font-weight:600;letter-spacing:-0.03em;padding:0 0 2px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .goal-input input:focus{outline:none;border-bottom-color:var(--accent)}
+  .goal-input span{font-size:24px;font-weight:600;color:var(--ink-3)}
+  .goal small{display:block;margin-top:7px;color:var(--ink-3);font-size:11.5px;line-height:1.35}
+
+  details.group{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}
+  details.group > summary{
+    list-style:none;cursor:pointer;display:flex;align-items:center;gap:7px;
+    font-size:12.5px;font-weight:600;color:var(--ink);
+  }
+  details.group > summary::-webkit-details-marker{display:none}
+  details.group > summary:before{
+    content:"";width:0;height:0;border-left:5px solid var(--ink-3);border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .12s;flex:0 0 auto;
+  }
+  details.group[open] > summary:before{transform:rotate(90deg) translateX(1px)}
+  details.group > summary .n{margin-left:auto;font-weight:400;color:var(--ink-3);font-size:11px}
+  details.group .note{margin:6px 0 8px;color:var(--ink-3);font-size:11.5px;line-height:1.35}
+
+  .field{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dotted var(--line)}
+  .field:last-child{border-bottom:none}
+  .field label{font-size:12.5px;color:var(--ink-2);flex:1;min-width:0}
+  .field .hint{color:var(--ink-3)}
+  .field .wrap{display:flex;align-items:center;gap:3px;color:var(--ink-3);font-size:12px}
+  .field.check input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
+  .field input{width:74px;text-align:right;padding:4px 6px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);color:var(--ink);font-family:var(--num);font-size:13px;font-variant-numeric:tabular-nums}
+  .field input:focus{border-color:var(--accent);outline:none;box-shadow:inset 0 0 0 1px var(--accent)}
+  select{padding:4px 6px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);color:var(--ink);font-size:12.5px;max-width:150px}
+
+  .field.brandsell label{display:flex;align-items:center;gap:8px;font-size:12px;overflow:hidden}
+  .field.brandsell .cnt{color:var(--ink-3);font-size:11px;font-variant-numeric:tabular-nums}
+  .rowbtns{display:flex;gap:6px;margin-top:9px}
+  .brandtable{margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}
+  .brandtable .sub{margin:0 0 6px;color:var(--ink-3);font-size:11.5px;line-height:1.35}
+  .brandtable .btn{margin-top:8px}
+  .field.brandrow label{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rail-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+  .savenote{margin:9px 0 0;font-size:11.5px;color:var(--ink-3);line-height:1.35;padding-left:13px;position:relative}
+  .savenote:before{content:"";position:absolute;left:0;top:5px;width:6px;height:6px;border-radius:50%;background:var(--gain)}
+  .savenote.warn{color:var(--warn)}
+  .savenote.warn:before{background:var(--warn)}
+
+  .btn{border:1px solid var(--ink);background:var(--ink);color:#fff;padding:7px 12px;border-radius:var(--radius);font-size:13px;font-weight:500}
+  .btn:hover{background:#000}
+  .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+  .btn.ghost:hover{border-color:var(--ink);background:#F7F9F9}
+  .btn.accent{background:var(--accent);border-color:var(--accent)}
+  .btn.accent:hover{background:#0F4068}
+  .btn.sm{padding:4px 9px;font-size:12px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  /* intake */
+  .intake{background:var(--surface);border:1px solid var(--line);margin-top:18px}
+  .drop{margin:18px;border:1.5px dashed var(--line-strong);padding:32px 22px;text-align:center}
+  .drop.hot{border-color:var(--accent);background:var(--accent-soft)}
+  .drop h2{font-size:17px;margin-bottom:6px}
+  .drop p{margin:0 0 16px;color:var(--ink-3);font-size:13px}
+  .schema{margin:0 18px 20px;overflow-x:auto}
+  .schema table{border-collapse:collapse;font-size:11.5px}
+  .schema th{text-align:left;padding:6px 9px;border:1px solid var(--line);background:#F4F7F7;font-weight:600;white-space:nowrap}
+  .schema th .opt{color:var(--ink-3);font-weight:400}
+  .schema td{padding:6px 9px;border:1px solid var(--line);color:var(--ink-3);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .schema caption{caption-side:top;text-align:left;color:var(--ink-3);font-size:11.5px;padding:0 0 7px}
+
+  /* kpis */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin:16px 0 16px}
+  .kpi{background:var(--surface);padding:12px 14px 13px}
+  .kpi .k{font-size:12px;color:var(--ink-2)}
+  .kpi .v{font-family:var(--num);font-size:26px;font-weight:600;letter-spacing:-0.025em;font-variant-numeric:tabular-nums;line-height:1.2;margin-top:2px}
+  .kpi .s{font-size:11.5px;color:var(--ink-3)}
+  .kpi.flag{box-shadow:inset 3px 0 0 var(--loss)}
+  .kpi.flag .v{color:var(--loss)}
+  .kpi.ok{box-shadow:inset 3px 0 0 var(--gain)}
+  .kpi.newk{box-shadow:inset 3px 0 0 var(--accent)}
+  .kpi.newk .v{color:var(--accent)}
+  .kpi.sell{box-shadow:inset 3px 0 0 #6B3A91}
+  .kpi.sell .v{color:#6B3A91}
+
+  .bar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+  .segs{display:inline-flex;border:1px solid var(--line-strong);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+  .segs button{border:none;background:transparent;padding:6px 11px;font-size:12.5px;color:var(--ink-2);border-right:1px solid var(--line)}
+  .segs button:last-child{border-right:none}
+  .segs button[aria-pressed=true]{background:var(--ink);color:#fff}
+  .brandpick{position:relative}
+  .brandpick > summary{
+    list-style:none;cursor:pointer;padding:6px 11px;border:1px solid var(--line-strong);border-radius:var(--radius);
+    background:var(--surface);font-size:12.5px;white-space:nowrap;display:flex;align-items:center;gap:7px;
+  }
+  .brandpick > summary::-webkit-details-marker{display:none}
+  .brandpick > summary:after{content:"";width:0;height:0;border-top:5px solid var(--ink-3);border-left:4px solid transparent;border-right:4px solid transparent}
+  .brandpick[open] > summary{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .brandpick.on > summary{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+  .brandpick .pop{
+    position:absolute;z-index:20;top:calc(100% + 4px);left:0;min-width:230px;max-height:320px;overflow:auto;
+    background:var(--surface);border:1px solid var(--line-strong);box-shadow:0 6px 18px rgba(16,26,34,.13);padding:8px;
+  }
+  .brandpick .pop label{display:flex;align-items:center;gap:8px;padding:4px 5px;font-size:12.5px;cursor:pointer;border-radius:2px}
+  .brandpick .pop label:hover{background:#F4F7F7}
+  .brandpick .pop input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+  .brandpick .pop .cnt{margin-left:auto;color:var(--ink-3);font-size:11px;font-variant-numeric:tabular-nums}
+  .brandpick .pop .acts{display:flex;gap:6px;border-bottom:1px solid var(--line);padding-bottom:7px;margin-bottom:5px}
+  .search{flex:1;min-width:150px;max-width:250px;padding:6px 9px;border:1px solid var(--line-strong);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--ink)}
+  .spacer{flex:1}
+  .filebar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-3);margin-bottom:10px}
+  .filebar strong{color:var(--ink);font-weight:600}
+  .warnbar{margin-bottom:12px}
+  .diag{font-size:12.5px;padding:10px 13px;margin-bottom:8px}
+  .diag h4{margin:0 0 6px;font-size:12.5px;font-weight:600}
+  .diag ul{margin:0;padding-left:18px}
+  .diag li{margin:2px 0;line-height:1.45}
+  .diag.bad{background:var(--loss-soft);border:1px solid #E7BDB8;color:#7C1B14}
+  .diag.bad b{color:var(--loss)}
+  .diag .fix{margin:8px 0 0;padding-top:7px;border-top:1px solid #E7BDB8;line-height:1.45}
+  .diag.note{background:var(--warn-soft);border:1px solid #E0C88A;color:#6E4700}
+  .diag.note > summary{cursor:pointer;font-weight:600;list-style:none;display:flex;align-items:center;gap:7px}
+  .diag.note > summary::-webkit-details-marker{display:none}
+  .diag.note > summary:before{content:"";width:0;height:0;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent}
+  .diag.note[open] > summary{margin-bottom:6px}
+  .diag.note[open] > summary:before{transform:rotate(90deg)}
+  .err{background:var(--loss-soft);border:1px solid var(--loss);color:var(--loss);padding:10px 12px;font-size:13px;margin-bottom:14px}
+  .mapper{background:var(--surface);border:1px solid var(--line);padding:12px 14px;margin-bottom:14px}
+  .mapper h3{font-size:12.5px;margin-bottom:8px}
+  .mapper .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px 16px}
+  .mapper .mrow{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--ink-2)}
+
+  /* table */
+  .tablewrap{background:var(--surface);border:1px solid var(--line);overflow:auto;max-height:68vh}
+  table.data{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+  table.data thead th{position:sticky;top:0;z-index:3;background:#F4F7F7;font-weight:600;font-size:11.5px;text-align:right;white-space:nowrap;padding:8px 9px;border-bottom:1px solid var(--line-strong);cursor:pointer}
+  table.data thead th.l{text-align:left}
+  table.data thead th.grp{background:#E9EFEF;text-align:center;border-left:1px solid var(--line-strong);cursor:default;font-size:11px}
+  table.data thead th:hover{background:#E9EFEF}
+  table.data thead th .dir{color:var(--accent);font-size:10px}
+  table.data td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  table.data td.l{text-align:left;font-variant-numeric:normal}
+  table.data tbody tr:hover td{background:#F7FAFA}
+  td.sku{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+  td.name{max-width:230px;overflow:hidden;text-overflow:ellipsis}
+  td.brand{max-width:130px;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+  td.grpstart{border-left:1px solid var(--line-strong)}
+  tr.below td:first-child,tr.loss td:first-child{box-shadow:inset 3px 0 0 var(--loss)}
+  tr.pass td:first-child{box-shadow:inset 3px 0 0 var(--gain)}
+  tr.invalid td:first-child{box-shadow:inset 3px 0 0 var(--line-strong)}
+  tr.unpriced td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+  input.cell::placeholder{color:var(--accent);opacity:.6;font-style:italic}
+  tr.invalid td{color:var(--ink-3)}
+  .neg{color:var(--loss)} .pos{color:var(--gain)} .muted{color:var(--ink-3)}
+  .tag{display:inline-block;padding:1px 6px;border-radius:2px;font-size:11px;font-weight:500;white-space:nowrap}
+  .tag.pass{background:#E4F1EB;color:var(--gain)}
+  .tag.below{background:var(--warn-soft);color:var(--warn)}
+  .tag.loss{background:var(--loss-soft);color:var(--loss)}
+  .tag.na{background:#EDF0F1;color:var(--ink-3)}
+  .tag.new{background:var(--accent-soft);color:var(--accent)}
+  .rec{font-weight:600;color:var(--accent)}
+  .pill{display:inline-block;margin-left:6px;padding:0 5px;border-radius:2px;font-size:10.5px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;vertical-align:1px}
+  .pill.disc{background:#EFE4F7;color:#6B3A91;border:1px solid #D9C2EA}
+  .pill.act{background:#E4F1EB;color:var(--gain);border:1px solid #BFDFD1}
+  .pill.other{background:#EDF0F1;color:var(--ink-3);text-transform:none;font-weight:500}
+  .pill.oos{background:var(--loss-soft);color:var(--loss);border:1px solid #E7BDB8;margin-left:0}
+  .pill.low{background:var(--warn-soft);color:var(--warn);border:1px solid #E0C88A;margin-left:0}
+  tr.disc td{background:#FCFAFE}
+  tr.disc:hover td{background:#F7F2FB}
+  a.asin{margin-left:6px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:var(--accent);text-decoration:none;border-bottom:1px dotted var(--accent)}
+  a.asin:hover{background:var(--accent-soft)}
+  .expand{cursor:pointer;color:var(--accent);background:none;border:none;padding:0 2px;font-size:12px}
+
+  /* editable cells */
+  td.editcell{padding:2px 4px}
+  input.cell{
+    width:74px;text-align:right;padding:4px 5px;border:1px solid transparent;border-radius:2px;
+    background:#F4F7F7;color:var(--ink);font:inherit;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:12.5px;
+  }
+  input.cell:hover{border-color:var(--line-strong);background:#fff}
+  input.cell:focus{border-color:var(--accent);background:#fff;outline:none}
+  td.editcell.fellback input.cell{border-color:#C9B8D8;border-style:dashed}
+  td.editcell.edited input.cell{background:var(--edit-soft);border-color:var(--edit);color:var(--edit);font-weight:600}
+  .editflag{color:var(--edit);font-size:11px;margin-left:4px}
+
+  /* detail */
+  tr.detail td{background:#FAFCFC;padding:0;border-bottom:2px solid var(--line-strong)}
+  .dgrid{display:grid;grid-template-columns:minmax(280px,1.1fr) minmax(280px,1fr);gap:22px;padding:16px 18px 18px}
+  .dtitle{font-size:12.5px;font-weight:600;margin-bottom:9px}
+  .waterfall{position:relative;display:flex;height:28px;border:1px solid var(--line-strong);overflow:hidden;background:#fff}
+  .waterfall > div{height:100%;flex:0 0 auto}
+  .wf-cost{background:#3A5A6B} .wf-fee{background:#8FA9B4} .wf-ship{background:#C4D2D8} .wf-profit{background:var(--gain)}
+  .wf-gap{position:absolute;top:0;right:0;height:100%;background:repeating-linear-gradient(45deg,rgba(163,34,25,.85),rgba(163,34,25,.85) 4px,rgba(196,70,60,.85) 4px,rgba(196,70,60,.85) 8px)}
+  .wf-line{position:absolute;top:-3px;width:2px;height:calc(100% + 6px);background:var(--ink)}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:9px;font-size:11.5px;color:var(--ink-2)}
+  .legend span i{position:static;display:inline-block;width:9px;height:9px;margin-right:5px}
+  .ledger{width:100%;border-collapse:collapse;font-size:12px}
+  .ledger td{padding:3px 0;border-bottom:1px dotted var(--line);font-variant-numeric:tabular-nums}
+  .ledger td:first-child{text-align:left;color:var(--ink-2)}
+  .ledger td:last-child{text-align:right;white-space:nowrap}
+  .ledger tr.tot td{border-top:1px solid var(--ink);border-bottom:none;font-weight:600;padding-top:5px}
+  .ledger tr.sub td{color:var(--ink-3)}
+  .plan{border:1px solid var(--accent);background:var(--accent-soft);padding:10px 12px;margin-top:12px;font-size:12.5px}
+  .plan b{font-family:var(--num);font-variant-numeric:tabular-nums}
+  .plan.sell{border-color:#6B3A91;background:#F8F3FC}
+  .cats{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+  .cats span{background:#F1F5F5;border:1px solid var(--line);padding:3px 8px;font-size:11.5px;color:var(--ink-2)}
+  .cats i{display:block;font-style:normal;font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-3)}
+  /* calculation explainer */
+  .calc{max-width:1080px}
+  .chead{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:11px;border-bottom:1px solid var(--line-strong)}
+  .chead h2{font-size:18px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .chead p{margin:2px 0 0;color:var(--ink-2);font-size:13px}
+  .cpills{display:flex;gap:6px;flex-wrap:wrap}
+  .cpill{background:#EDF1F2;border:1px solid var(--line);padding:2px 8px;font-size:11.5px;color:var(--ink-2)}
+  .cpill.sell{background:#EFE4F7;border-color:#D9C2EA;color:#6B3A91}
+  .cpill.new{background:var(--accent-soft);border-color:#BBD2E5;color:var(--accent)}
+  .cpill.fb{background:#F4EEF9;border-color:#D9C2EA;color:#6B3A91}
+  .cpill.ed{background:var(--edit-soft);border-color:#C9B8D8;color:var(--edit)}
+  .cbox{background:var(--surface);border:1px solid var(--line);padding:14px 16px 16px;margin-bottom:14px}
+  .cbox h3{font-size:13.5px;margin-bottom:8px}
+  .cbox > p{margin:0 0 10px;color:var(--ink-3);font-size:12.5px;line-height:1.5;max-width:78ch}
+  .cbox.good{border-left:3px solid var(--gain)}
+  .cbox.good h3{color:var(--gain)}
+  .cbox.bad{border-left:3px solid var(--loss);background:var(--loss-soft)}
+  .cbox.bad h3{color:var(--loss)}
+  .cbox p.bad{color:var(--loss);font-weight:500}
+  table.ctab{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.ctab th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);
+    font-weight:600;padding:0 9px 5px;border-bottom:1px solid var(--line-strong);white-space:nowrap}
+  table.ctab td{padding:5px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.ctab td.n{color:var(--ink-3);font-variant-numeric:tabular-nums;width:22px}
+  table.ctab td.nm{font-weight:500;white-space:nowrap}
+  table.ctab td.fm{color:var(--ink-2);font-size:12px}
+  table.ctab td.sb,table.ctab td.rs{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  table.ctab td.rs{text-align:right}
+  table.ctab tr.tot td{border-top:1px solid var(--ink);border-bottom:none;font-weight:600}
+  table.ctab .alt{color:var(--ink-3)}
+  table.ctab .hintx{color:var(--ink-3);font-size:11px}
+  table.ctab.checks tr.fail td{background:var(--loss-soft)}
+  table.ctab td.vf{text-align:right;white-space:nowrap}
+  .ok{color:var(--gain);font-weight:600;font-size:11.5px}
+  .no{color:var(--loss);font-weight:700;font-size:11.5px}
+  .algebra div{display:grid;grid-template-columns:210px minmax(0,1fr);gap:12px;padding:6px 0;border-bottom:1px dotted var(--line);align-items:baseline}
+  .algebra div:last-child{border-bottom:none}
+  .algebra span{color:var(--ink-3);font-size:12px}
+  .algebra code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:var(--ink);
+    font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  h4.lgh{font-size:12px;font-weight:600;color:var(--ink-2);margin:16px 0 7px;padding-top:12px;border-top:1px solid var(--line)}
+  table.ctab.legend td.sym,.sym{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;
+    color:var(--accent);font-weight:600;white-space:nowrap}
+  table.ctab.legend td.sym sub{font-weight:400}
+  table.ctab.legend td.nm{font-weight:400;white-space:normal}
+  table.ctab.legend td.rs{color:var(--ink)}
+  .foot2{margin:9px 0 0;color:var(--ink-3);font-size:12px}
+  ul.conv{margin:0;padding-left:18px;font-size:12.5px;color:var(--ink-2);line-height:1.55;max-width:82ch}
+  ul.conv li{margin:4px 0}
+  .skufind{width:100%;padding:5px 8px;border:1px solid var(--line-strong);border-radius:var(--radius);font-size:12.5px;margin-bottom:6px}
+  select.skulist{width:100%;max-width:none;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .field.check input[type=radio]{width:15px;height:15px;accent-color:var(--accent);margin:0}
+  .showmath{margin-top:11px}
+  @media (max-width:760px){
+    .algebra div{grid-template-columns:1fr;gap:2px}
+    table.ctab td.nm{white-space:normal}
+  }
+  .foot{margin-top:12px;color:var(--ink-3);font-size:12px}
+  .foot .scope{display:inline-block;margin-top:5px;color:var(--accent);font-weight:500}
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr}
+    .rail{border-right:none;border-bottom:1px solid var(--line)}
+    main{padding:16px 12px 60px}
+    .dgrid{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+
+<div class="shell">
+  <aside class="rail">
+    <p class="chan"><b id="railChan">eBay (JSP)</b><span id="railSub">Marketplace assumptions for this channel</span></p>
+    <div id="railBody"></div>
+    <div class="rail-actions">
+      <button class="btn ghost sm" id="btnReset">Reset channel</button>
+      <button class="btn ghost sm" id="btnCopy">Copy to all channels</button>
+      <button class="btn ghost sm" id="btnTemplate">Get template</button>
+    </div>
+    <p class="savenote" id="saveNote"></p>
+  </aside>
+
+  <main>
+    <div class="masthead">
+      <h1>Channel pricing profitability analyzer</h1>
+      <p>One import, four channels, goal-based repricing</p>
+    </div>
+
+    <div class="tabs" id="tabs" role="tablist"></div>
+
+    <div id="errBox" class="err hide"></div>
+
+    <section class="intake" id="intake">
+      <div class="drop" id="drop">
+        <h2>Drop your pricing sheet here</h2>
+        <p>.xlsx, .xls or .csv &mdash; one file feeds every channel, and nothing leaves your browser.</p>
+        <input type="file" id="file" accept=".xlsx,.xls,.csv" class="hide">
+        <button class="btn accent" id="btnChoose">Choose file</button>
+        <button class="btn ghost" id="btnSample">Load sample</button>
+      </div>
+      <div class="schema">
+        <table>
+          <caption>Expected columns. Names are matched loosely and remappable after loading. A channel is skipped if its price column is absent.</caption>
+          <thead><tr>
+            <th>SKU</th><th>Item Name</th><th>SKU Cost</th>
+            <th>eBay List Price</th><th>eBay List Price (MCF)</th>
+            <th>WM.com Marketplace Price</th><th>Shopify Website Price</th>
+            <th>Shipping Cost</th><th>MCF Shipping Cost</th><th>To MCF Freight Cost</th>
+            <th>Royalty <span class="opt">opt</span></th><th>Total Units <span class="opt">opt</span></th><th>PPC Fee <span class="opt">opt</span></th>
+            <th>Inventory Status (ERP)</th><th>Available Inventory</th><th>Brand</th><th>AMZ-RAK Price</th><th>AMZ-RAK FBA Price <span class="opt">opt</span></th>
+          </tr></thead>
+          <tbody><tr>
+            <td>60007</td><td>19mm Impact Socket</td><td>1.65</td><td>6.99</td><td>6.99</td><td>6.99</td><td>6.99</td>
+            <td>8.31</td><td>8.20</td><td>0.02</td><td>0</td><td>1</td><td>0.62</td><td>Sales Inventory</td><td>420</td><td>STEELMAN</td><td>6.99</td><td>&mdash;</td>
+          </tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="results" class="hide">
+      <div class="filebar" id="fileBar"></div>
+      <div class="warnbar hide" id="warnBar"></div>
+      <div class="mapper hide" id="mapper"><h3>Column mapping</h3><div class="cols" id="mapCols"></div></div>
+      <div class="kpis" id="kpis"></div>
+      <div class="bar" id="toolbar">
+        <div class="segs" id="segs">
+          <button data-f="all" aria-pressed="true">All SKUs</button>
+          <button data-f="below" aria-pressed="false">Below goal</button>
+          <button data-f="loss" aria-pressed="false">Losing money</button>
+          <button data-f="pass" aria-pressed="false">At goal</button>
+          <button data-f="unpriced" aria-pressed="false">Needs pricing</button>
+          <button data-f="disc" aria-pressed="false">Sell down</button>
+          <button data-f="oos" aria-pressed="false">No stock</button>
+          <button data-f="edited" aria-pressed="false">Edited</button>
+          <button data-f="invalid" aria-pressed="false">Data issues</button>
+        </div>
+        <details class="brandpick hide" id="brandPick">
+          <summary id="brandSum">All brands</summary>
+          <div class="pop" id="brandPop"></div>
+        </details>
+        <input class="search" id="search" type="search" placeholder="Filter by SKU or item name">
+        <span class="spacer"></span>
+        <button class="btn ghost sm hide" id="btnClearEdits">Clear edits</button>
+        <button class="btn accent" id="btnChange">Export change report</button>
+        <button class="btn ghost" id="btnFull">Export full analysis</button>
+        <button class="btn ghost" id="btnAll">Export all channels</button>
+        <button class="btn ghost" id="btnNew">New file</button>
+      </div>
+      <div class="tablewrap" id="tableWrap"><table class="data" id="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+      <div class="foot" id="foot"></div>
+      <div class="calc hide" id="calcWrap"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* =====================================================================
+   Channel pricing profitability analyzer
+
+   Fee chain, per unit of list price P (flags switch pieces on per channel):
+     coupon    = P * couponRate                 (off the gross list price)
+     saleBase  = P - coupon                     (what the buyer pays, ex tax)
+     tax       = saleBase * taxRate             (collected, passed through)
+     sold      = saleBase + tax  =  P(1-c)(1+t)
+     commission= sold * commissionRate
+     topSeller = commission * topSellerRate     (credit back)
+     fvfRate   = commission - topSeller
+     fvfFixed  = flat per order
+     promoted  = sold * promotedRate
+     ccVar     = saleBase * ccRate              (Shopify card processing)
+     ccFlat    = flat per order
+     royalty   = saleBase * royaltyRate  or  flat $/unit
+     returns   = saleBase * returnsRate         (returns and defect allowance)
+   where saleBase = P - coupon, the customer-paid sale before pass-through tax.
+   Two deliberate departures from the original workbook, both because the
+   marketplace bills on what the buyer actually paid:
+     tax     - workbook had E3 = C3 * taxRate      (tax on the gross list)
+     royalty - workbook had I3 = C3 * royaltyRate  (royalty on the gross list)
+   Both now bill on saleBase = list - coupon.
+
+     allocations = (coupon + fvfRate + fvfFixed + promoted + royalty
+                    + ccVar + returns) * units + ccFlat + ppcFee
+     net margin  = P*units - cost*units - shipping - allocations
+     net GM%     = net margin / (P*units)
+
+   Because every rate piece is linear in P, the price that hits a goal has a
+   closed form:  P = (cost*U + ship + flatPerUnit*U + flatPerOrder) / (U*(1-k-goal))
+   ===================================================================== */
+
+const CHANNELS = [
+  {id:'jsp', name:'eBay (JSP)', tab:'eBay (JSP)', ship:'std', price:'priceJSP',
+   f:{coupon:1,tax:1,comm:1,tsd:1,promo:1,fvf:1,cc:0,ppc:1,fb:0},
+   d:{goal:25,coupon:8,tax:6.44,comm:11.5,tsd:10,promo:8,fvf:0.20,ppc:0.62,roymode:'pct',roy:6.9,returns:2,royaltySource:'sheet',hideDisc:false,sellGoal:0,excludeDisc:true,excludeOOS:true,lowStock:5,round:'99',target:20}},
+
+  {id:'mcf', name:'eBay (MCF)', tab:'eBay (MCF)', ship:'mcf', price:'priceMCF', fbTo:'priceJSP',
+   f:{coupon:1,tax:1,comm:1,tsd:1,promo:1,fvf:1,cc:0,ppc:1,fb:1},
+   d:{goal:25,coupon:8,tax:6.44,comm:11.5,tsd:10,promo:8,fvf:0.20,ppc:0.62,roymode:'pct',roy:6.9,returns:2,royaltySource:'sheet',hideDisc:false,sellGoal:0,excludeDisc:true,excludeOOS:true,lowStock:5,priceFallback:true,round:'99',target:20}},
+
+  {id:'wm', name:'Walmart Marketplace', tab:'Walmart', ship:'std', price:'priceWM', fbTo:'priceJSP',
+   f:{coupon:0,tax:0,comm:1,tsd:0,promo:0,fvf:0,cc:0,ppc:1,fb:1},
+   d:{goal:25,comm:15,ppc:0.62,roymode:'pct',roy:6.9,returns:2,royaltySource:'sheet',hideDisc:false,sellGoal:0,excludeDisc:true,excludeOOS:true,lowStock:5,priceFallback:false,round:'99',target:20}},
+
+  {id:'fba', name:'Amazon FBA', tab:'Amazon FBA', ship:'fba', price:'priceFBA', fbTo:'priceFBM',
+   f:{coupon:1,tax:0,comm:1,tsd:0,promo:0,fvf:0,cc:0,ppc:0,ad:1,commSku:1,fb:1,asin:1},
+   d:{goal:25,coupon:0,comm:15,advertising:5,roymode:'pct',roy:6.9,returns:2,royaltySource:'sheet',hideDisc:false,sellGoal:0,
+      excludeDisc:true,excludeOOS:true,lowStock:5,priceFallback:true,round:'99',target:20}},
+
+  {id:'fbm', name:'Amazon FBM', tab:'Amazon FBM', ship:'std', price:'priceFBM',
+   f:{coupon:1,tax:0,comm:1,tsd:0,promo:0,fvf:0,cc:0,ppc:0,ad:1,commSku:1,fb:0,asin:1},
+   d:{goal:25,coupon:0,comm:15,advertising:5,roymode:'pct',roy:6.9,returns:2,royaltySource:'sheet',hideDisc:false,sellGoal:0,
+      excludeDisc:true,excludeOOS:true,lowStock:5,round:'99',target:20}},
+
+  {id:'shopify', name:'Shopify Websites', tab:'Shopify', ship:'std', price:'priceShopify', fbTo:'priceJSP',
+   f:{coupon:1,tax:0,comm:0,tsd:0,promo:0,fvf:0,cc:1,ppc:1,fb:1},
+   d:{goal:25,coupon:8,ccPct:2.9,ccFlat:0.30,ppc:0.62,roymode:'pct',roy:6.9,returns:2,royaltySource:'sheet',hideDisc:false,sellGoal:0,excludeDisc:true,excludeOOS:true,lowStock:5,priceFallback:false,round:'99',target:20}}
+];
+const CH = {}; CHANNELS.forEach(c => CH[c.id] = c);
+
+const ROUND_OPTS = [['cent','Nearest cent'],['99','.99 ending'],['95','.95 ending'],['05','$0.05 up'],['25','$0.25 up'],['1','Whole dollar up']];
+
+const SECTIONS = [
+  {id:'market', title:'Marketplace assumptions', note:'Applied to every SKU on this channel.'},
+  {id:'royalty', title:'Royalty', note:'Charged on the sale after coupons, not on the list price. Used when the sheet has no royalty value for a SKU.'},
+  {id:'returns', title:'Returns and warranty', note:'Allowance for returns and defects, taken as a share of the sale after discounts.'},
+  {id:'brands', title:'Brand availability', note:'Turn off any brand this channel cannot sell. Blocked brands leave this analysis entirely.'},
+  {id:'life', title:'Inventory and lifecycle', note:'Discontinued SKUs are in sell down or liquidation, so they are judged against their own goal.'},
+  {id:'rules', title:'Repricing rules', note:'How recommended prices are rounded and judged.'}
+];
+
+const FIELDS_UI = [
+  {sec:'market', key:'coupon', label:'Coupon discount', unit:'%', flag:'coupon'},
+  {sec:'market', key:'tax',    label:'Sales tax collected', hint:'(on the post-coupon price)', unit:'%', flag:'tax'},
+  {sec:'market', key:'comm',   label:'Category commission', unit:'%', flag:'comm'},
+  {sec:'market', key:'tsd',    label:'Top seller discount', hint:'(off the final value fee)', unit:'%', flag:'tsd'},
+  {sec:'market', key:'promo',  label:'Promoted listing fee', unit:'%', flag:'promo'},
+  {sec:'market', key:'fvf',    label:'Final value fee, fixed', unit:'$', flag:'fvf'},
+  {sec:'market', key:'ccPct',  label:'CC processing rate', unit:'%', flag:'cc'},
+  {sec:'market', key:'ccFlat', label:'CC fee per order', unit:'$', flag:'cc'},
+  {sec:'market', key:'advertising', label:'Advertising', unit:'%', flag:'ad'},
+  {sec:'market', key:'ppc',    label:'PPC fee per unit', unit:'$', flag:'ppc'},
+  {sec:'royalty', key:'roymode', label:'Royalty column reads as', type:'select', opts:[['pct','% of list price'],['usd','$ per unit']]},
+  {sec:'royalty', key:'roy',   label:'Default royalty', hint:'(of the post-coupon sale)', unit:'%'},
+  {sec:'royalty', key:'royaltySource', label:'When both exist, prefer', type:'select',
+   opts:[['sheet','Royalty column'],['brand','Brand table']]},
+  {sec:'returns', key:'returns', label:'Returns and warranty allocation', unit:'%'},
+  {sec:'life', key:'hideDisc', label:'Hide discontinued SKUs from this analysis', type:'check'},
+  {sec:'life', key:'sellGoal', label:'Sell-down goal net GM%', hint:'(discontinued)', unit:'%'},
+  {sec:'life', key:'excludeDisc', label:'Keep discontinued out of the change report', type:'check'},
+  {sec:'life', key:'excludeOOS', label:'Keep zero-stock SKUs out of the change report', type:'check'},
+  {sec:'life', key:'lowStock', label:'Flag stock at or below', hint:'(units)', unit:''},
+  {sec:'rules', key:'priceFallback', label:'FALLBACK_LABEL', type:'check', flag:'fb'},
+  {sec:'rules', key:'round',   label:'Round new price to', type:'select', opts:ROUND_OPTS},
+  {sec:'rules', key:'target',  label:'Target profit', hint:'(of cost)', unit:'%'}
+];
+
+const FIELDS = [
+  {key:'sku',      label:'SKU',                req:true,  cand:['sku','skuid','itemid','itemnumber','mpn','partnumber','customlabel']},
+  {key:'name',     label:'Item name',          req:false, cand:['itemname','name','title','itemtitle','productname','description']},
+  {key:'cost',     label:'SKU cost',           req:true,  cand:['skucost','landedcost','cost','unitcost','itemcost','cogs']},
+  {key:'priceJSP', label:'eBay list price',    req:false, cand:['ebaylistprice','ebayprice','ebayjspprice','listingprice','listprice','price']},
+  {key:'priceMCF', label:'eBay MCF price',     req:false, cand:['ebaylistpricemcf','mcflistprice','ebaymcfprice','mcfprice']},
+  {key:'priceWM',  label:'Walmart price',      req:false, cand:['wmcommarketplaceprice','walmartprice','wmprice','walmartmarketplaceprice','wmcomprice']},
+  {key:'priceShopify', label:'Shopify price',  req:false, cand:['shopifywebsiteprice','shopifyprice','websiteprice','dtcprice']},
+  {key:'priceFBM', label:'Amazon FBM price',   req:false, cand:['amzrakprice','amazonfbmprice','amzfbmprice','fbmprice','amazonlistprice','amazonprice','amzprice']},
+  {key:'priceFBA', label:'Amazon FBA price',   req:false, cand:['amzrakfbaprice','amazonfbaprice','amzfbaprice','fbaprice','fbalistprice']},
+  {key:'shipping', label:'Shipping cost',      req:false, cand:['shippingcost','shipcost','shipping','freight','outboundshipping']},
+  {key:'mcfShip',  label:'MCF shipping cost',  req:false, cand:['mcfshippingcost','mcfshipping','mcffulfillmentfee','mcffee']},
+  {key:'mcfFreight',label:'To MCF freight',    req:false, cand:['tomcffreightcost','mcffreightcost','tomcffreight','inboundfreight','freighttomcf']},
+  {key:'royalty',  label:'Royalty',            req:false, cand:['royalty','royaltyrate','royaltyfee','licensefee']},
+  {key:'units',    label:'Total units',        req:false, cand:['totalunits','units','qty','quantity','packqty','multipack']},
+  {key:'ppc',      label:'PPC fee',            req:false, cand:['ppcfee','ppc','adfee','adspend','advertisingfee']},
+  {key:'fvfFixed', label:'FVF fixed',          req:false, cand:['finalvaluefeefixed','fvffixed','fixedfee','perorderfee']},
+  {key:'fbaFee',   label:'FBA fulfillment cost',req:false, cand:['fbafulfillmentcost','fbafullfilmentcost','fbafullfillmentcost','fbafulfilmentcost','fbafulfillmentfee','fbafee','fbacost','fulfillmentcost','fullfilmentcost']},
+  {key:'fbaClass', label:'FBA fulfillment class',req:false, cand:['fbafulfillmentclass','fbafulfilmentclass','fbaclass','sizetier','fbasizetier']},
+  {key:'asin',     label:'Amazon ASIN',        req:false, cand:['amazonasin','asin','amznasin']},
+  {key:'amzCategory',label:'Amazon category',  req:false, cand:['amazoncategory','amzcategory','amazonbrowsenode']},
+  {key:'amzItemType',label:'Amazon item type', req:false, cand:['amazonitemtype','amzitemtype','itemtype']},
+  {key:'amzCommission',label:'Amazon category commission',req:false, cand:['amazoncategorycommission','amazoncommission','amzcommission','referralfee','referralfeerate','categorycommission']},
+  {key:'brand',    label:'Brand',               req:false, cand:['brand','brandname','manufacturer','mfg','mfr','vendor','supplier']},
+  {key:'invStatus',label:'Inventory status (ERP)',req:false, cand:['inventorystatuserp','inventorystatus','erpstatus','erpinventorystatus','itemstatus','lifecycle','skustatus']},
+  {key:'available',label:'Available inventory', req:false, cand:['availableinventory','availableunits','available','onhandpickableunits','pickableunits','onhandunits','onhand','qtyavailable','quantityavailable','availableqty']}
+];
+
+const state = {
+  active: 'jsp', settings: {}, open: {market:true, royalty:true, returns:true, rules:true},
+  over: {}, rows: [], raw: [], headers: [], map: {}, savedMaps: {}, errCells: 0, errCols: {},
+  brandList: [], brandSel: null, brandRoyalty: {}, blocked: {}, calcCh: 'jsp', calcSku: '',
+  filter: 'all', q: '', sort: {key:'gm', dir:1}, limit: 400, fileName: '', sheetName: ''
+};
+CHANNELS.forEach(c => { state.settings[c.id] = Object.assign({}, c.d); state.over[c.id] = {}; state.blocked[c.id] = {}; });
+
+/* ---------------- helpers ---------------- */
+const $ = id => document.getElementById(id);
+const money = v => (v < 0 ? '-$' : '$') + Math.abs(v).toFixed(2);
+const pct = (v,d=1) => (v*100).toFixed(d) + '%';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g,'');
+const round2 = v => Math.round(v*100)/100;
+const num = v => (typeof v === 'number' && isFinite(v)) ? v : 0;
+
+function parseNum(v){
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  let s = String(v).trim(); if (!s) return null;
+  const neg = /^\(.*\)$/.test(s), isPct = s.indexOf('%') >= 0;
+  s = s.replace(/[()$,%\s]/g,'').replace(/[^0-9.\-eE]/g,'');
+  let n = parseFloat(s); if (!isFinite(n)) return null;
+  if (neg) n = -Math.abs(n);
+  return isPct ? n/100 : n;
+}
+
+function parseStatus(v){
+  const n = norm(v);
+  if (!n) return null;
+  if (/discont|selldown|liquidat|eol|endoflife|obsolete|phaseout/.test(n)) return 'disc';
+  if (/salesinventory|active|current|stock|sellable/.test(n)) return 'active';
+  return 'other';
+}
+
+function roundUp(v, mode){
+  const up = (x, step) => Math.ceil((x - 1e-9)/step)*step;
+  if (mode === 'cent') return Math.ceil((v - 1e-9)*100)/100;
+  if (mode === '05') return round2(up(v, 0.05));
+  if (mode === '25') return round2(up(v, 0.25));
+  if (mode === '1') return Math.ceil(v - 1e-9);
+  const end = mode === '95' ? 0.95 : 0.99;
+  const base = Math.floor(v - 1e-9);
+  let c = base + end;
+  if (c < v - 1e-9) c = base + 1 + end;
+  return round2(c);
+}
+
+/* ---------------- core math ---------------- */
+function rates(ch, s){
+  const f = ch.f;
+  return {
+    c: f.coupon ? (s.coupon||0)/100 : 0,
+    t: f.tax ? (s.tax||0)/100 : 0,
+    comm: f.comm ? (s.comm||0)/100 : 0,
+    tsd: f.tsd ? (s.tsd||0)/100 : 0,
+    promo: f.promo ? (s.promo||0)/100 : 0,
+    ccPct: f.cc ? (s.ccPct||0)/100 : 0,
+    ccFlat: f.cc ? num(s.ccFlat) : 0,
+    ad: f.ad ? (s.advertising||0)/100 : 0,
+    ret: (s.returns||0)/100,
+    goal: (s.goal||0)/100,
+    target: (s.target||0)/100,
+    round: s.round || '99'
+  };
+}
+
+function analyze(row, ch, s){
+  const r = rates(ch, s), f = ch.f;
+  const units = row.units && row.units > 0 ? row.units : 1;
+  const cost = row.cost;
+  const ov = (state.over[ch.id] || {})[row.sku] || {};
+
+  let basePrice = row[ch.price], fellBack = false;
+  if (basePrice == null && ch.f.fb && s.priceFallback && ch.fbTo && row[ch.fbTo] != null){
+    basePrice = row[ch.fbTo]; fellBack = true;      // same listing, different fulfilment path
+  }
+  const baseShip = ch.ship === 'mcf' ? round2(num(row.mcfShip) + num(row.mcfFreight))
+    : ch.ship === 'fba' ? round2(num(row.fbaFee) + num(row.mcfFreight))
+    : num(row.shipping);
+  const price = ov.price != null ? ov.price : basePrice;
+  const ship = ov.ship != null ? ov.ship : baseShip;
+  const edited = ov.price != null || ov.ship != null;
+
+  const fvfFixed = f.fvf ? (row.fvfFixed != null ? row.fvfFixed : num(s.fvf)) : 0;
+  const ppc = f.ppc ? (row.ppc != null ? row.ppc : num(s.ppc)) : 0;
+
+  let royRate = 0, royFlat = 0, royFrom = 'default';
+  const brandRoy = brandRoyaltyFor(row.brand);        // null when not configured
+  const sheetRoy = row.royalty;
+  if (s.roymode === 'usd'){
+    if (s.royaltySource === 'brand' && brandRoy != null){ royFlat = brandRoy; royFrom = 'brand'; }
+    else if (sheetRoy != null){ royFlat = sheetRoy; royFrom = 'sheet'; }
+    else if (brandRoy != null){ royFlat = brandRoy; royFrom = 'brand'; }
+  } else {
+    const asRate = v => v > 1 ? v/100 : v;            // "6.9" means 6.9%
+    if (s.royaltySource === 'brand' && brandRoy != null){ royRate = brandRoy/100; royFrom = 'brand'; }
+    else if (sheetRoy != null){ royRate = asRate(sheetRoy); royFrom = 'sheet'; }
+    else if (brandRoy != null){ royRate = brandRoy/100; royFrom = 'brand'; }
+    else royRate = (s.roy||0)/100;
+  }
+
+  const disc = row.invStatus === 'disc';
+  const avail = row.available;
+  const oos = avail != null && avail <= 0;
+  const low = !oos && avail != null && avail <= num(s.lowStock);
+  const goalUsed = disc ? (s.sellGoal||0)/100 : r.goal;
+
+  // Amazon can carry a referral rate per SKU; anything else uses the channel setting.
+  let commR = r.comm, commFrom = 'channel';
+  if (ch.f.commSku && row.amzCommission != null){
+    commR = row.amzCommission > 1 ? row.amzCommission/100 : row.amzCommission;
+    commFrom = 'sheet';
+  }
+
+  const saleRate = 1 - r.c;                    // customer-paid sale, before tax
+  const grossUp = saleRate * (1 + r.t);        // sold price per $1 of list
+  const k = r.c + grossUp*commR*(1-r.tsd) + grossUp*r.promo
+          + saleRate*royRate + saleRate*r.ccPct + saleRate*r.ret + saleRate*r.ad;
+  const flatUnit = fvfFixed + royFlat;
+  const flatOrder = r.ccFlat + ppc;
+
+  const at = P => {
+    // The coupon comes off the gross first, then tax is charged on what the
+    // buyer actually pays: tax = (list - coupon) * rate.
+    const coupon = P*r.c, saleBase = P - coupon, tax = saleBase*r.t, sold = saleBase + tax;
+    const comm = sold*commR, tsd = comm*r.tsd, fvfRate = comm - tsd, promo = sold*r.promo;
+    const ccVar = saleBase*r.ccPct, ret = saleBase*r.ret, ad = saleBase*r.ad;
+    const roy = royRate*saleBase + royFlat;    // royalty is owed on what it sold for
+    const fees = (coupon + fvfRate + fvfFixed + promo + roy + ccVar + ret + ad)*units + r.ccFlat;
+    const alloc = fees + ppc;
+    const revenue = P*units;
+    const net = revenue - alloc - ship - num(cost)*units;
+    return {price:P, coupon, tax, sold, saleBase, comm, tsd, fvfRate, fvfFixed, promo, ccVar, ccFlat:r.ccFlat,
+            ret, ad, roy, fees, ppc, alloc, allocPct: P ? alloc/P : 0,
+            netRevenue: saleBase*units - alloc,     // cash kept after fees, tax excluded
+            revenue, net, gm: revenue ? net/revenue : 0};
+  };
+
+  const invalid = cost == null;                      // only a missing cost blocks analysis
+  const unpriced = !invalid && (price == null || price <= 0);
+  const P = unpriced ? 0 : price;
+  const cur = at(P);
+  const denom = 1 - k - goalUsed;
+  const achievable = denom > 0.0001;
+  let rec = null, recCalc = null;
+  if (achievable && !invalid){
+    const raw = (num(cost)*units + ship + flatUnit*units + flatOrder) / (units*denom);
+    rec = roundUp(raw, r.round);
+    recCalc = at(rec);
+    let guard = 0;
+    while (recCalc.gm < goalUsed - 1e-9 && guard++ < 40){ rec = roundUp(rec + 0.01, r.round); recCalc = at(rec); }
+  }
+  const status = invalid ? 'invalid' : unpriced ? 'unpriced'
+    : (cur.net < 0 ? 'loss' : (cur.gm < goalUsed - 1e-9 ? 'below' : 'pass'));
+
+  return {sku:row.sku, name:row.name, cost, units, price:P, ship, basePrice, baseShip, edited, invalid, unpriced,
+          mcfShip:row.mcfShip, mcfFreight:row.mcfFreight,
+          disc, avail, oos, low, invRaw:row.invRaw, invStatus:row.invStatus, goalUsed, fellBack,
+          brand:row.brand, royRate, royFlat, royFrom, commR, commFrom, ppcUsed:ppc,
+          asin:row.asin, fbaClass:row.fbaClass, amzCategory:row.amzCategory, amzItemType:row.amzItemType,
+          fbaFee:row.fbaFee, fvfFixedUsed:fvfFixed, feeRate:k, ch:ch.id,
+          cur, status, rec, recCalc, achievable,
+          targetProfit: r.target*num(cost)*units,
+          hitsTarget: cur.net >= r.target*num(cost)*units - 1e-9,
+          delta: rec != null && !unpriced ? round2(rec - P) : null,
+          deltaPct: rec != null && !unpriced && P ? (rec - P)/P : null,
+          gm: cur.gm, net: cur.net};
+}
+
+const brandKey = b => norm(b);
+function brandRoyaltyFor(brand){
+  if (!brand) return null;
+  const v = state.brandRoyalty[brandKey(brand)];
+  return (v === '' || v == null || !isFinite(v)) ? null : +v;
+}
+function collectBrands(){
+  const seen = {}, list = [];
+  state.rows.forEach(r => {
+    if (!r.brand) return;
+    const k = brandKey(r.brand);
+    if (!seen[k]){ seen[k] = true; list.push(r.brand); }   // keep first-seen spelling
+  });
+  list.sort((a,b) => a.localeCompare(b));
+  state.brandList = list;
+  if (state.brandSel){                                      // drop selections not in this file
+    const ok = {}; list.forEach(b => ok[brandKey(b)] = true);
+    state.brandSel = state.brandSel.filter(b => ok[brandKey(b)]);
+    if (!state.brandSel.length) state.brandSel = null;
+  }
+}
+const brandFiltered = () => !!(state.brandSel && state.brandSel.length < state.brandList.length);
+function brandOk(row){
+  if (!state.brandSel) return true;                 // null means every brand
+  if (!state.brandSel.length) return false;         // empty means none selected
+  return state.brandSel.some(b => brandKey(b) === brandKey(row.brand));
+}
+
+/* Rows in scope for a channel: brand selection, plus discontinued if hidden. */
+const brandBlocked = (chId, brand) => !!(state.blocked[chId] || {})[brandKey(brand)];
+function scopedRows(chId){
+  const s = state.settings[chId];
+  return state.rows.filter(r => brandOk(r)
+    && !brandBlocked(chId, r.brand)
+    && !(s.hideDisc && r.invStatus === 'disc'));
+}
+function analyzeAll(chId){
+  const ch = CH[chId], s = state.settings[chId];
+  return scopedRows(chId).map(r => analyze(r, ch, s));
+}
+function channelActive(chId){
+  return state.map[CH[chId].price] !== undefined;
+}
+
+/* ---------------- persistence ---------------- */
+const STORE_KEY = 'pricing-multichannel-v3';
+let storeMode = 'pending', touched = false, saveTimer = null;
+
+function collectState(){
+  return {v:4, active:state.active, settings:state.settings, open:state.open, over:state.over,
+          brandSel:state.brandSel, brandRoyalty:state.brandRoyalty, blocked:state.blocked,
+          calcCh:state.calcCh, calcSku:state.calcSku,
+          maps:state.savedMaps, filter:state.filter, sort:state.sort,
+          fileName:state.fileName, sheetName:state.sheetName,
+          headers:state.headers, map:state.map, rows:state.rows};
+}
+function applyState(o){
+  if (!o) return false;
+  if (o.settings) CHANNELS.forEach(c => { if (o.settings[c.id]) state.settings[c.id] = Object.assign({}, c.d, o.settings[c.id]); });
+  if (o.open) state.open = Object.assign(state.open, o.open);
+  if (o.over) CHANNELS.forEach(c => { state.over[c.id] = o.over[c.id] || {}; });
+  if (o.maps) state.savedMaps = o.maps;
+  if (o.brandRoyalty) state.brandRoyalty = o.brandRoyalty;
+  if (o.blocked) CHANNELS.forEach(c => { state.blocked[c.id] = o.blocked[c.id] || {}; });
+  if (o.calcCh && CH[o.calcCh]) state.calcCh = o.calcCh;
+  if (o.calcSku) state.calcSku = o.calcSku;
+  if (o.brandSel !== undefined) state.brandSel = o.brandSel;
+  if (o.active && CH[o.active]) state.active = o.active;
+  if (o.filter) state.filter = o.filter;
+  if (o.sort) state.sort = o.sort;
+  if (Array.isArray(o.rows) && o.rows.length){
+    state.rows = o.rows; state.headers = o.headers || []; state.map = o.map || {};
+    state.fileName = o.fileName || 'Restored sheet'; state.sheetName = o.sheetName || '';
+    state.restoredRows = true;
+    collectBrands();
+  }
+  return true;
+}
+function writeUrl(json){
+  try{
+    const frag = '#s=' + encodeURIComponent(json);
+    if (history && history.replaceState) history.replaceState(null,'',location.pathname + location.search + frag);
+    else location.hash = 's=' + encodeURIComponent(json);
+    return true;
+  }catch(e){ return false; }
+}
+function readUrl(){
+  try{ const m = /[#&]s=([^&]+)/.exec(location.hash||''); return m ? JSON.parse(decodeURIComponent(m[1])) : null; }
+  catch(e){ return null; }
+}
+function saveState(){ clearTimeout(saveTimer); saveTimer = setTimeout(flushState, 300); }
+
+async function flushState(){
+  clearTimeout(saveTimer);
+  const full = collectState();
+  let json = JSON.stringify(full), dropped = false;
+  if (json.length > 3500000){                       // too big for the store: keep everything but the rows
+    const lite = Object.assign({}, full); delete lite.rows; delete lite.headers;
+    json = JSON.stringify(lite); dropped = true;
+  }
+  let saved = false;
+  try{ if (window.storage){ await window.storage.set(STORE_KEY, json); saved = true; storeMode = 'kv'; } }catch(e){ saved = false; }
+  if (!saved){
+    const lite = Object.assign({}, full); delete lite.rows; delete lite.headers; delete lite.map;
+    storeMode = writeUrl(JSON.stringify(lite)) ? 'url' : 'none';
+    dropped = true;
+  }
+  noteSaved(dropped);
+}
+function noteSaved(dropped){
+  const el = $('saveNote'); if (!el) return;
+  el.textContent = storeMode === 'kv'
+      ? 'Settings, edits' + (dropped ? '' : ' and imported data') + ' saved for your next visit'
+    : storeMode === 'url' ? 'Settings and edits saved in this page link — bookmark it to keep them'
+    : 'Saving is unavailable here, so this session only';
+  el.className = 'savenote' + (storeMode === 'none' ? ' warn' : '');
+}
+async function loadState(){
+  let o = null;
+  try{
+    if (window.storage){ const r = await window.storage.get(STORE_KEY); if (r && r.value){ o = JSON.parse(r.value); storeMode = 'kv'; } }
+  }catch(e){ /* nothing saved yet */ }
+  if (!o){ o = readUrl(); if (o) storeMode = 'url'; }
+  if (storeMode === 'pending') storeMode = window.storage ? 'kv' : 'url';
+  if (!touched) applyState(o);
+  noteSaved(!(o && o.rows));
+  renderTabs(); renderRail();
+  if (state.rows.length){
+    $('intake').classList.add('hide'); $('results').classList.remove('hide');
+    renderMapper(); refresh(true);
+  }
+}
+
+/* ---------------- settings rail ---------------- */
+const fieldLabel = key => {
+  const f = FIELDS.find(x => x.key === key);
+  const mapped = f && state.map[key] !== undefined ? state.headers[state.map[key]] : null;
+  return mapped || (f ? f.label : key);
+};
+
+function brandTableHtml(secId){
+  if (secId !== 'royalty' || !state.brandList.length) return '';
+  const s = state.settings[state.active];
+  const unit = s.roymode === 'usd' ? '$' : '%';
+  const rows = state.brandList.map((b,i) => {
+    const v = state.brandRoyalty[brandKey(b)];
+    return `<div class="field brandrow"><label for="br_${i}" title="${esc(b)}">${esc(b)}</label>
+      <span class="wrap">${unit==='$'?'$':''}<input id="br_${i}" data-brand="${esc(brandKey(b))}" type="number" step="0.1" min="0"
+        value="${v==null||v===''?'':v}" placeholder="${s.roy}">${unit==='%'?'%':''}</span></div>`;
+  }).join('');
+  return `<div class="brandtable">
+    <p class="sub">Royalty by brand &mdash; shared across all channels, charged on the post-coupon sale. Blank falls back to the default above.</p>
+    ${rows}
+    <button class="btn ghost sm" id="btnClearBrandRoy">Clear brand royalties</button>
+  </div>`;
+}
+
+function brandBlockHtml(secId){
+  if (secId !== 'brands') return '';
+  if (!state.brandList.length) return '<p class="note">Load a sheet with a Brand column to choose which brands this channel sells.</p>';
+  const ch = state.active, blocked = state.blocked[ch] || {};
+  const n = state.brandList.filter(b => !blocked[brandKey(b)]).length;
+  const counts = {};
+  state.rows.forEach(r => { const k = brandKey(r.brand); counts[k] = (counts[k]||0)+1; });
+  return `<p class="note">${n} of ${state.brandList.length} brands sell on this channel.</p>` +
+    state.brandList.map((b,i) => {
+      const k = brandKey(b), on = !blocked[k];
+      return `<div class="field check brandsell"><label for="bs_${i}" title="${esc(b)}">${esc(b)}<span class="cnt">${counts[k]||0}</span></label>
+        <input id="bs_${i}" data-block="${esc(k)}" type="checkbox" ${on?'checked':''}></div>`;
+    }).join('') +
+    `<div class="rowbtns"><button class="btn ghost sm" id="btnBrandAll">Enable all</button>
+      <button class="btn ghost sm" id="btnBrandNone">Disable all</button></div>`;
+}
+
+function bindBrandBlocks(){
+  $('railBody').querySelectorAll('input[data-block]').forEach(el => {
+    el.addEventListener('change', () => {
+      const k = el.dataset.block, m = state.blocked[state.active] || (state.blocked[state.active] = {});
+      if (el.checked) delete m[k]; else m[k] = true;
+      touched = true; saveState(); renderRail(); if (state.rows.length) refresh();
+    });
+  });
+  const all = $('btnBrandAll'), none = $('btnBrandNone');
+  if (all) all.addEventListener('click', () => {
+    state.blocked[state.active] = {}; touched = true; renderRail(); if (state.rows.length) refresh(); saveState();
+  });
+  if (none) none.addEventListener('click', () => {
+    const m = {}; state.brandList.forEach(b => m[brandKey(b)] = true);
+    state.blocked[state.active] = m; touched = true; renderRail(); if (state.rows.length) refresh(); saveState();
+  });
+}
+
+function bindBrandTable(){
+  $('railBody').querySelectorAll('input[data-brand]').forEach(el => {
+    const handler = () => {
+      const k = el.dataset.brand;
+      if (el.value === '') delete state.brandRoyalty[k];
+      else state.brandRoyalty[k] = parseFloat(el.value) || 0;
+      touched = true; saveState(); if (state.rows.length) refresh();
+    };
+    el.addEventListener('input', handler); el.addEventListener('change', handler);
+  });
+  const clr = $('btnClearBrandRoy');
+  if (clr) clr.addEventListener('click', () => {
+    state.brandRoyalty = {}; touched = true; renderRail(); if (state.rows.length) refresh(); saveState();
+  });
+}
+
+function renderRail(){
+  if (state.active === '__calc'){
+    $('railChan').textContent = 'Calculation check';
+    $('railSub').textContent = 'Pick a channel and a SKU to see the work';
+    const pool = state.rows.filter(brandOk);
+    if (!pool.length){ $('railBody').innerHTML = '<p class="note">Load a sheet first.</p>'; return; }
+    if (!pool.some(r => r.sku === state.calcSku)) state.calcSku = pool[0].sku;
+    $('railBody').innerHTML =
+      `<details class="group" data-sec="market" open><summary>Channel<span class="n">${CHANNELS.length}</span></summary>` +
+      CHANNELS.map(c => `<div class="field check"><label for="cc_${c.id}">${esc(c.tab)}</label>
+        <input id="cc_${c.id}" name="calcch" data-cc="${c.id}" type="radio" ${state.calcCh===c.id?'checked':''}></div>`).join('') +
+      `</details>
+      <details class="group" data-sec="royalty" open><summary>SKU<span class="n">${pool.length}</span></summary>
+        <p class="note">Showing SKUs in the current brand filter.</p>
+        <input class="skufind" id="calcFind" type="search" placeholder="Find a SKU">
+        <select id="calcSku" size="12" class="skulist">${
+          pool.slice(0,400).map(r => `<option value="${esc(r.sku)}" ${r.sku===state.calcSku?'selected':''}>${esc(r.sku)} — ${esc((r.name||'').slice(0,38))}</option>`).join('')
+        }</select>
+      </details>`;
+    $('railBody').querySelectorAll('input[data-cc]').forEach(el => el.addEventListener('change', () => {
+      state.calcCh = el.dataset.cc; touched = true; saveState(); renderCalc();
+    }));
+    const sel = $('calcSku');
+    sel.addEventListener('change', () => { state.calcSku = sel.value; touched = true; saveState(); renderCalc(); });
+    $('calcFind').addEventListener('input', e => {
+      const q = e.target.value.toLowerCase();
+      const hits = pool.filter(r => !q || (r.sku + ' ' + r.name).toLowerCase().indexOf(q) >= 0).slice(0,400);
+      sel.innerHTML = hits.map(r => `<option value="${esc(r.sku)}" ${r.sku===state.calcSku?'selected':''}>${esc(r.sku)} — ${esc((r.name||'').slice(0,38))}</option>`).join('');
+    });
+    $('railBody').querySelectorAll('details.group').forEach(d => {
+      d.addEventListener('toggle', () => { state.open[d.dataset.sec] = d.open; saveState(); });
+    });
+    return;
+  }
+  if (state.active === '__all'){
+    $('railChan').textContent = 'All channels';
+    $('railSub').textContent = 'Set each goal here, or open a tab for its full assumptions';
+    $('railBody').innerHTML = '<details class="group" data-sec="market" open><summary>Goal net GM% by channel<span class="n">' + CHANNELS.length + '</span></summary>' +
+      CHANNELS.map(c => `<div class="field"><label for="goal_${c.id}">${esc(c.tab)}</label>
+        <span class="wrap"><input id="goal_${c.id}" data-ch="${c.id}" type="number" step="0.5" value="${state.settings[c.id].goal}">%</span></div>`).join('') +
+      '</details>';
+    $('railBody').querySelectorAll('input').forEach(el => {
+      const handler = () => {
+        state.settings[el.dataset.ch].goal = parseFloat(el.value) || 0;
+        touched = true; saveState(); if (state.rows.length) refresh();
+      };
+      el.addEventListener('input', handler); el.addEventListener('change', handler);
+    });
+    return;
+  }
+  const ch = CH[state.active], s = state.settings[ch.id];
+  $('railChan').textContent = ch.name;
+  $('railSub').textContent = ch.ship === 'mcf'
+    ? 'Shipping comes from MCF shipping plus inbound freight'
+    : 'Shipping comes from the Shipping Cost column';
+
+  let html = `<div class="goal">
+      <label for="set_goal">Goal net GM%</label>
+      <div class="goal-input"><input id="set_goal" data-k="goal" type="number" step="0.5" min="-100" max="99" value="${s.goal}"><span>%</span></div>
+      <small>Any SKU on this channel landing under this gets a recommended list price that clears it.</small>
+    </div>`;
+
+  SECTIONS.forEach(sec => {
+    const fields = FIELDS_UI.filter(f => f.sec === sec.id && (!f.flag || ch.f[f.flag]));
+    const extra = brandTableHtml(sec.id) + brandBlockHtml(sec.id);
+    if (!fields.length && !extra) return;
+    const count = sec.id === 'brands' ? (state.brandList.length || '') : fields.length;
+    html += `<details class="group" data-sec="${sec.id}" ${state.open[sec.id] ? 'open' : ''}>
+      <summary>${sec.title}<span class="n">${count}</span></summary>
+      <p class="note">${sec.note}</p>` +
+      fields.map(f => {
+        const v = s[f.key];
+        if (f.type === 'select'){
+          return `<div class="field"><label for="set_${f.key}">${f.label}</label>
+            <select id="set_${f.key}" data-k="${f.key}">${f.opts.map(o => `<option value="${o[0]}" ${String(v)===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div>`;
+        }
+        if (f.type === 'check'){
+          const lbl = f.key === 'priceFallback'
+            ? `Use the ${esc(fieldLabel(ch.fbTo))} when this channel is blank`
+            : f.label;
+          return `<div class="field check"><label for="set_${f.key}">${lbl}</label>
+            <input id="set_${f.key}" data-k="${f.key}" type="checkbox" ${v?'checked':''}></div>`;
+        }
+        const pre = f.unit === '$' ? '$' : '', post = f.unit === '%' ? '%' : '';
+        const hint = (f.key === 'comm' && ch.f.commSku) ? '(fallback when the sheet has none)' : f.hint;
+        return `<div class="field"><label for="set_${f.key}">${f.label}${hint?' <span class="hint">'+hint+'</span>':''}</label>
+          <span class="wrap">${pre}<input id="set_${f.key}" data-k="${f.key}" type="number" step="0.01" value="${v}">${post}</span></div>`;
+      }).join('') + extra + `</details>`;
+  });
+  $('railBody').innerHTML = html;
+
+  $('railBody').querySelectorAll('input,select').forEach(el => {
+    const handler = () => {
+      const k = el.dataset.k;
+      state.settings[state.active][k] = el.type === 'checkbox' ? el.checked
+        : (el.type === 'number' ? (parseFloat(el.value) || 0) : el.value);
+      touched = true; saveState();
+      if (state.rows.length) refresh();
+    };
+    el.addEventListener('input', handler); el.addEventListener('change', handler);
+  });
+  $('railBody').querySelectorAll('details.group').forEach(d => {
+    d.addEventListener('toggle', () => { state.open[d.dataset.sec] = d.open; saveState(); });
+  });
+  bindBrandTable(); bindBrandBlocks();
+}
+
+function renderBrandPick(){
+  const wrap = $('brandPick');
+  if (!state.brandList.length){ wrap.classList.add('hide'); return; }
+  wrap.classList.remove('hide');
+  const on = brandFiltered();
+  wrap.classList.toggle('on', on);
+  const sel = state.brandSel || [];
+  $('brandSum').textContent = !on ? `All ${state.brandList.length} brands`
+    : (sel.length === 1 ? sel[0] : `${sel.length} of ${state.brandList.length} brands`);
+  const counts = {};
+  state.rows.forEach(r => { const k = brandKey(r.brand); counts[k] = (counts[k]||0) + 1; });
+  $('brandPop').innerHTML =
+    `<div class="acts"><button class="btn ghost sm" data-all="1">Select all</button><button class="btn ghost sm" data-none="1">Clear</button></div>` +
+    state.brandList.map(b => {
+      const checked = !on || sel.some(x => brandKey(x) === brandKey(b));
+      return `<label><input type="checkbox" data-b="${esc(b)}" ${checked?'checked':''}><span>${esc(b)}</span><span class="cnt">${counts[brandKey(b)]||0}</span></label>`;
+    }).join('');
+
+  $('brandPop').querySelectorAll('input[data-b]').forEach(cb => cb.addEventListener('change', () => {
+    const picked = [...$('brandPop').querySelectorAll('input[data-b]')].filter(x => x.checked).map(x => x.dataset.b);
+    state.brandSel = (picked.length === state.brandList.length || !picked.length) ? null : picked;
+    if (!picked.length) state.brandSel = [];        // nothing selected shows nothing, deliberately
+    touched = true; state.limit = 400; refresh(); saveState();
+  }));
+  $('brandPop').querySelector('[data-all]').addEventListener('click', () => {
+    state.brandSel = null; touched = true; refresh(); saveState();
+  });
+  $('brandPop').querySelector('[data-none]').addEventListener('click', () => {
+    state.brandSel = []; touched = true; refresh(); saveState();
+  });
+}
+
+/* =====================================================================
+   Calculation explainer.
+
+   Every figure is shown three ways: the formula, the formula with this
+   SKU's numbers substituted, and the result. The verification block then
+   recomputes the same quantities by a structurally different route and
+   compares. That matters because the displayed margin is built from
+   line-item fees while the recommended price is solved from an aggregate
+   fee rate; if those two ever disagree, recommended prices are wrong.
+   ===================================================================== */
+const d4 = v => (v < 0 ? '-$' : '$') + Math.abs(v).toFixed(4);
+const p4 = v => (v*100).toFixed(4).replace(/0+$/,'').replace(/\.$/,'') + '%';
+const near = (a,b,tol) => Math.abs(a-b) <= (tol||1e-9);
+
+function calcTarget(){
+  if (!state.rows.length) return null;
+  const ch = CH[state.calcCh] || CH.jsp;
+  const pool = state.rows.filter(brandOk);
+  if (!pool.length) return null;
+  const row = pool.find(r => r.sku === state.calcSku) || pool[0];
+  return {ch, row, s: state.settings[ch.id], pool};
+}
+
+function renderCalc(){
+  const t = calcTarget();
+  if (!t){ $('calcWrap').innerHTML = '<div class="cbox"><p>Load a sheet to see the calculation walked through.</p></div>'; return; }
+  const {ch, row, s} = t;
+  const r = analyze(row, ch, s);
+  const rr = rates(ch, s);
+  // At a $0 list price every line would read $0.0000, so an unpriced SKU is
+  // walked through at the price we would launch it at instead.
+  const proposed = !!(r.unpriced && r.recCalc);
+  const c = proposed ? r.recCalc : r.cur;
+  const U = r.units, P = proposed ? r.rec : r.price, cost = num(r.cost), ship = r.ship;
+  const k = r.feeRate;
+  const flatUnit = r.fvfFixedUsed + r.royFlat;
+  const flatOrder = rr.ccFlat + r.ppcUsed;
+  const saleRate = 1 - rr.c, grossUp = saleRate * (1 + rr.t);
+
+  // A stage is only worth a line if the channel has it and is actually charging
+  // it. A 0% assumption would otherwise add a "$0.0000" row and, worse, invent a
+  // stage name (sale base, sold price) that equals the line above it.
+  const on = {
+    coupon: ch.f.coupon && rr.c > 0,
+    tax: ch.f.tax && rr.t > 0,
+    comm: ch.f.comm && r.commR > 0,
+    tsd: ch.f.tsd && rr.tsd > 0 && r.commR > 0,
+    fvf: ch.f.fvf && r.fvfFixedUsed > 0,
+    promo: ch.f.promo && rr.promo > 0,
+    ccPct: ch.f.cc && rr.ccPct > 0,
+    ccFlat: ch.f.cc && rr.ccFlat > 0,
+    ad: ch.f.ad && rr.ad > 0,
+    roy: s.roymode === 'usd' ? r.royFlat > 0 : r.royRate > 0,
+    ret: rr.ret > 0,
+    ppc: ch.f.ppc && r.ppcUsed > 0
+  };
+  const zeroed = [];
+  const zchk = (flag, live, label) => { if (flag && !live) zeroed.push(label); };
+  zchk(ch.f.coupon, on.coupon, 'coupon'); zchk(ch.f.tax, on.tax, 'sales tax');
+  zchk(ch.f.comm, on.comm, 'commission'); zchk(ch.f.tsd, on.tsd, 'top seller discount');
+  zchk(ch.f.fvf, on.fvf, 'fixed final value fee'); zchk(ch.f.promo, on.promo, 'promoted listing');
+  zchk(ch.f.cc, on.ccPct && on.ccFlat, 'part of card processing'); zchk(ch.f.ad, on.ad, 'advertising');
+  zchk(true, on.roy, 'royalty'); zchk(true, on.ret, 'returns and warranty');
+  zchk(ch.f.ppc, on.ppc, 'PPC fee');
+
+  /* ---------- inputs and their provenance ---------- */
+  const ov = (state.over[ch.id]||{})[row.sku] || {};
+  const priceSrc = ov.price != null ? 'Manually edited in the table'
+    : r.fellBack ? `${esc(fieldLabel(ch.fbTo))} column, because ${esc(fieldLabel(ch.price))} was blank`
+    : proposed ? `No price on this channel yet, so this walkthrough uses the recommended ${d4(r.rec)}`
+    : r.unpriced ? 'No price on this channel yet'
+    : `${esc(fieldLabel(ch.price))} column`;
+  const shipSrc = ov.ship != null ? 'Manually edited in the table'
+    : ch.ship === 'mcf' ? `MCF Shipping ${d4(num(row.mcfShip))} + To MCF Freight ${d4(num(row.mcfFreight))}`
+    : ch.ship === 'fba' ? `FBA Fulfillment ${d4(num(row.fbaFee))} + To MCF Freight ${d4(num(row.mcfFreight))}`
+    : 'Shipping Cost column';
+  const roySrc = r.royFrom === 'brand' ? `Brand table for ${esc(row.brand)}`
+    : r.royFrom === 'sheet' ? 'Royalty column' : 'Channel default';
+  const commSrc = r.commFrom === 'sheet' ? 'Amazon Category Commission column' : 'Channel setting';
+
+  const inputs = [
+    ['List price', U > 1 ? `${d4(P)} × ${U} units` : d4(P), priceSrc],
+    ['SKU cost', r.cost == null ? 'missing' : (U > 1 ? `${d4(cost)} × ${U} units` : d4(cost)), 'SKU Cost column'],
+    ['Shipping', d4(ship), shipSrc],
+    ['Units per order', String(U), state.map.units !== undefined ? 'Total Units column' : 'defaulted to 1']
+  ];
+  if (ch.f.coupon) inputs.push(['Coupon rate', p4(rr.c) + (on.coupon ? '' : ' <span class="hintx">(nothing charged)</span>'), 'Channel setting']);
+  if (ch.f.tax) inputs.push(['Sales tax rate', p4(rr.t), 'Channel setting, passed through to the buyer']);
+  if (ch.f.comm) inputs.push(['Category commission', p4(r.commR), commSrc]);
+  if (ch.f.tsd) inputs.push(['Top seller discount', p4(rr.tsd) + ' off the final value fee',
+    `eBay Top Rated Seller credit, channel setting. Makes the effective commission ${p4(r.commR*(1-rr.tsd))} instead of ${p4(r.commR)}`]);
+  if (ch.f.promo) inputs.push(['Promoted listing', p4(rr.promo), 'Channel setting']);
+  if (ch.f.fvf) inputs.push(['Final value fee, fixed', d4(r.fvfFixedUsed), state.map.fvfFixed !== undefined ? 'Sheet column or channel setting' : 'Channel setting']);
+  if (ch.f.cc) inputs.push(['Card processing', p4(rr.ccPct) + ' + ' + d4(rr.ccFlat) + ' per order', 'Channel setting']);
+  if (ch.f.ad) inputs.push(['Advertising', p4(rr.ad), 'Channel setting']);
+  if (ch.f.ppc) inputs.push(['PPC fee', d4(r.ppcUsed) + ' per unit', state.map.ppc !== undefined ? 'PPC Fee column' : 'Channel setting']);
+  inputs.push(['Royalty', s.roymode === 'usd' ? d4(r.royFlat) + ' per unit' : p4(r.royRate), roySrc]);
+  inputs.push(['Returns and warranty', p4(rr.ret), 'Channel setting']);
+  inputs.push(['Goal net GM%', p4(r.goalUsed), r.disc ? 'Sell-down goal, this SKU is discontinued' : 'Channel goal']);
+
+  /* ---------- forward steps ---------- */
+  const step = (n, name, formula, subst, result) =>
+    `<tr><td class="n">${n}</td><td class="nm">${name}</td><td class="fm">${formula}</td><td class="sb">${subst}</td><td class="rs">${result}</td></tr>`;
+  // Name each fee's base by what actually exists here. With no coupon the sale
+  // base IS the list price, and with no tax the sold price IS the sale base, so
+  // showing those as separate stages would just repeat a number.
+  const saleName = on.coupon ? 'sale base' : 'list';
+  const soldName = on.tax ? 'sold' : saleName;
+  let i = 0, steps = '';
+  if (on.coupon) steps += step(++i,'Coupon discount','list × coupon <span class="hintx">(taken off the gross first)</span>',`${d4(P)} × ${p4(rr.c)}`,d4(c.coupon));
+  if (on.coupon) steps += step(++i,'Sale base',`list − coupon <span class="hintx">(what the buyer pays${on.tax?', before tax':''})</span>`,`${d4(P)} − ${d4(c.coupon)}`,d4(c.saleBase));
+  if (on.tax) steps += step(++i,'Sales tax collected','sale base × tax <span class="hintx">(charged on the discounted price)</span>',`${d4(c.saleBase)} × ${p4(rr.t)}`,d4(c.tax));
+  if (on.tax) steps += step(++i,'Sold price','sale base + tax <span class="hintx">(the base eBay bills on)</span>',`${d4(c.saleBase)} + ${d4(c.tax)}`,d4(c.sold));
+  if (on.comm) steps += step(++i,'Category commission',`${soldName} × commission`,`${d4(c.sold)} × ${p4(r.commR)}`,d4(c.comm));
+  if (on.tsd) steps += step(++i,'Top seller discount','commission × discount <span class="hintx">(credited back)</span>',`${d4(c.comm)} × ${p4(rr.tsd)}`,'+' + d4(c.tsd));
+  if (on.comm && on.tsd) steps += step(++i,'Final value fee, rate part','commission − discount',`${d4(c.comm)} − ${d4(c.tsd)}`,d4(c.fvfRate));
+  if (on.fvf) steps += step(++i,'Final value fee, fixed','flat per order','—',d4(c.fvfFixed));
+  if (on.promo) steps += step(++i,'Promoted listing fee',`${soldName} × promoted`,`${d4(c.sold)} × ${p4(rr.promo)}`,d4(c.promo));
+  if (on.ccPct) steps += step(++i,'Card processing, rate',`${saleName} × rate`,`${d4(c.saleBase)} × ${p4(rr.ccPct)}`,d4(c.ccVar));
+  if (on.ccFlat) steps += step(++i,'Card processing, flat','flat per order','—',d4(c.ccFlat));
+  if (on.ad) steps += step(++i,'Advertising',`${saleName} × advertising`,`${d4(c.saleBase)} × ${p4(rr.ad)}`,d4(c.ad));
+  if (on.roy) steps += step(++i,'Royalty', s.roymode === 'usd' ? 'flat per unit' : `${saleName} × royalty <span class="hintx">(owed on the sold amount)</span>`,
+    s.roymode === 'usd' ? '—' : `${d4(c.saleBase)} × ${p4(r.royRate)}`, d4(c.roy));
+  if (on.ret) steps += step(++i,'Returns and warranty',`${saleName} × returns`,`${d4(c.saleBase)} × ${p4(rr.ret)}`,d4(c.ret));
+  if (on.ppc) steps += step(++i,'PPC fee','flat per unit','—',d4(c.ppc));
+  steps += step(++i,'Total allocations','sum of the fee lines above' + (U>1?` × ${U} units, plus per-order flats`:''),'—',`<b>${d4(c.alloc)}</b>`);
+  steps += step(++i,'Net margin','list×units − cost×units − shipping − allocations',
+    `${d4(P*U)} − ${d4(cost*U)} − ${d4(ship)} − ${d4(c.alloc)}`,`<b class="${c.net<0?'neg':'pos'}">${d4(c.net)}</b>`);
+  steps += step(++i,'Net GM%','net margin ÷ (list × units)',
+    (r.unpriced && !proposed) ? 'undefined at a $0 list price' : `${d4(c.net)} ÷ ${d4(P*U)}`,
+    (r.unpriced && !proposed) ? '&mdash;' : `<b class="${c.gm<r.goalUsed?'neg':'pos'}">${p4(c.gm)}</b>`);
+
+  /* ---------- the aggregate fee rate that drives the price solve ---------- */
+  const parts = [];
+  // Only name factors the channel actually charges, so no phantom terms appear.
+  const soldF = [on.coupon ? '(1 − coupon)' : '', on.tax ? '(1 + tax)' : ''].filter(Boolean).join('');
+  const saleF = on.coupon ? '(1 − coupon) × ' : '';
+  const soldPre = soldF ? soldF + ' × ' : '';
+  if (on.coupon) parts.push(['Coupon', 'coupon', rr.c, rr.c]);
+  if (on.comm) parts.push(on.tsd
+    ? ['Commission, less the top seller discount', `${soldPre}commission × (1 − top seller discount)`, r.commR, grossUp*r.commR*(1-rr.tsd)]
+    : ['Category commission', `${soldPre}commission`, r.commR, grossUp*r.commR]);
+  if (on.promo) parts.push(['Promoted listing', `${soldPre}promoted`, rr.promo, grossUp*rr.promo]);
+  if (on.roy && s.roymode !== 'usd') parts.push(['Royalty', `${saleF}royalty`, r.royRate, saleRate*r.royRate]);
+  if (on.ccPct) parts.push(['Card processing', `${saleF}rate`, rr.ccPct, saleRate*rr.ccPct]);
+  if (on.ad) parts.push(['Advertising', `${saleF}advertising`, rr.ad, saleRate*rr.ad]);
+  if (on.ret) parts.push(['Returns and warranty', `${saleF}returns`, rr.ret, saleRate*rr.ret]);
+  const kSum = parts.reduce((t,p) => t + p[3], 0);
+  const kRows = parts.map(p => `<tr><td class="nm">${p[0]}</td><td class="fm">${p[1]}</td><td class="rs">${p[3].toFixed(6)}</td></tr>`).join('')
+    + `<tr class="tot"><td class="nm">Fee rate on list, k</td><td class="fm">sum of the above</td><td class="rs"><b>${k.toFixed(6)}</b></td></tr>`;
+
+  /* ---------- legend for the symbols used in the solve ---------- */
+  const flatUnitParts = [];
+  if (ch.f.fvf) flatUnitParts.push(`final value fee ${d4(r.fvfFixedUsed)}`);
+  if (s.roymode === 'usd') flatUnitParts.push(`royalty ${d4(r.royFlat)}`);
+  const flatOrderParts = [];
+  if (ch.f.ppc) flatOrderParts.push(`PPC ${d4(r.ppcUsed)}`);
+  if (ch.f.cc) flatOrderParts.push(`card fee ${d4(rr.ccFlat)}`);
+
+  const legend = [
+    ['GM', 'Net margin as a share of revenue', (r.unpriced && !proposed) ? '&mdash;' : p4(c.gm), 'What we are setting equal to the goal'],
+    ['P', 'List price &mdash; the unknown being solved for', (r.unpriced && !proposed) ? 'none yet' : d4(P),
+      proposed ? 'Proposed launch price, this SKU has none yet' : `Currently from ${esc(fieldLabel(ch.price))}`],
+    ['U', 'Units per order', String(U), state.map.units !== undefined ? 'Total Units column' : 'Defaulted to 1'],
+    ['cost', 'SKU cost per unit', r.cost == null ? 'missing' : d4(cost), 'SKU Cost column'],
+    ['ship', 'Shipping per order', d4(ship), shipSrc],
+    ['k', 'Rate-based fees per $1 of list', k.toFixed(6), 'Section 3 above, the sum of every percentage fee'],
+    ['g', 'Goal net GM% for this SKU', r.goalUsed.toFixed(6) + ` (${p4(r.goalUsed)})`, r.disc ? 'Sell-down goal, this SKU is discontinued' : 'Channel goal'],
+    ['flat<sub>unit</sub>', 'Fixed fees charged on every unit', d4(flatUnit), flatUnitParts.length ? flatUnitParts.join(' + ') : 'None on this channel'],
+    ['flat<sub>order</sub>', 'Fixed fees charged once per order', d4(flatOrder), flatOrderParts.length ? flatOrderParts.join(' + ') : 'None on this channel'],
+    ['alloc', 'All fees and allocations at price P', (r.unpriced && !proposed) ? '&mdash;' : d4(c.alloc), 'The total allocations step above']
+  ];
+  const legendHtml = `<h4 class="lgh">What each symbol means</h4>
+    <table class="ctab legend"><thead><tr><th>Symbol</th><th>Meaning</th><th>This SKU</th><th>Where it comes from</th></tr></thead>
+    <tbody>${legend.map(x => `<tr><td class="sym">${x[0]}</td><td class="nm">${x[1]}</td><td class="rs">${x[2]}</td><td class="fm">${x[3]}</td></tr>`).join('')}</tbody></table>
+    <p class="foot2">Only <span class="sym">P</span> is unknown. Because every rate-based fee is a multiple of <span class="sym">P</span>, <span class="sym">alloc</span> is a straight line in <span class="sym">P</span>, so the equation rearranges in one step instead of needing trial and error. Fixed costs sit outside <span class="sym">k</span> because they do not grow when the price rises.</p>`;
+
+  /* ---------- goal price solve ---------- */
+  const denom = 1 - k - r.goalUsed;
+  const numer = cost*U + ship + flatUnit*U + flatOrder;
+  const raw = denom > 0 ? numer/(U*denom) : null;
+  let solve;
+  if (!r.achievable){
+    solve = `<p class="bad">Unreachable: k + goal = ${(k+r.goalUsed).toFixed(6)}, which is at or above 1. Every extra dollar of price brings in less than a dollar of contribution, so no price satisfies the goal.</p>`;
+  } else {
+    solve = `<div class="algebra">
+      <div><span>Start from the definition</span><code>GM = (P·U − cost·U − ship − alloc) ÷ (P·U)</code></div>
+      <div><span>Allocations are linear in P</span><code>alloc = k·P·U + flat<sub>unit</sub>·U + flat<sub>order</sub></code></div>
+      <div><span>Set GM to the goal g and solve</span><code>P·U·(1 − k − g) = cost·U + ship + flat<sub>unit</sub>·U + flat<sub>order</sub></code></div>
+      <div><span>So</span><code>P = (cost·U + ship + flat<sub>unit</sub>·U + flat<sub>order</sub>) ÷ (U · (1 − k − g))</code></div>
+      <div><span>Substituting</span><code>P = (${d4(cost*U)} + ${d4(ship)} + ${d4(flatUnit*U)} + ${d4(flatOrder)}) ÷ (${U} × (1 − ${k.toFixed(6)} − ${r.goalUsed.toFixed(6)}))</code></div>
+      <div><span>Exact goal price</span><code>P = ${d4(numer)} ÷ ${(U*denom).toFixed(6)} = <b>${d4(raw)}</b></code></div>
+      <div><span>Rounded up by the ${esc((ROUND_OPTS.find(o=>o[0]===String(rr.round))||['',''])[1].toLowerCase())} rule</span><code><b>${d4(r.rec)}</b></code></div>
+      <div><span>Resulting net GM% at that price</span><code><b class="pos">${p4(r.recCalc.gm)}</b>, net margin ${d4(r.recCalc.net)}</code></div>
+    </div>`;
+  }
+
+  /* ---------- independent verification ---------- */
+  const checks = [];
+  const add = (what, routeA, a, routeB, b, tol) =>
+    checks.push({what, routeA, a, routeB, b, ok: near(a, b, tol||1e-9)});
+
+  if (on.coupon) add('Sale base after coupon', 'list − coupon', c.saleBase, 'list × (1 − coupon)', P*saleRate);
+  if (on.tax){
+    add('Sales tax charged', '(list − coupon) × tax rate', c.tax, 'sale base × tax rate', c.saleBase*rr.t);
+    add('Sold price', 'sale base + tax', c.sold, 'list × (1 − coupon) × (1 + tax)', P*grossUp);
+    add('Fee base carries the tax', 'sold price billed by the marketplace', c.sold, 'list − coupon + tax', P - c.coupon + c.tax);
+  }
+  add('Net revenue after fees', 'sale base × units − allocations', c.netRevenue, 'what is left before shipping and cost', c.saleBase*U - c.alloc);
+  add('Total allocations', 'sum of individual fee lines', c.alloc,
+      'k × list × units + flat fees', k*P*U + flatUnit*U + flatOrder);
+  add('Net margin', 'revenue − allocations − shipping − cost', c.net,
+      'list·U·(1 − k) − flats − shipping − cost·U', P*U*(1-k) - flatUnit*U - flatOrder - ship - cost*U);
+  if (!r.unpriced || proposed){
+    add('Net GM%', 'net margin ÷ revenue', c.gm,
+        '1 − k − (flats + shipping + cost·U) ÷ (list·U)', 1 - k - (flatUnit*U + flatOrder + ship + cost*U)/(P*U));
+  }
+  if (r.achievable){
+    const atRaw = analyze(Object.assign({}, row, {[ch.price]: raw, [ch.fbTo||'__x']: raw}), ch, s);
+    add('Goal price solves exactly', 'net GM% recomputed at the exact goal price', atRaw.gm, 'the goal itself', r.goalUsed, 1e-9);
+    const atRec = analyze(Object.assign({}, row, {[ch.price]: r.rec, [ch.fbTo||'__x']: r.rec}), ch, s);
+    add('Rounded price re-analysed', 'full forward pass at the rounded price', atRec.gm, 'projected new GM% shown in the table', r.recCalc.gm);
+    checks.push({what:'Rounded price clears the goal', routeA:'net GM% at ' + d4(r.rec), a:r.recCalc.gm,
+                 routeB:'goal', b:r.goalUsed, ok: r.recCalc.gm >= r.goalUsed - 1e-9, cmp:'≥'});
+  }
+  add('Fee rate composition', 'k as used by the solver', k, 'sum of the components listed above', kSum);
+
+  const bad = checks.filter(x => !x.ok).length;
+  const checkRows = checks.map(x => `<tr class="${x.ok?'':'fail'}">
+    <td class="nm">${x.what}</td>
+    <td class="fm">${x.routeA}<br><span class="alt">${x.routeB}</span></td>
+    <td class="rs">${fmtAny(x.a)}<br><span class="alt">${x.cmp||'='} ${fmtAny(x.b)}</span></td>
+    <td class="vf">${x.ok?'<span class="ok">agrees</span>':'<span class="no">MISMATCH</span>'}</td></tr>`).join('');
+
+  /* ---------- assemble ---------- */
+  const pills = [
+    `<span class="cpill">${esc(ch.name)}</span>`,
+    row.brand ? `<span class="cpill">${esc(row.brand)}</span>` : '',
+    r.disc ? '<span class="cpill sell">Sell down</span>' : '',
+    r.unpriced ? '<span class="cpill new">Needs pricing</span>' : '',
+    r.fellBack ? '<span class="cpill fb">Fallback price</span>' : '',
+    (ov.price != null || ov.ship != null) ? '<span class="cpill ed">Manually edited</span>' : ''
+  ].join('');
+
+  $('calcWrap').innerHTML = `
+    <div class="chead">
+      <div><h2>${esc(row.sku)}</h2><p>${esc(row.name)}</p></div>
+      <div class="cpills">${pills}</div>
+    </div>
+
+    <div class="cbox ${bad?'bad':'good'}">
+      <h3>${bad ? bad + ' cross-check' + (bad===1?'':'s') + ' disagree' : 'All ' + checks.length + ' cross-checks agree'}</h3>
+      <p>Each quantity below is computed twice by different routes. The margin shown in the table is built from individual fee lines; the recommended price is solved from the aggregate fee rate. These must match or the recommendation would be wrong.</p>
+      <table class="ctab checks"><thead><tr><th>Quantity</th><th>Two routes</th><th>Results</th><th>Verdict</th></tr></thead>
+        <tbody>${checkRows}</tbody></table>
+    </div>
+
+    <div class="cbox">
+      <h3>1. Inputs, and where each one came from</h3>
+      <table class="ctab"><thead><tr><th>Input</th><th>Value</th><th>Source</th></tr></thead><tbody>
+        ${inputs.map(x => `<tr><td class="nm">${x[0]}</td><td class="rs">${x[1]}</td><td class="fm">${x[2]}</td></tr>`).join('')}
+      </tbody></table>
+    </div>
+
+    <div class="cbox">
+      <h3>2. Forward calculation ${proposed ? 'at the proposed launch price of ' + d4(P) : 'at the current price'}</h3>
+      <table class="ctab steps"><thead><tr><th>#</th><th>Step</th><th>Formula</th><th>With this SKU's numbers</th><th>Result</th></tr></thead>
+        <tbody>${steps}</tbody></table>
+    </div>
+
+    <div class="cbox">
+      <h3>3. The aggregate fee rate <i>k</i></h3>
+      <p>Every rate-based fee is proportional to the list price, so they collapse into one number. That is what makes the goal price solvable in closed form instead of by trial and error.</p>
+      <table class="ctab"><thead><tr><th>Component</th><th>Applied as</th><th>Per $1 of list</th></tr></thead><tbody>${kRows}</tbody></table>
+      <p class="foot2">Every rate above comes from this channel's marketplace assumptions, except the commission when the sheet supplies one per SKU. Components a channel does not charge are left out entirely rather than shown as zero.${
+        zeroed.length ? ` Set to zero on this channel and therefore omitted: ${esc(zeroed.join(', '))}.` : ''}${
+        ch.f.tsd ? ` The <b>top seller discount</b> is eBay's Top Rated Seller credit: ${p4(rr.tsd)} back on the variable final value fee, which is why commission enters k at ${p4(r.commR)} × (1 − ${p4(rr.tsd)}) = ${(r.commR*(1-rr.tsd)).toFixed(6)} rather than at ${r.commR.toFixed(6)}.` : ''}</p>
+      <p class="foot2">Fixed costs stay outside k: ${d4(flatUnit)} per unit${flatOrder?` and ${d4(flatOrder)} per order`:''}, plus ${d4(ship)} shipping and ${d4(cost)} cost per unit.</p>
+    </div>
+
+    <div class="cbox">
+      <h3>4. Solving for the ${p4(r.goalUsed)} goal price</h3>
+      ${solve}
+      ${legendHtml}
+    </div>
+
+    ${on.tax ? `<div class="cbox">
+      <h3>5. What the sales tax pass-through costs</h3>
+      <p>The tax is collected from the buyer and remitted, so it never counts as revenue. It does enlarge the base the marketplace bills against, so it has a real cost that belongs in the profit calculation.</p>
+      <table class="ctab"><tbody>
+        <tr><td class="nm">Sales tax collected</td><td class="fm">(list − coupon) × ${p4(rr.t)}</td><td class="rs">${d4(c.tax)}</td></tr>
+        <tr><td class="nm">Fees billed on the sold price</td><td class="fm">commission${ch.f.tsd?' less the top seller discount':''} ${p4(r.commR*(1-rr.tsd))}${ch.f.promo?` + promoted ${p4(rr.promo)}`:''}</td><td class="rs">${p4(r.commR*(1-rr.tsd) + (ch.f.promo?rr.promo:0))}</td></tr>
+        <tr class="tot"><td class="nm">Extra fees caused by the tax</td><td class="fm">tax × that rate × ${U} unit${U===1?'':'s'}</td><td class="rs"><b>${d4(c.tax*(r.commR*(1-rr.tsd) + (ch.f.promo?rr.promo:0))*U)}</b></td></tr>
+      </tbody></table>
+      <p class="foot2">Revenue stays at ${d4(c.revenue)}, the list price only. The ${d4(c.tax)} of tax is not income; its effect on profit is the extra fee above.</p>
+    </div>` : ''}
+
+    <div class="cbox">
+      <h3>${on.tax ? '6' : '5'}. Conventions this channel uses</h3>
+      <ul class="conv">
+        <li><b>Shipping</b> — ${shipSrc}. It is a per-order cost and is not multiplied by units.</li>
+        ${on.coupon && on.tax ? `<li><b>Coupon and tax order</b> — the coupon comes off the gross list price first, then sales tax is charged on the discounted price: tax = (list − coupon) × rate. So the sold price is list × (1 − coupon) × (1 + tax).</li>` : ''}
+        <li><b>Fee bases</b> — ${
+          on.tax ? 'commission and promoted fees apply to the sold price (sale base plus tax). Royalty, card processing, advertising and returns apply to the sale base (list − coupon), which excludes pass-through sales tax because you never keep it.'
+          : on.coupon ? 'every percentage fee applies to the sale base (list − coupon), the amount the buyer actually pays. This channel has no sales tax, so there is no separate sold price.'
+          : 'every percentage fee applies to the list price. This channel has no coupon and no sales tax, so the list price, the sale base and the sold price are all the same number.'}</li>
+        <li><b>Royalty</b> — ${s.roymode === 'usd' ? 'a flat amount per unit' : 'a share of the sale base, because royalty is owed on the amount the item sold for rather than the amount it was listed at'}, taken from ${roySrc.toLowerCase()}.</li>
+        <li><b>Sales tax</b> — ${on.tax ? 'charged on the post-coupon price and remitted, so it is never counted as revenue. It is still part of the profit calculation because commission and promoted fees are billed on the sold price, which includes it.' : 'not modelled on this channel.'}</li>
+        <li><b>Goal</b> — ${r.disc ? `this SKU is discontinued, so it is judged against the ${p4(r.goalUsed)} sell-down goal rather than the channel goal.` : `the channel goal of ${p4(r.goalUsed)}.`}</li>
+        <li><b>Rounding</b> — recommended prices always round <i>up</i>, so rounding can only help the margin, never push it back under goal.</li>
+      </ul>
+    </div>`;
+}
+
+function fmtAny(v){
+  if (Math.abs(v) < 1.5 && Math.abs(v) > 0 && !Number.isInteger(v)) return v.toFixed(6);
+  return Number.isFinite(v) ? v.toFixed(6) : String(v);
+}
+
+/* ---------------- tabs ---------------- */
+function renderTabs(){
+  $('tabs').innerHTML = CHANNELS.map(c => {
+    const on = state.active === c.id;
+    let badge = '';
+    const an = (state.byCh || {})[c.id];
+    if (an){
+      const n = an.filter(r => r.status !== 'pass' && !r.invalid).length;
+      badge = `<span class="badge ${n?'':'zero'}">${n}</span>`;
+    } else if (state.rows.length){
+      badge = `<span class="badge zero" title="No price column for this channel">&ndash;</span>`;
+    }
+    return `<button role="tab" data-ch="${c.id}" aria-selected="${on}">${esc(c.tab)}${badge}</button>`;
+  }).join('') +
+    `<button role="tab" data-ch="__all" aria-selected="${state.active==='__all'}">All channels</button>` +
+    `<button role="tab" data-ch="__calc" aria-selected="${state.active==='__calc'}">Calculation check</button>`;
+}
+
+/* ---------------- ingest ---------------- */
+function autoMap(headers){
+  const m = {}, used = new Set();
+  // Two phases on purpose: every exact header match is claimed first, then the
+  // loose substring candidates fill the gaps. Otherwise a broad candidate on an
+  // early field (priceJSP accepts a bare "price") can swallow a column that a
+  // later field matches exactly, e.g. "AMZ-RAK Price".
+  FIELDS.forEach(f => {
+    for (const c of f.cand){
+      const hit = headers.findIndex((h,i) => !used.has(i) && norm(h) === norm(c));
+      if (hit >= 0){ m[f.key] = hit; used.add(hit); break; }
+    }
+  });
+  FIELDS.forEach(f => {
+    if (m[f.key] !== undefined) return;
+    for (const c of f.cand){
+      const hit = headers.findIndex((h,i) => !used.has(i) && norm(h).indexOf(norm(c)) >= 0);
+      if (hit >= 0){ m[f.key] = hit; used.add(hit); break; }
+    }
+  });
+  // a single generic price column feeds every channel that has none of its own
+  ['priceMCF','priceWM','priceShopify'].forEach(k => {     // Amazon has its own columns, never borrow eBay's
+    if (m[k] === undefined && m.priceJSP !== undefined) m[k] = m.priceJSP;
+  });
+  return m;
+}
+const sheetSig = h => h.map(norm).join('|').slice(0,180);
+
+function handleWorkbook(wb, fileName){
+  let best = null;
+  state.errCells = 0; state.errCols = {};
+  wb.SheetNames.forEach(n => {
+    const ws = wb.Sheets[n];
+    // Formula cells that evaluate to #N/A, #REF! etc. carry an error code as their
+    // value. Blank them so a broken lookup can never be read as a real number.
+    Object.keys(ws).forEach(addr => {
+      if (addr[0] === '!') return;
+      const cell = ws[addr];
+      if (cell && cell.t === 'e'){
+        state.errCells++;
+        const col = XLSX.utils.decode_cell(addr).c;
+        state.errCols[col] = (state.errCols[col]||0) + 1;
+        delete ws[addr];
+      }
+    });
+    const aoa = XLSX.utils.sheet_to_json(ws, {header:1, blankrows:false, raw:true, defval:null});
+    if (!best || aoa.length > best.aoa.length) best = {name:n, aoa};
+  });
+  if (!best || !best.aoa.length) return fail('That file has no readable rows. Check it has a header row and at least one SKU.');
+  ingest(best.aoa, fileName, best.name);
+}
+
+function ingest(aoa, fileName, sheetName){
+  let hdrIdx = 0, bestScore = -1;
+  for (let i = 0; i < Math.min(12, aoa.length); i++){
+    const cells = (aoa[i]||[]).map(norm).filter(Boolean);
+    if (!cells.length) continue;
+    let score = 0;
+    FIELDS.forEach(f => { if (f.cand.some(c => cells.some(h => h === norm(c) || h.indexOf(norm(c)) >= 0))) score++; });
+    if (score > bestScore){ bestScore = score; hdrIdx = i; }
+  }
+  if (bestScore < 2) return fail('No header row recognized. The sheet needs at least SKU, cost and one price column.');
+
+  state.headers = (aoa[hdrIdx]||[]).map((h,i) => (h == null || String(h).trim() === '') ? ('Column ' + (i+1)) : String(h).trim());
+  state.raw = aoa.slice(hdrIdx+1).filter(r => r && r.some(c => c !== null && c !== undefined && String(c).trim() !== ''));
+  const saved = state.savedMaps[sheetSig(state.headers)];
+  state.mapRemembered = !!saved;
+  state.map = saved ? Object.assign({}, saved) : autoMap(state.headers);
+  state.fileName = fileName; state.sheetName = sheetName || '';
+  state.restoredRows = false;
+
+  const missing = FIELDS.filter(f => f.req && state.map[f.key] === undefined).map(f => f.label);
+  if (missing.length){
+    buildRows(); collectBrands(); renderMapper(); $('mapper').classList.remove('hide'); showResults();
+    $('fileBar').innerHTML = `<strong>${esc(fileName)}</strong> loaded &mdash; map these to continue: ${esc(missing.join(', '))}`;
+    $('kpis').innerHTML = ''; $('tbody').innerHTML = ''; $('thead').innerHTML = '';
+    return;
+  }
+  buildRows(); collectBrands(); renderMapper(); $('mapper').classList.add('hide');
+  if (!state.mapRemembered) rememberMap();
+  showResults(); refresh(true); saveState();
+}
+
+function buildRows(){
+  const m = state.map, pick = (r,k) => m[k] === undefined ? null : r[m[k]];
+  state.rows = (state.raw||[]).map(r => ({
+    sku: pick(r,'sku') == null ? '' : String(pick(r,'sku')).trim(),
+    name: pick(r,'name') == null ? '' : String(pick(r,'name')).trim(),
+    cost: parseNum(pick(r,'cost')),
+    priceJSP: parseNum(pick(r,'priceJSP')),
+    priceMCF: parseNum(pick(r,'priceMCF')),
+    priceWM: parseNum(pick(r,'priceWM')),
+    priceShopify: parseNum(pick(r,'priceShopify')),
+    shipping: parseNum(pick(r,'shipping')) || 0,
+    mcfShip: parseNum(pick(r,'mcfShip')),
+    mcfFreight: parseNum(pick(r,'mcfFreight')),
+    royalty: parseNum(pick(r,'royalty')),
+    units: parseNum(pick(r,'units')),
+    ppc: parseNum(pick(r,'ppc')),
+    fvfFixed: parseNum(pick(r,'fvfFixed')),
+    priceFBM: parseNum(pick(r,'priceFBM')),
+    priceFBA: parseNum(pick(r,'priceFBA')),
+    fbaFee: parseNum(pick(r,'fbaFee')),
+    fbaClass: pick(r,'fbaClass') == null ? '' : String(pick(r,'fbaClass')).trim(),
+    asin: pick(r,'asin') == null ? '' : String(pick(r,'asin')).trim(),
+    amzCategory: pick(r,'amzCategory') == null ? '' : String(pick(r,'amzCategory')).trim(),
+    amzItemType: pick(r,'amzItemType') == null ? '' : String(pick(r,'amzItemType')).trim(),
+    amzCommission: parseNum(pick(r,'amzCommission')),
+    brand: pick(r,'brand') == null ? '' : String(pick(r,'brand')).trim(),
+    invRaw: pick(r,'invStatus') == null ? '' : String(pick(r,'invStatus')).trim(),
+    invStatus: parseStatus(pick(r,'invStatus')),
+    available: parseNum(pick(r,'available'))
+  })).filter(r => r.sku !== '' || r.priceJSP != null);
+}
+
+function rememberMap(){
+  if (!state.headers.length) return;
+  state.savedMaps[sheetSig(state.headers)] = state.map;
+  const keys = Object.keys(state.savedMaps);
+  if (keys.length > 25) delete state.savedMaps[keys[0]];
+  saveState();
+}
+
+function renderMapper(){
+  if (!state.headers.length) return;
+  $('mapCols').innerHTML = FIELDS.map(f => {
+    const opts = ['<option value="-1">Not in sheet</option>'].concat(
+      state.headers.map((h,i) => `<option value="${i}" ${state.map[f.key]===i?'selected':''}>${esc(h)}</option>`)).join('');
+    return `<div class="mrow"><label for="map_${f.key}">${f.label}${f.req?'':' <span class="muted">(opt)</span>'}</label>
+      <select id="map_${f.key}" data-k="${f.key}">${opts}</select></div>`;
+  }).join('');
+  $('mapCols').querySelectorAll('select').forEach(sel => sel.addEventListener('change', e => {
+    const k = e.target.dataset.k, v = parseInt(e.target.value,10);
+    if (v < 0) delete state.map[k]; else state.map[k] = v;
+    rememberMap(); buildRows(); collectBrands(); renderRail(); refresh(true);
+  }));
+}
+
+function fail(msg){ $('errBox').textContent = msg; $('errBox').classList.remove('hide'); }
+function showResults(){ $('errBox').classList.add('hide'); $('intake').classList.add('hide'); $('results').classList.remove('hide'); }
+
+/* ---------------- refresh ---------------- */
+function computeAll(){
+  state.byCh = {};
+  if (!state.rows.length){ state.an = []; return; }
+  CHANNELS.forEach(c => { if (channelActive(c.id)) state.byCh[c.id] = analyzeAll(c.id); });
+  state.an = (state.active === '__all' || state.active === '__calc') ? [] : (state.byCh[state.active] || []);
+}
+
+function refresh(rebuildBar){
+  computeAll();
+  renderBrandPick();
+  renderTabs();
+  const calc = state.active === '__calc';
+  ['kpis','toolbar','tableWrap','foot'].forEach(id => $(id).classList.toggle('hide', calc));
+  $('calcWrap').classList.toggle('hide', !calc);
+  if (calc) renderCalc(); else { renderKpis(); renderTable(); }
+  if (rebuildBar) renderFileBar();
+  const nEdits = CHANNELS.reduce((t,c) => t + Object.keys(state.over[c.id]||{}).length, 0);
+  $('btnClearEdits').classList.toggle('hide', nEdits === 0);
+  $('btnClearEdits').textContent = 'Clear ' + nEdits + ' edit' + (nEdits === 1 ? '' : 's');
+}
+
+/* Explain, in the user's own column names, why a value could not be used. */
+function diagnose(){
+  const n = state.rows.length;
+  if (!n) return {problems:[], notes:[], errCells:0, linkish:false};
+  const problems = [], notes = [];
+  state.linkish = false;
+  const hdr = k => esc(state.headers[state.map[k]] || k);
+  const blanks = k => state.rows.filter(r => r[k] == null).length;
+  const errsIn = k => (state.map[k] !== undefined && state.errCols) ? (state.errCols[state.map[k]] || 0) : 0;
+
+  const check = (k, level) => {
+    if (state.map[k] === undefined) return null;
+    const b = blanks(k), e = errsIn(k);
+    if (!b) return null;
+    const why = !e ? 'the cells are empty'
+      : e === b ? (e === 1 ? 'it is a formula error such as #N/A' : 'they are formula errors such as #N/A')
+      : `${e} ${e === 1 ? 'is a formula error' : 'are formula errors'} and the rest are formulas with no saved result`;
+    if (b === n) state.linkish = true;
+    (level === 'problem' ? problems : notes).push(
+      `<b>${hdr(k)}</b> could not be read for ${b} of ${n} rows &mdash; ${why}.`);
+    return b;
+  };
+
+  check('cost', 'problem');
+  CHANNELS.forEach(c => {
+    if (c.price !== 'priceJSP' && state.map[c.price] !== undefined && state.map[c.price] === state.map.priceJSP){
+      notes.push(`No dedicated price column for <b>${esc(c.name)}</b>, so it is reading the <b>${hdr('priceJSP')}</b> column.`);
+    }
+    if (state.map[c.price] === undefined){
+      notes.push(`No price column for <b>${esc(c.name)}</b>, so that channel is skipped.`);
+      return;
+    }
+    const b = blanks(c.price);
+    if (!b) return;
+    const s = state.settings[c.id];
+    const canFall = c.f.fb && s.priceFallback && c.fbTo && state.map[c.fbTo] !== undefined;
+    const fell = canFall ? state.rows.filter(r => r[c.price] == null && r[c.fbTo] != null).length : 0;
+    const bare = b - fell;
+    if (fell) notes.push(`<b>${hdr(c.price)}</b> is blank for ${fell} of ${n} rows, so ${esc(c.tab)} uses <b>${hdr(c.fbTo)}</b> for those SKUs.`);
+    if (bare) notes.push(`<b>${hdr(c.price)}</b> is blank for ${bare} of ${n} rows${fell?' with no '+hdr(c.fbTo)+' to fall back on':''}. Those are treated as unpriced new items on ${esc(c.tab)} and given a launch price.`);
+  });
+  check('shipping', 'problem');
+  check('available', 'note');
+  check('mcfShip', 'note');
+  check('mcfFreight', 'note');
+
+  if (state.map.invStatus === undefined) notes.push('No <b>Inventory Status (ERP)</b> column, so no SKU is flagged as discontinued.');
+  else {
+    const unk = state.rows.filter(r => !r.invStatus).length;
+    const other = state.rows.filter(r => r.invStatus === 'other').length;
+    if (unk) notes.push(`<b>${hdr('invStatus')}</b> is blank for ${unk} of ${n} rows, so those are treated as active.`);
+    if (other) notes.push(`<b>${hdr('invStatus')}</b> has ${other} value${other===1?'':'s'} that read as neither active nor discontinued; they are treated as active and shown on the SKU line.`);
+  }
+  if (state.map.ppc === undefined) notes.push('No <b>PPC Fee</b> column, so each channel uses its PPC setting.');
+  if (state.map.units === undefined) notes.push('No <b>Total Units</b> column, so every SKU is treated as one unit per order.');
+  if (state.map.royalty === undefined) notes.push('No <b>Royalty</b> column, so the brand table and channel defaults are used.');
+  if (state.map.brand === undefined) notes.push('No <b>Brand</b> column, so brand filtering, brand royalties and per-channel brand availability are unavailable.');
+  if (channelActive('fba')){
+    if (state.map.fbaFee === undefined) problems.push('No <b>FBA Fulfillment Cost</b> column, so Amazon FBA carries inbound freight only and its margins are overstated.');
+    else { const b = blanks('fbaFee'); if (b) problems.push(`<b>${hdr('fbaFee')}</b> is blank for ${b} of ${n} rows, so FBA margin is overstated for those SKUs.`); }
+  }
+  if (channelActive('fba') || channelActive('fbm')){
+    if (state.map.amzCommission === undefined) notes.push('No <b>Amazon Category Commission</b> column, so both Amazon channels use their commission setting.');
+    else { const b = blanks('amzCommission'); if (b) notes.push(`<b>${hdr('amzCommission')}</b> is blank for ${b} of ${n} rows, so those fall back to the channel commission setting.`); }
+    if (state.map.asin === undefined) notes.push('No <b>Amazon ASIN</b> column, so listing links are unavailable on the Amazon tabs.');
+  }
+  else {
+    const noBrand = state.rows.filter(r => !r.brand).length;
+    if (noBrand) notes.push(`<b>${hdr('brand')}</b> is blank for ${noBrand} of ${n} rows; those SKUs cannot use a brand royalty and are hidden whenever a brand filter is on.`);
+    const src = (state.settings[state.active] || state.settings.jsp).royaltySource;
+    if (src === 'brand'){
+      const unset = state.brandList.filter(b => brandRoyaltyFor(b) == null);
+      if (unset.length) notes.push(`Brand table is set to win, but ${unset.length} of ${state.brandList.length} brand${unset.length===1?'':'s'} have no royalty configured, so those fall back to the sheet column or the channel default.`);
+    }
+  }
+
+  return {problems, notes, errCells: state.errCells || 0, linkish: !!state.linkish};
+}
+
+function renderDiag(){
+  const d = diagnose();
+  const box = $('warnBar');
+  if (!d.problems.length && !d.notes.length){ box.classList.add('hide'); box.innerHTML = ''; return; }
+  let html = '';
+  if (d.problems.length){
+    html += `<div class="diag bad"><h4>${d.problems.length} thing${d.problems.length===1?'':'s'} to fix in the import</h4><ul>` +
+      d.problems.map(p => '<li>' + p + '</li>').join('') + '</ul>';
+    if (d.errCells || d.linkish) html += `<p class="fix">${d.errCells?'This sheet has '+d.errCells+' formula error cell'+(d.errCells===1?'':'s')+', and a':'A'}n entire column came back empty. That is the signature of lookups pointing at another workbook: once the file is detached from its source, the formulas resolve to nothing. In Excel, select the affected columns, copy, then Paste Special &rarr; Values, save, and re-import.</p>`;
+    html += '</div>';
+  }
+  if (d.notes.length){
+    html += `<details class="diag note" ${d.problems.length?'':'open'}><summary>${d.notes.length} assumption${d.notes.length===1?'':'s'} the tool made</summary><ul>` +
+      d.notes.map(p => '<li>' + p + '</li>').join('') + '</ul></details>';
+  }
+  box.innerHTML = html;
+  box.classList.remove('hide');
+}
+
+function renderFileBar(){
+  const parts = [`<strong>${esc(state.fileName || 'No file')}</strong>`];
+  if (state.sheetName) parts.push('sheet ' + esc(state.sheetName));
+  parts.push(state.rows.length + ' rows');
+  $('fileBar').innerHTML = parts.join(' &middot; ') +
+    ` &nbsp;<button class="btn ghost sm" id="btnMap">Column mapping</button>` +
+    (state.restoredRows ? ' <span>Restored from your last session</span>' : '') +
+    (state.mapRemembered ? ' <span>Mapping reused from this layout</span>' : '');
+  $('btnMap').addEventListener('click', () => $('mapper').classList.toggle('hide'));
+
+  renderDiag();
+}
+
+/* ---------------- KPIs ---------------- */
+function renderKpis(){
+  if (state.active === '__all') return renderKpisAll();
+  const ch = CH[state.active], s = state.settings[ch.id], goal = (s.goal||0)/100;
+  if (!channelActive(ch.id)){
+    $('kpis').innerHTML = `<div class="kpi"><div class="k">${esc(ch.name)}</div><div class="v">&mdash;</div>
+      <div class="s">No price column mapped for this channel. Open column mapping to point it at one.</div></div>`;
+    return;
+  }
+  const bad = state.an.filter(r => r.invalid);
+  const newItems = state.an.filter(r => r.unpriced);
+  const a = state.an.filter(r => !r.invalid && !r.unpriced);   // priced catalogue only
+  const rev = a.reduce((t,r) => t + r.cur.revenue, 0), net = a.reduce((t,r) => t + r.net, 0);
+  const under = a.filter(r => r.status !== 'pass'), losing = a.filter(r => r.status === 'loss');
+  const disc = a.filter(r => r.disc), discUnder = under.filter(r => r.disc);
+  const activeUnder = under.filter(r => !r.disc);
+  const live = a.filter(r => !r.disc);
+  const liveRev = live.reduce((t,r) => t + r.cur.revenue, 0), liveNet = live.reduce((t,r) => t + r.net, 0);
+  const discDrag = disc.reduce((t,r) => t + Math.min(0, r.net), 0);
+  const discUnits = disc.reduce((t,r) => t + (r.avail||0), 0);
+  const fixable = activeUnder.filter(r => r.achievable);
+  const projNet = a.reduce((t,r) => t + (r.status !== 'pass' && r.recCalc ? r.recCalc.net : r.net), 0);
+  const projRev = a.reduce((t,r) => t + (r.status !== 'pass' && r.recCalc ? r.recCalc.revenue : r.cur.revenue), 0);
+  const avgLift = fixable.length ? fixable.reduce((t,r) => t + (r.deltaPct||0), 0)/fixable.length : 0;
+  const oos = a.filter(r => r.oos).length;
+  const newFixable = newItems.filter(r => r.achievable && r.rec != null);
+  $('kpis').innerHTML = [
+    `<div class="kpi"><div class="k">Priced SKUs on ${esc(ch.tab)}</div><div class="v">${a.length}</div><div class="s">${losing.length} at a loss${oos?', '+oos+' with no stock':''}${bad.length?', '+bad.length+' missing cost':''}</div></div>`,
+    `<div class="kpi ${newItems.length?'newk':''}"><div class="k">Needs pricing</div><div class="v">${newItems.length}</div>
+      <div class="s">${newItems.length?(newFixable.length===newItems.length?'launch prices ready':newFixable.length+' with a launch price'):'every SKU has a price'}</div></div>`,
+    `<div class="kpi ${activeUnder.length?'flag':'ok'}"><div class="k">Active SKUs below ${pct(goal,0)}</div><div class="v">${activeUnder.length}</div>
+      <div class="s">${discUnder.length?discUnder.length+' more are in sell down':(live.length?pct(activeUnder.length/Math.max(live.length,1),0)+' of active SKUs':'&nbsp;')}</div></div>`,
+    `<div class="kpi ${net<0?'flag':''}"><div class="k">Blended net GM%</div><div class="v">${rev?pct(net/rev):'&mdash;'}</div>
+      <div class="s">${liveRev&&disc.length?pct(liveNet/liveRev)+' excluding sell down':money(net)+' net margin today'}</div></div>`,
+    `<div class="kpi ok"><div class="k">After repricing</div><div class="v">${projRev?pct(projNet/projRev):'&mdash;'}</div><div class="s">${money(projNet-net)} margin recovered</div></div>`,
+    `<div class="kpi"><div class="k">Average lift needed</div><div class="v">${fixable.length?pct(avgLift,0):'&mdash;'}</div><div class="s">across ${fixable.length} active SKU${fixable.length===1?'':'s'}</div></div>`,
+    `<div class="kpi ${disc.length?'sell':''}"><div class="k">Discontinued</div><div class="v">${disc.length}</div>
+      <div class="s">${disc.length?`${discUnits} units on hand${discDrag<0?', '+money(discDrag)+' drag':''}`:'none flagged in the file'}</div></div>`
+  ].join('');
+}
+
+function renderKpisAll(){
+  $('kpis').innerHTML = CHANNELS.map(c => {
+    if (!channelActive(c.id)) return `<div class="kpi"><div class="k">${esc(c.tab)}</div><div class="v">&mdash;</div><div class="s">no price column</div></div>`;
+    const an = ((state.byCh||{})[c.id]||[]).filter(r => !r.invalid);
+    const rev = an.reduce((t,r) => t + r.cur.revenue, 0), net = an.reduce((t,r) => t + r.net, 0);
+    const under = an.filter(r => r.status !== 'pass').length;
+    return `<div class="kpi ${under?'flag':'ok'}"><div class="k">${esc(c.tab)}</div><div class="v">${rev?pct(net/rev):'&mdash;'}</div>
+      <div class="s">${under} of ${an.length} below ${pct((state.settings[c.id].goal||0)/100,0)}</div></div>`;
+  }).join('');
+}
+
+/* ---------------- table ---------------- */
+const COLS = [
+  {k:'sku',t:'SKU',l:true},{k:'name',t:'Item name',l:true},{k:'brand',t:'Brand',l:true},{k:'avail',t:'Avail units'},{k:'cost',t:'Cost'},
+  {k:'price',t:'List price',edit:'price'},{k:'sold',t:'Sold'},{k:'alloc',t:'Fees + alloc'},
+  {k:'ship',t:'Shipping',edit:'ship'},{k:'net',t:'Net margin $'},{k:'gm',t:'Net GM%'},
+  {k:'status',t:'Status',l:true},{k:'rec',t:'New price'},{k:'delta',t:'Change'},{k:'recgm',t:'New GM%'}
+];
+const sortVal = (r,k) => {
+  const nil = r.invalid || r.unpriced;
+  return {sku:r.sku, name:r.name, brand:r.brand, avail:r.avail, cost:r.cost,
+    price: nil ? null : r.price, sold: nil ? null : r.cur.sold, alloc: nil ? null : r.cur.alloc,
+    ship:r.ship, net: nil ? null : r.net, gm: nil ? null : r.gm, status:r.status,
+    rec:r.rec, delta:r.delta, recgm:r.recCalc?r.recCalc.gm:null}[k];
+};
+
+function visible(){
+  const q = state.q.toLowerCase();
+  return (state.an||[]).filter(r => {
+    if (state.filter === 'below' && !(r.status === 'below' || r.status === 'loss')) return false;
+    if (state.filter === 'loss' && r.unpriced) return false;
+    if (state.filter === 'loss' && r.status !== 'loss') return false;
+    if (state.filter === 'pass' && r.status !== 'pass') return false;
+    if (state.filter === 'invalid' && !r.invalid) return false;
+    if (state.filter === 'unpriced' && !r.unpriced) return false;
+    if (state.filter === 'edited' && !r.edited) return false;
+    if (state.filter === 'disc' && !r.disc) return false;
+    if (state.filter === 'oos' && !r.oos) return false;
+    if (q && (r.sku+' '+r.name+' '+r.brand+' '+(r.asin||'')+' '+(r.amzCategory||'')+' '+(r.amzItemType||'')+' '+(r.fbaClass||'')).toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  }).sort((a,b) => {
+    let x = sortVal(a,state.sort.key), y = sortVal(b,state.sort.key);
+    if (x == null) return 1; if (y == null) return -1;
+    if (typeof x === 'string') return x.localeCompare(y)*state.sort.dir;
+    return (x - y)*state.sort.dir;
+  });
+}
+
+function renderTable(){
+  const hid = state.active !== '__all' && state.settings[state.active].hideDisc;
+  const dbtn = $('segs').querySelector('[data-f="disc"]');
+  if (dbtn){
+    dbtn.classList.toggle('hide', !!hid);
+    if (hid && state.filter === 'disc'){ state.filter = 'all'; [...$('segs').children].forEach(x => x.setAttribute('aria-pressed', x.dataset.f === 'all')); }
+  }
+  if (state.active === '__all') return renderTableAll();
+  const ch = CH[state.active];
+  if (!channelActive(ch.id)){ $('thead').innerHTML = ''; $('tbody').innerHTML = ''; $('foot').innerHTML = ''; return; }
+  $('thead').innerHTML = '<tr>' + COLS.map(c => {
+    const t = c.k === 'ship' && ch.ship === 'mcf' ? 'Shipping (MCF)' : c.t;
+    return `<th class="${c.l?'l':''}" data-k="${c.k}">${t}${state.sort.key===c.k?` <span class="dir">${state.sort.dir>0?'▲':'▼'}</span>`:''}</th>`;
+  }).join('') + '</tr>';
+  const rows = visible(), slice = rows.slice(0, state.limit);
+  $('tbody').innerHTML = slice.map((r,i) => rowHtml(r,i)).join('') ||
+    `<tr><td class="l muted" colspan="${COLS.length}">No SKUs match this filter.</td></tr>`;
+  const nUnder = (state.an||[]).filter(r => r.status !== 'pass' && !r.invalid).length;
+  $('foot').innerHTML = `Showing ${slice.length} of ${rows.length} matching SKUs${rows.length>slice.length?` &mdash; <button class="btn ghost sm" id="btnMore">Show all ${rows.length}</button>`:''}
+    &nbsp;&middot;&nbsp; List price and shipping are editable, and the row recalculates as you type. Click a SKU to open its fee breakdown.
+    ${nUnder} SKU${nUnder===1?'':'s'} would export in the change report.
+    ${scopeNote()}`;
+  if ($('btnMore')) $('btnMore').addEventListener('click', () => { state.limit = 1e9; renderTable(); });
+}
+
+function scopeNote(){
+  const bits = [];
+  if (brandFiltered()) bits.push(`Brand filter is on, so ${(state.brandSel||[]).length} of ${state.brandList.length} brands are in scope for the table, the totals above and every export.`);
+  if (state.active !== '__all'){
+    const off = state.brandList.filter(b => brandBlocked(state.active, b));
+    if (off.length){
+      const hidden = state.rows.filter(r => brandOk(r) && brandBlocked(state.active, r.brand)).length;
+      bits.push(`${off.length} brand${off.length===1?'':'s'} turned off for this channel (${off.join(', ')}), removing ${hidden} SKU${hidden===1?'':'s'}.`);
+    }
+  }
+  if (state.active !== '__all' && state.settings[state.active].hideDisc){
+    const hidden = state.rows.filter(r => brandOk(r) && r.invStatus === 'disc').length;
+    bits.push(`Discontinued SKUs are hidden on this channel, so ${hidden} row${hidden===1?'':'s'} ${hidden===1?'is':'are'} excluded everywhere.`);
+  }
+  return bits.length ? '<br><span class="scope">' + bits.join(' ') + '</span>' : '';
+}
+
+function rowHtml(r,i){
+  const dash = '<span class="muted">&mdash;</span>';
+  const tag = r.invalid ? '<span class="tag na">Check data</span>'
+    : r.unpriced ? '<span class="tag new">Needs pricing</span>'
+    : r.status === 'pass' ? `<span class="tag pass">${r.disc?'At sell-down goal':'At goal'}</span>`
+    : r.status === 'loss' ? '<span class="tag loss">Losing money</span>'
+    : `<span class="tag below">${r.disc?'Below sell-down':'Below goal'}</span>`;
+  const show = r.status !== 'pass' && !r.invalid;
+  const blank = r.invalid || r.unpriced;   // no current price means no current margin
+  const ov = (state.over[state.active]||{})[r.sku] || {};
+  const life = r.disc ? '<span class="pill disc" title="Discontinued in ERP: sell down or liquidation">Sell down</span>'
+    : (r.invStatus === 'other' && r.invRaw ? `<span class="pill other" title="Unrecognized ERP status">${esc(r.invRaw)}</span>` : '');
+  const stock = r.avail == null ? dash
+    : (r.oos ? '<span class="pill oos" title="No pickable units on hand">0</span>'
+             : (r.low ? `<span class="pill low" title="At or below the low-stock flag">${r.avail}</span>` : String(r.avail)));
+  const asin = (CH[state.active].f.asin && r.asin)
+    ? ` <a class="asin" href="https://www.amazon.com/dp/${encodeURIComponent(r.asin)}" target="_blank" rel="noopener" title="Open ${esc(r.asin)} on Amazon">${esc(r.asin)}</a>` : '';
+  return `<tr class="${r.status}${r.disc?' disc':''}" data-sku="${esc(r.sku)}" data-i="${i}">
+    <td class="l sku"><button class="expand" title="Fee breakdown">▸</button> ${esc(r.sku)||dash}${asin}${life}</td>
+    <td class="l name" title="${esc(r.name)}">${esc(r.name)||dash}</td>
+    <td class="l brand">${esc(r.brand)||dash}</td>
+    <td>${stock}</td>
+    <td>${r.cost!=null?money(r.cost):dash}</td>
+    <td class="editcell ${ov.price!=null?'edited':''} ${r.fellBack?'fellback':''}"${r.fellBack?' title="Blank on this channel, using the eBay list price"':''}><input class="cell" data-sku="${esc(r.sku)}" data-k="price" type="number" step="0.01" min="0" value="${r.unpriced?'':r.price.toFixed(2)}" ${r.unpriced&&r.rec!=null?`placeholder="${r.rec.toFixed(2)}"`:''}></td>
+    <td>${blank?dash:money(r.cur.sold)}</td>
+    <td>${blank?dash:money(r.cur.alloc)}</td>
+    <td class="editcell ${ov.ship!=null?'edited':''}"><input class="cell" data-sku="${esc(r.sku)}" data-k="ship" type="number" step="0.01" min="0" value="${r.ship.toFixed(2)}"></td>
+    <td class="${r.net<0?'neg':'pos'}">${blank?dash:money(r.net)}</td>
+    <td class="${r.gm<r.goalUsed?'neg':'pos'}">${blank?dash:pct(r.gm)}</td>
+    <td class="l">${tag}</td>
+    <td>${!show?dash:(r.achievable?`<span class="rec">${money(r.rec)}</span>`:'<span class="tag na">Unreachable</span>')}</td>
+    <td>${!show||!r.achievable?dash:(r.unpriced?'<span class="muted">new</span>':`${money(r.delta)}<span class="muted"> ${r.deltaPct!=null?'('+pct(r.deltaPct,0)+')':''}</span>`)}</td>
+    <td>${!show||!r.recCalc?dash:`<span class="pos">${pct(r.recCalc.gm)}</span>`}</td>
+  </tr>`;
+}
+
+function renderTableAll(){
+  const live = CHANNELS.filter(c => channelActive(c.id));
+  const ans = {}; live.forEach(c => { ans[c.id] = {}; ((state.byCh||{})[c.id]||[]).forEach(r => ans[c.id][r.sku] = r); });
+  let h1 = '<tr><th class="l" colspan="5">SKU</th>' + live.map(c => `<th class="grp" colspan="3">${esc(c.tab)}</th>`).join('') + '</tr>';
+  let h2 = '<tr><th class="l">SKU</th><th class="l">Item name</th><th class="l">Brand</th><th>Avail</th><th>Cost</th>' +
+    live.map(() => '<th class="grpstart">List</th><th>Net GM%</th><th>New price</th>').join('') + '</tr>';
+  $('thead').innerHTML = h1 + h2;
+  const q = state.q.toLowerCase();
+  const rows = state.rows.filter(r => brandOk(r) &&
+    (!q || (r.sku + ' ' + r.name + ' ' + r.brand).toLowerCase().indexOf(q) >= 0));
+  const slice = rows.slice(0, state.limit);
+  $('tbody').innerHTML = slice.map(row => {
+    const cells = live.map(c => {
+      if (brandBlocked(c.id, row.brand)) return `<td class="grpstart muted" title="${esc(row.brand)} is turned off for ${esc(c.tab)}">not sold</td><td class="muted">&mdash;</td><td class="muted">&mdash;</td>`;
+      const r = ans[c.id][row.sku];
+      if (!r || r.invalid) return `<td class="grpstart muted">&mdash;</td><td class="muted">&mdash;</td><td class="muted">&mdash;</td>`;
+      if (r.unpriced) return `<td class="grpstart"><span class="tag new">New</span></td><td class="muted">&mdash;</td>
+        <td>${r.achievable?`<span class="rec">${money(r.rec)}</span>`:'<span class="tag na">n/a</span>'}</td>`;
+      const goal = (state.settings[c.id].goal||0)/100;
+      return `<td class="grpstart">${money(r.price)}${r.edited?'<span class="editflag">•</span>':''}</td>
+        <td class="${r.gm<goal?'neg':'pos'}">${pct(r.gm)}</td>
+        <td>${r.status==='pass'?'<span class="muted">&mdash;</span>':(r.achievable?`<span class="rec">${money(r.rec)}</span>`:'<span class="tag na">n/a</span>')}</td>`;
+    }).join('');
+    const d = row.invStatus === 'disc';
+    const life = d ? '<span class="pill disc">Sell down</span>' : '';
+    const stock = row.available == null ? '<span class="muted">&mdash;</span>'
+      : (row.available <= 0 ? '<span class="pill oos">0</span>' : String(row.available));
+    return `<tr class="${d?'disc':''}"><td class="l sku">${esc(row.sku)}${life}</td>
+      <td class="l name" title="${esc(row.name)}">${esc(row.name)}</td>
+      <td class="l brand">${esc(row.brand)||'<span class="muted">&mdash;</span>'}</td>
+      <td>${stock}</td>
+      <td>${row.cost!=null?money(row.cost):'<span class="muted">&mdash;</span>'}</td>${cells}</tr>`;
+  }).join('') || `<tr><td class="l muted" colspan="${3+live.length*3}">No SKUs match this filter.</td></tr>`;
+  $('foot').innerHTML = `Showing ${slice.length} of ${rows.length} SKUs across ${live.length} channel${live.length===1?'':'s'}.
+    Each channel uses its own price column, goal and fee structure. Open a channel tab to edit prices or export.
+    ${scopeNote()}`;
+}
+
+/* ---------------- detail ---------------- */
+function catStrip(r, ch){
+  const bits = [];
+  if (r.brand) bits.push(['Brand', esc(r.brand)]);
+  if (ch.f.asin && r.asin) bits.push(['ASIN', `<a class="asin" href="https://www.amazon.com/dp/${encodeURIComponent(r.asin)}" target="_blank" rel="noopener">${esc(r.asin)}</a>`]);
+  if (r.amzCategory) bits.push(['Amazon category', esc(r.amzCategory)]);
+  if (r.amzItemType) bits.push(['Item type', esc(r.amzItemType)]);
+  if (r.fbaClass) bits.push(['FBA class', esc(r.fbaClass)]);
+  if (r.invRaw) bits.push(['ERP status', esc(r.invRaw)]);
+  if (!bits.length) return '';
+  return '<div class="cats">' + bits.map(b => `<span><i>${b[0]}</i>${b[1]}</span>`).join('') + '</div>';
+}
+
+function detailHtml(r){
+  const ch = CH[state.active], s = state.settings[ch.id], rr = rates(ch,s);
+  const proposed = r.unpriced && r.recCalc;          // nothing to show at a $0 list price
+  const c = proposed ? r.recCalc : r.cur;
+  const outflow = c.alloc + r.ship + num(r.cost)*r.units;
+  const scale = Math.max(c.revenue, outflow, 0.01);
+  const seg = v => Math.max(0, v/scale*100);
+  const costW = seg(num(r.cost)*r.units), feeW = seg(c.alloc), shipW = seg(r.ship);
+  const profitW = c.net > 0 ? seg(c.net) : 0, revLine = seg(c.revenue);
+  const L = (a,b,cls) => `<tr class="${cls||''}"><td>${a}</td><td>${b}</td></tr>`;
+
+  let led = L('List price × ' + r.units + ' unit' + (r.units===1?'':'s'), money(c.revenue));
+  if (ch.f.coupon && rr.c > 0) led += L('Coupon discount (' + pct(rr.c,1) + ' of list)', '-' + money(c.coupon*r.units), 'sub');
+  if (ch.f.tax && rr.t > 0) led += L('Sales tax (' + pct(rr.t,2) + ' of the post-coupon price), passed through', money(c.tax*r.units), 'sub');
+  if (ch.f.tax && rr.t > 0) led += L('<b>Sold price</b> <span class="hintx">(fee base, includes tax)</span>', money(c.sold));
+  if (ch.f.comm) led += L('Category commission (' + pct(r.commR,1) + (r.commFrom === 'sheet' ? ', from the sheet' : '') + ')', '-' + money(c.comm*r.units), 'sub');
+  if (ch.f.tsd) led += L('Top seller discount (' + pct(rr.tsd,0) + ' of the fee, credited back)', '+' + money(c.tsd*r.units), 'sub');
+  if (ch.f.fvf) led += L('Final value fee, fixed', '-' + money(r.fvfFixedUsed*r.units), 'sub');
+  if (ch.f.promo) led += L('Promoted listing fee (' + pct(rr.promo,1) + ')', '-' + money(c.promo*r.units), 'sub');
+  if (ch.f.cc){
+    led += L('Card processing (' + pct(rr.ccPct,2) + ' of sale)', '-' + money(c.ccVar*r.units), 'sub');
+    led += L('Card fee per order', '-' + money(c.ccFlat), 'sub');
+  }
+  if (c.roy > 0) led += L('Royalty (' + (s.roymode === 'usd' ? money(r.royFlat) + '/unit' : pct(r.royRate,1) + ' of sale') + ')', '-' + money(c.roy*r.units), 'sub');
+  if (rr.ret > 0) led += L('Returns and warranty (' + pct(rr.ret,1) + ' of sale)', '-' + money(c.ret*r.units), 'sub');
+  if (ch.f.ad && rr.ad > 0) led += L('Advertising (' + pct(rr.ad,1) + ' of sale)', '-' + money(c.ad*r.units), 'sub');
+  if (ch.f.ppc) led += L('PPC fee', '-' + money(c.ppc), 'sub');
+  led += L('Total fees and allocations', '-' + money(c.alloc));
+  led += L(ch.ship === 'mcf'
+    ? 'Shipping: MCF ' + money(num(r.mcfShip)) + ' + freight ' + money(num(r.mcfFreight))
+    : ch.ship === 'fba'
+    ? 'Shipping: FBA ' + money(num(r.fbaFee)) + ' + inbound freight ' + money(num(r.mcfFreight))
+    : 'Shipping cost', '-' + money(r.ship), 'sub');
+  led += L('SKU cost × ' + r.units, '-' + money(num(r.cost)*r.units), 'sub');
+  led += L('<b>Net margin</b>', '<b class="' + (c.net<0?'neg':'pos') + '">' + money(c.net) + ' &nbsp; ' + pct(c.gm) + '</b>', 'tot');
+
+  const stockNote = r.avail == null ? ''
+    : r.oos ? ' There are no pickable units on hand, so this loss is theoretical until stock returns &mdash; consider ending the listing.'
+    : ` ${r.avail} unit${r.avail===1?'':'s'} on hand.`;
+
+  const plan = r.invalid ? `<div class="plan">This SKU has no cost, so ${esc(ch.name)} margin cannot be calculated. Everything else about it is still shown.</div>`
+    : r.unpriced ? `<div class="plan"><b>No ${esc(ch.tab)} price yet.</b> ${r.achievable
+        ? `Launch at <b>${money(r.rec)}</b> to open at ${pct(r.recCalc.gm)} net GM and ${money(r.recCalc.net)} net margin per order. The breakdown below is at that price.`
+        : `A ${pct(r.goalUsed,0)} goal is unreachable here: rate-based fees and allocations take ${pct(r.feeRate)} of every dollar.`}${stockNote}</div>`
+    : r.disc ? `<div class="plan sell"><b>Discontinued in ERP</b> &mdash; sell down or liquidation.${stockNote}
+        ${r.status === 'pass'
+          ? `It clears the ${pct(r.goalUsed,0)} sell-down goal at ${pct(c.gm)}, so let it run out.`
+          : (c.net < 0
+            ? `It is ${money(-c.net)} underwater per order, which is often expected while clearing stock rather than a pricing error. Reaching the ${pct(r.goalUsed,0)} sell-down goal would take ${r.achievable?money(r.rec):'a price no market will bear'}; weigh that against moving the remaining ${r.avail!=null?r.avail+' units':'stock'} through liquidation, bundling, or writing the loss off.`
+            : `At ${pct(c.gm)} it sits under the ${pct(r.goalUsed,0)} sell-down goal.${r.achievable?' Break-even-plus pricing would be '+money(r.rec)+'.':''}`)}</div>`
+    : r.status === 'pass' ? `<div class="plan">Clears the ${pct(r.goalUsed,0)} goal with ${pct(c.gm-r.goalUsed)} to spare. Target profit of ${money(r.targetProfit)} is ${r.hitsTarget?'met':'not met'}.${stockNote}</div>`
+    : r.achievable ? `<div class="plan">Reprice to <b>${money(r.rec)}</b> (from ${money(c.price)}${r.deltaPct!=null?', '+pct(r.deltaPct,1)+' lift':''}) for <b>${pct(r.recCalc.gm)}</b> net GM and <b>${money(r.recCalc.net)}</b> net margin. Fees and allocations scale to ${money(r.recCalc.alloc)}.${stockNote}</div>`
+    : `<div class="plan">No price reaches ${pct(r.goalUsed,0)} on this channel. Rate-based fees and allocations alone take ${pct(r.feeRate)} of every dollar.${stockNote}</div>`;
+
+  return `<tr class="detail"><td colspan="${COLS.length}"><div class="dgrid">
+    <div>
+      <div class="dtitle">Where the ${esc(ch.tab)} ${proposed?'proposed '+money(c.price):'list'} price goes${r.disc?' <span class="pill disc">Sell down</span>':''}${r.invStatus==='active'?' <span class="pill act">Active</span>':''}</div>
+      <div class="waterfall">
+        <div class="wf-cost" style="width:${costW}%"></div><div class="wf-fee" style="width:${feeW}%"></div>
+        <div class="wf-ship" style="width:${shipW}%"></div><div class="wf-profit" style="width:${profitW}%"></div>
+        ${c.net<0?`<div class="wf-gap" style="left:${revLine}%"></div>`:''}
+        <div class="wf-line" style="left:${revLine}%"></div>
+      </div>
+      <div class="legend">
+        <span><i class="wf-cost"></i>Cost ${money(num(r.cost)*r.units)}</span>
+        <span><i class="wf-fee"></i>Fees + alloc ${money(c.alloc)}</span>
+        <span><i class="wf-ship"></i>Shipping ${money(r.ship)}</span>
+        ${c.net>=0?`<span><i class="wf-profit"></i>Net ${money(c.net)}</span>`:`<span><i class="wf-gap"></i>Short by ${money(-c.net)} past the ${money(c.revenue)} list price</span>`}
+      </div>
+      ${plan}
+      <button class="btn ghost sm showmath" data-math="${esc(r.sku)}">Show the math for this SKU</button>
+      ${catStrip(r, ch)}
+    </div>
+    <div><div class="dtitle">Fee ledger, per order of ${r.units} unit${r.units===1?'':'s'}${proposed?' at the proposed price':''}</div><table class="ledger">${led}</table></div>
+  </div></td></tr>`;
+}
+
+/* ---------------- live edits ---------------- */
+let editTimer = null;
+function setOverride(sku, key, v){
+  const o = state.over[state.active] || (state.over[state.active] = {});
+  const row = state.rows.find(r => r.sku === sku);
+  if (!row) return;
+  const ch = CH[state.active];
+  const base = key === 'price' ? row[ch.price]
+    : (ch.ship === 'mcf' ? round2(num(row.mcfShip)+num(row.mcfFreight)) : num(row.shipping));
+  o[sku] = o[sku] || {};
+  if (v == null || Math.abs(v - num(base)) < 1e-9) delete o[sku][key]; else o[sku][key] = v;
+  if (!Object.keys(o[sku]).length) delete o[sku];
+  touched = true;
+}
+function liveEdit(inp){
+  setOverride(inp.dataset.sku, inp.dataset.k, parseNum(inp.value));
+  clearTimeout(editTimer);
+  editTimer = setTimeout(() => {
+    computeAll();
+    const tr = inp.closest('tr'); if (!tr) return;
+    const r = state.an.find(x => x.sku === inp.dataset.sku); if (!r) return;
+    patchRow(tr, r);
+    renderKpis(); renderTabs();
+    const det = tr.nextElementSibling;
+    if (det && det.classList.contains('detail')) det.outerHTML = detailHtml(r);
+    const nEdits = CHANNELS.reduce((t,c) => t + Object.keys(state.over[c.id]||{}).length, 0);
+    $('btnClearEdits').classList.toggle('hide', nEdits === 0);
+    $('btnClearEdits').textContent = 'Clear ' + nEdits + ' edit' + (nEdits===1?'':'s');
+    saveState();
+  }, 140);
+}
+function patchRow(tr, r){
+  const tmp = document.createElement('tbody');
+  tmp.innerHTML = rowHtml(r, tr.dataset.i);
+  const fresh = tmp.firstElementChild;
+  tr.className = fresh.className;
+  COLS.forEach((c,i) => {
+    const from = fresh.children[i], to = tr.children[i];
+    if (!from || !to) return;
+    if (c.edit){ to.className = from.className; return; }   // leave the input alone while typing
+    to.innerHTML = from.innerHTML; to.className = from.className;
+  });
+}
+
+/* ---------------- exports ---------------- */
+const M = '$#,##0.00', P = '0.0%';
+function fmtSheet(ws, formats){
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  Object.keys(formats).forEach(cs => {
+    const c = +cs;
+    for (let r = range.s.r + 1; r <= range.e.r; r++){
+      const cell = ws[XLSX.utils.encode_cell({r,c})];
+      if (cell && typeof cell.v === 'number') cell.z = formats[cs];
+    }
+  });
+  return ws;
+}
+function stamp(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function widths(obj, min){ return Object.keys(obj||{}).map(k => ({wch: Math.max(min||10, Math.min(36, k.length+3))})); }
+
+function assumptionsSheet(){
+  const rows = [['Channel','Setting','Value']];
+  CHANNELS.forEach(c => {
+    const s = state.settings[c.id];
+    rows.push([c.name,'Goal net GM%', s.goal/100]);
+    FIELDS_UI.forEach(f => {
+      if (f.flag && !c.f[f.flag]) return;
+      let v = s[f.key];
+      if (f.type === 'check') v = v ? 'Yes' : 'No';
+      else if (f.key === 'royaltySource') v = v === 'brand' ? 'Brand table' : 'Royalty column';
+      else if (f.key === 'roymode') v = v === 'usd' ? '$ per unit' : '% of list price';
+      else if (f.key === 'round') v = (ROUND_OPTS.find(o => o[0] === String(v)) || ['',''])[1];
+      else if (f.unit === '%') v = (v||0)/100;
+      rows.push([c.name, f.label, v]);
+    });
+    rows.push([c.name,'Shipping source', c.ship === 'mcf' ? 'MCF shipping + inbound freight' : 'Shipping Cost column']);
+  });
+  rows.push([]);
+  if (state.brandList.length){
+    rows.push(['Brand royalty table','','']);
+    state.brandList.forEach(b => {
+      const v = brandRoyaltyFor(b);
+      rows.push(['', b, v == null ? 'not set, uses channel default' : v/100]);
+    });
+  }
+  rows.push([]);
+  rows.push(['Scope','Brands included', brandFiltered() ? (state.brandSel||[]).join(', ') || 'none' : 'all brands']);
+  CHANNELS.forEach(c => rows.push(['Scope', c.name + ' shows discontinued SKUs', state.settings[c.id].hideDisc ? 'No, hidden' : 'Yes']));
+  CHANNELS.forEach(c => {
+    const off = state.brandList.filter(b => brandBlocked(c.id, b));
+    rows.push(['Scope', c.name + ' blocked brands', off.length ? off.join(', ') : 'none']);
+  });
+  rows.push([], ['Source file', state.fileName], ['Sheet', state.sheetName], ['Generated', new Date().toLocaleString()]);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:24},{wch:34},{wch:24}];
+  return ws;
+}
+
+function changeRow(r, ch){
+  return {
+    'Channel': ch.name, 'SKU': r.sku, 'Item Name': r.name, 'Brand': r.brand,
+    'ASIN': ch.f.asin ? r.asin : '',
+    'Inventory Status': r.invRaw || (r.disc ? 'Discontinued' : ''),
+    'Available Units': r.avail,
+    'SKU Cost': r.cost, 'Shipping Cost': r.ship, 'Units': r.units,
+    'Current List Price': r.unpriced ? null : r.price,
+    'Current Net GM%': r.unpriced ? null : r.gm,
+    'Current Net Margin $': r.unpriced ? null : r.net,
+    'Goal Applied': r.goalUsed,
+    'Recommended List Price': r.achievable ? r.rec : null,
+    'New or Reprice': r.unpriced ? 'New' : 'Reprice',
+    'Price Change $': r.achievable ? r.delta : null,
+    'Price Change %': r.achievable && r.deltaPct != null ? r.deltaPct : null,
+    'New Net GM%': r.achievable ? r.recCalc.gm : null,
+    'New Net Margin $': r.achievable ? r.recCalc.net : null,
+    'Margin Gain $': r.achievable && !r.unpriced ? round2(r.recCalc.net - r.net) : null,
+    'Target Profit $': r.targetProfit,
+    'Manually Adjusted': r.edited ? 'Yes' : 'No',
+    'Action': !r.achievable ? 'Cannot reach goal at any price, review cost, shipping or fee load'
+      : r.unpriced ? 'New item, set the launch price'
+      : r.disc ? (r.oos ? 'Discontinued with no stock, end the listing'
+                        : 'Discontinued, decide between sell-down pricing, liquidation or write-off')
+      : r.oos ? 'No stock on hand, reprice when inventory returns or end the listing'
+      : r.status === 'loss' ? 'Reprice now, currently unprofitable'
+      : 'Reprice to goal'
+  };
+}
+function splitChanges(chId){
+  const ch = CH[chId], s = state.settings[chId];
+  const under = analyzeAll(chId).filter(r => r.status !== 'pass' && !r.invalid);
+  const hold = r => (s.excludeDisc && r.disc) || (s.excludeOOS && r.oos);
+  return {reprice: under.filter(r => !hold(r)).map(r => changeRow(r,ch)),
+          review: under.filter(hold).map(r => changeRow(r,ch))};
+}
+function changeRows(chId){ return splitChanges(chId).reprice; }
+function fmtByName(rows){
+  const fmt = {};
+  Object.keys(rows[0]||{}).forEach((k,i) => {
+    if (/%/.test(k) || k === 'Goal Applied') fmt[i] = P;
+    else if (/Available Units|^Units$/.test(k)) fmt[i] = '#,##0';
+    else if (/Cost|Price|Margin|Profit|Gain/.test(k)) fmt[i] = M;
+  });
+  return fmt;
+}
+
+function fullRows(chId){
+  const ch = CH[chId], f = ch.f;
+  return analyzeAll(chId).map(r => {
+    const c = r.cur, o = {'SKU': r.sku, 'Item Name': r.name, 'Brand': r.brand,
+      'Inventory Status': r.invRaw || (r.disc ? 'Discontinued' : ''),
+      'Lifecycle': r.disc ? 'Sell down' : (r.invStatus === 'active' ? 'Active' : 'Unknown'),
+      'Available Units': r.avail,
+      'SKU Cost': r.cost, 'List Price': r.price};
+    if (f.coupon) o['Coupon Discount'] = c.coupon;
+    if (f.tax) o['Sales Tax'] = c.tax;
+    if (f.coupon || f.tax) o['Sold Price'] = c.sold;
+    if (f.asin){ o['ASIN'] = r.asin; o['Amazon Category'] = r.amzCategory; o['Amazon Item Type'] = r.amzItemType; }
+    if (ch.ship === 'fba') o['FBA Fulfillment Class'] = r.fbaClass;
+    if (f.comm){ o['Category Commission'] = c.comm; o['Commission Rate'] = r.commR; o['Commission Source'] = r.commFrom === 'sheet' ? 'Sheet column' : 'Channel setting'; }
+    if (f.tsd) o['Top Seller Discount'] = c.tsd;
+    if (f.tsd) o['Final Value Fee - Rate'] = c.fvfRate;
+    if (f.fvf) o['Final Value Fee - Fixed'] = r.fvfFixedUsed;
+    if (f.promo) o['Promoted Listing Fee'] = c.promo;
+    if (f.cc){ o['Card Processing'] = c.ccVar; o['Card Fee Per Order'] = c.ccFlat; }
+    o['Royalty'] = c.roy;
+    o['Royalty Source'] = r.royFrom === 'brand' ? 'Brand table' : (r.royFrom === 'sheet' ? 'Sheet column' : 'Channel default');
+    if (f.ad) o['Advertising'] = c.ad;
+    o['Returns and Warranty'] = c.ret;
+    if (f.ppc) o['PPC Fee'] = r.ppcUsed;
+    o['Total Units'] = r.units;
+    o['Total Selling Fees'] = c.fees;
+    o['Total Allocations'] = c.alloc;
+    o['Net Revenue After Fees'] = c.netRevenue;
+    o['Allocations %'] = c.allocPct;
+    o[ch.ship === 'mcf' ? 'Shipping Cost (MCF + Freight)' : ch.ship === 'fba' ? 'Shipping Cost (FBA + Freight)' : 'Shipping Cost'] = r.ship;
+    o['Net GM%'] = r.gm;
+    o['Net Margin $'] = r.net;
+    o['Goal Applied'] = r.goalUsed;
+    o['Target Profit'] = r.targetProfit;
+    o['Hits Target Profit'] = r.hitsTarget ? 'Yes' : 'No';
+    o['Manually Adjusted'] = r.edited ? 'Yes' : 'No';
+    o['Status'] = r.invalid ? 'Missing cost'
+      : r.unpriced ? 'Needs pricing'
+      : (r.status === 'pass' ? (r.disc ? 'At sell-down goal' : 'At goal')
+      : (r.status === 'loss' ? 'Losing money' : (r.disc ? 'Below sell-down goal' : 'Below goal')));
+    o['Recommended List Price'] = !r.invalid && r.status !== 'pass' && r.achievable ? r.rec : null;
+    o['New Net GM%'] = !r.invalid && r.status !== 'pass' && r.achievable ? r.recCalc.gm : null;
+    o['New Net Margin $'] = !r.invalid && r.status !== 'pass' && r.achievable ? r.recCalc.net : null;
+    if (r.unpriced){ o['List Price'] = null; o['Net GM%'] = null; o['Net Margin $'] = null; }
+    return o;
+  });
+}
+function fullFormats(rows){
+  const fmt = {}; const keys = Object.keys(rows[0]||{});
+  keys.forEach((k,i) => {
+    if (/%|Goal Applied|Commission Rate/.test(k)) fmt[i] = P;
+    else if (/Available Units|Total Units/.test(k)) fmt[i] = '#,##0';
+    else if (/Cost|Price|Fee|Margin|Royalty|Commission|Discount|Allocations$|Warranty|Processing|Profit|Sold/.test(k)) fmt[i] = M;
+  });
+  return fmt;
+}
+
+function sheetFrom(rows, fmt){
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!autofilter'] = {ref: ws['!ref']};
+  ws['!cols'] = widths(rows[0], 11);
+  return fmtSheet(ws, fmt || {});
+}
+
+function exportChange(){
+  const live = CHANNELS.filter(c => channelActive(c.id));
+  const all = state.active === '__all';
+  const pick = all ? live : [CH[state.active]];
+  const rep = [].concat.apply([], pick.map(c => splitChanges(c.id).reprice));
+  const rev = [].concat.apply([], pick.map(c => splitChanges(c.id).review));
+  if (!rep.length && !rev.length) return alert('Every priced SKU clears its goal' + (all ? ' on every channel.' : ' on ' + CH[state.active].name + '.'));
+  const wb = XLSX.utils.book_new();
+  if (rep.length) XLSX.utils.book_append_sheet(wb, sheetFrom(rep, fmtByName(rep)), all ? 'All Channel Changes' : 'Price Changes');
+  if (rev.length) XLSX.utils.book_append_sheet(wb, sheetFrom(rev, fmtByName(rev)), 'Sell Down Review');
+  XLSX.utils.book_append_sheet(wb, assumptionsSheet(), 'Assumptions');
+  XLSX.writeFile(wb, 'price-change-report-' + (all ? 'all-channels' : state.active) + '-' + stamp() + '.xlsx');
+}
+
+function exportFull(){
+  if (state.active === '__all') return exportAll();
+  const ch = CH[state.active], rows = fullRows(ch.id);
+  if (!rows.length) return alert('Load a file first.');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, sheetFrom(rows, fullFormats(rows)), 'Full Analysis');
+  XLSX.utils.book_append_sheet(wb, assumptionsSheet(), 'Assumptions');
+  XLSX.writeFile(wb, 'profitability-' + ch.id + '-' + stamp() + '.xlsx');
+}
+
+function exportAll(){
+  const live = CHANNELS.filter(c => channelActive(c.id));
+  if (!live.length || !state.rows.length) return alert('Load a file first.');
+  const wb = XLSX.utils.book_new();
+  const summary = state.rows.filter(brandOk).map(row => {
+    const o = {'SKU': row.sku, 'Item Name': row.name, 'Brand': row.brand, 'ASIN': row.asin || '',
+      'Inventory Status': row.invRaw || '', 'Available Units': row.available, 'SKU Cost': row.cost};
+    live.forEach(c => {
+      if (brandBlocked(c.id, row.brand) || (state.settings[c.id].hideDisc && row.invStatus === 'disc')){
+        o[c.tab + ' Price'] = null; o[c.tab + ' Net GM%'] = null; o[c.tab + ' New Price'] = null; return;
+      }
+      const r = analyze(row, c, state.settings[c.id]);
+      o[c.tab + ' Price'] = r.invalid ? null : r.price;
+      o[c.tab + ' Net GM%'] = r.invalid ? null : r.gm;
+      o[c.tab + ' New Price'] = !r.invalid && r.status !== 'pass' && r.achievable ? r.rec : null;
+    });
+    return o;
+  });
+  const sfmt = {}; Object.keys(summary[0]||{}).forEach((k,i) => {
+    if (/%/.test(k)) sfmt[i] = P; else if (/Available Units/.test(k)) sfmt[i] = '#,##0'; else if (/Price|Cost/.test(k)) sfmt[i] = M; });
+  XLSX.utils.book_append_sheet(wb, sheetFrom(summary, sfmt), 'Channel Summary');
+  live.forEach(c => {
+    const rows = fullRows(c.id);
+    XLSX.utils.book_append_sheet(wb, sheetFrom(rows, fullFormats(rows)), c.tab.slice(0,28));
+  });
+  const chg = [].concat.apply([], live.map(c => splitChanges(c.id).reprice));
+  if (chg.length) XLSX.utils.book_append_sheet(wb, sheetFrom(chg, fmtByName(chg)), 'Price Changes');
+  const rev = [].concat.apply([], live.map(c => splitChanges(c.id).review));
+  if (rev.length) XLSX.utils.book_append_sheet(wb, sheetFrom(rev, fmtByName(rev)), 'Sell Down Review');
+  XLSX.utils.book_append_sheet(wb, assumptionsSheet(), 'Assumptions');
+  XLSX.writeFile(wb, 'profitability-all-channels-' + stamp() + '.xlsx');
+}
+
+function exportTemplate(){
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['SKU','Item Name','SKU Cost','eBay List Price','eBay List Price (MCF)','WM.com Marketplace Price','Shopify Website Price','Shipping Cost','MCF Shipping Cost','To MCF Freight Cost','Royalty','Total Units','PPC Fee','Inventory Status (ERP)','Available Inventory','Brand','AMZ-RAK Price','AMZ-RAK FBA Price','FBA Fulfillment Cost','FBA Fulfillment Class','Amazon ASIN','Amazon Category','Amazon Item Type','Amazon Category Commission'],
+    ['60007','1/2-Inch Drive x 19mm Thin Wall Deep Impact Socket',1.65,6.99,6.99,6.99,6.99,8.31,8.20,0.02,0,1,0.62,'Sales Inventory',420,'STEELMAN',6.99,'',4.85,'Small standard','B08KJ1MTQ2','Tools & Home Improvement','Socket',0.15],
+    ['60214','Canvas Print 16x20',12.40,39.99,39.99,39.99,39.99,7.85,7.40,1.00,0,1,0.62,'Discontinued',38,'Estwing',42.99,44.99,7.15,'Large standard','B07PZ9L4KX','Home & Kitchen','Wall Art',0.15]
+  ]);
+  ws['!cols'] = [{wch:12},{wch:44},{wch:10},{wch:15},{wch:19},{wch:24},{wch:20},{wch:13},{wch:17},{wch:18},{wch:9},{wch:11},{wch:9},{wch:21},{wch:18}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Pricing Input');
+  XLSX.writeFile(wb, 'pricing-input-template.xlsx');
+}
+
+/* ---------------- sample ---------------- */
+function loadSample(){
+  ingest([
+    ['SKU','Item Name','SKU Cost','eBay List Price','eBay List Price (MCF)','WM.com Marketplace Price','Shopify Website Price','Shipping Cost','MCF Shipping Cost','To MCF Freight Cost','Royalty','Total Units','PPC Fee','Inventory Status (ERP)','Available Inventory','Brand','AMZ-RAK Price','AMZ-RAK FBA Price','FBA Fulfillment Cost','FBA Fulfillment Class','Amazon ASIN','Amazon Category','Amazon Item Type','Amazon Category Commission'],
+    ['60007','1/2-Inch Drive x 19mm Thin Wall Deep Impact Socket',1.65,6.99,6.99,6.99,6.99,8.31,8.20,0.02,0,1,0.62,'Sales Inventory',420,'STEELMAN',6.99,'',4.85,'Small standard','B08KJ1MTQ2','Tools & Home Improvement','Socket',0.15],
+    ['60214','Canvas Print 16x20 Gallery Wrap',12.40,39.99,42.99,38.99,44.99,7.85,7.40,1.00,0.069,1,0.62,'Sales Inventory',186,'Estwing',42.99,44.99,7.15,'Large standard','B07PZ9L4KX','Home & Kitchen','Wall Art',0.15],
+    ['60318','Ceramic Mug 11oz, Two Pack',4.10,18.99,19.99,17.99,21.99,5.40,6.10,0.45,0.069,2,0.48,'Sales Inventory',94,'STEELMAN',19.99,'',5.60,'Large standard','B09TTX3MRV','Home & Kitchen','Drinkware',0.15],
+    ['60422','Throw Pillow Cover 18in',3.85,16.49,17.49,15.99,18.99,4.20,4.95,0.30,0.05,1,0.35,'Discontinued',62,'Dickies',17.49,'',5.10,'Large standard','B08G7QN2WD','Home & Kitchen','Pillow Cover',0.15],
+    ['60509','Metal Sign 12x18',7.20,24.95,26.95,23.95,28.95,6.10,6.85,0.55,0.069,1,0.62,'Sales Inventory',311,'STEELMAN PRO',26.95,'',6.30,'Large standard','B07YYD8Q3M','Home & Kitchen','Wall Decor',0.15],
+    ['60655','Vinyl Sticker Pack, 10ct',0.95,9.99,9.99,8.99,11.99,3.85,4.20,0.15,0.02,1,0.28,'Discontinued',0,'Spyder',9.99,'',3.95,'Small standard','B09B2LK7VT','Office Products','Stickers',0.15],
+    ['60701','Fleece Blanket 50x60',14.75,44.99,47.99,42.99,49.99,9.40,10.85,1.20,0.09,1,0.85,'Sales Inventory',48,'Dickies',47.99,'',9.85,'Large standard','B08MVQ4T7N','Home & Kitchen','Blanket',0.15],
+    ['60788','Notebook Set, Hardcover',5.30,14.99,15.99,13.99,17.99,4.75,5.30,0.35,0,1,0.30,'Sales Inventory',3,'Estwing',15.99,'',4.60,'Small standard','B07TG9K2PL','Office Products','Notebook',0.15],
+    ['60840','Framed Poster 18x24',16.90,54.99,57.99,52.99,59.99,11.20,12.90,1.45,0.069,1,0.95,'Discontinued',17,'Estwing',57.99,'',11.40,'Large standard','B09FFR6XKD','Home & Kitchen','Framed Art',0.15],
+    ['60912','Tumbler 20oz Insulated',8.45,26.99,28.99,25.99,31.99,6.80,7.55,0.60,0.069,1,0.55,'Sales Inventory',529,'STEELMAN',28.99,29.99,6.75,'Large standard','B08LM3W9YZ','Home & Kitchen','Tumbler',0.15],
+    ['61033','Doormat 24x36 Coir',11.20,32.99,35.99,31.99,37.99,12.60,14.20,1.10,0.069,1,0.70,'Sales Inventory',0,'Yard Glider',35.99,'',12.85,'Large bulky','B07VVN4T8G','Home & Kitchen','Doormat',0.15],
+    ['61150','Keychain, Acrylic',0.62,7.49,7.99,6.99,8.99,3.20,3.55,0.12,0.02,1,0.22,'Discontinued',844,'Spyder',7.99,'',3.55,'Small standard','B09KDD2M4R','Office Products','Keychain',0.15]
+  ], 'Sample pricing sheet', 'Pricing Input');
+}
+
+/* ---------------- events ---------------- */
+$('btnChoose').addEventListener('click', () => $('file').click());
+$('btnSample').addEventListener('click', loadSample);
+$('btnTemplate').addEventListener('click', exportTemplate);
+$('btnChange').addEventListener('click', exportChange);
+$('btnFull').addEventListener('click', exportFull);
+$('btnAll').addEventListener('click', exportAll);
+$('btnNew').addEventListener('click', () => {
+  state.rows = []; state.raw = []; state.headers = []; state.restoredRows = false;
+  state.fileName = ''; state.limit = 400;
+  $('results').classList.add('hide'); $('intake').classList.remove('hide');
+  $('mapper').classList.add('hide'); $('file').value = '';
+  renderTabs(); saveState();
+});
+$('btnReset').addEventListener('click', () => {
+  if (state.active === '__all'){
+    CHANNELS.forEach(c => { state.settings[c.id] = Object.assign({}, c.d); state.over[c.id] = {}; state.blocked[c.id] = {}; });
+  } else {
+    state.settings[state.active] = Object.assign({}, CH[state.active].d);
+    state.over[state.active] = {};
+  }
+  touched = true; renderRail(); if (state.rows.length) refresh(); saveState();
+});
+$('btnCopy').addEventListener('click', () => {
+  if (state.active === '__all') return;
+  const src = state.settings[state.active];
+  CHANNELS.forEach(c => {
+    if (c.id === state.active) return;
+    const t = state.settings[c.id];
+    Object.keys(src).forEach(k => { if (k in t || k === 'goal' || k === 'returns' || k === 'round' || k === 'target' || k === 'roy' || k === 'roymode') t[k] = src[k]; });
+  });
+  touched = true; if (state.rows.length) refresh(); saveState();
+  alert('Goal, royalty, returns and repricing rules copied to the other channels. Fee rates that a channel does not use are left alone.');
+});
+$('btnClearEdits').addEventListener('click', () => {
+  CHANNELS.forEach(c => state.over[c.id] = {});
+  touched = true; refresh(); saveState();
+});
+
+$('file').addEventListener('change', e => { if (e.target.files[0]) readFile(e.target.files[0]); });
+function readFile(f){
+  const reader = new FileReader();
+  reader.onerror = () => fail('That file could not be read. Try re-saving it as .xlsx or .csv.');
+  reader.onload = ev => {
+    try{ handleWorkbook(XLSX.read(new Uint8Array(ev.target.result), {type:'array'}), f.name); }
+    catch(err){ fail('That file could not be parsed as a spreadsheet: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(f);
+}
+const drop = $('drop');
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('hot'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('hot'); }));
+drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  state.active = b.dataset.ch;
+  state.limit = 400;
+  renderRail();
+  if (state.rows.length) refresh(); else renderTabs();
+  saveState();
+});
+$('segs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  state.filter = b.dataset.f;
+  [...$('segs').children].forEach(x => x.setAttribute('aria-pressed', x === b));
+  state.limit = 400; renderTable(); saveState();
+});
+$('search').addEventListener('input', e => { state.q = e.target.value; renderTable(); });
+$('thead').addEventListener('click', e => {
+  const th = e.target.closest('th'); if (!th || !th.dataset.k) return;
+  const k = th.dataset.k;
+  state.sort = state.sort.key === k ? {key:k, dir:-state.sort.dir}
+    : {key:k, dir:(k==='sku'||k==='name'||k==='status')?1:-1};
+  renderTable(); saveState();
+});
+$('tbody').addEventListener('input', e => {
+  const inp = e.target.closest('input.cell'); if (!inp) return;
+  liveEdit(inp);
+});
+$('tbody').addEventListener('click', e => {
+  const mb = e.target.closest('.showmath');
+  if (mb){
+    state.calcSku = mb.dataset.math; state.calcCh = state.active; state.active = '__calc';
+    renderRail(); refresh(true); saveState();
+    window.scrollTo({top:0, behavior:'smooth'});
+    return;
+  }
+  if (e.target.closest('input.cell')) return;
+  const btn = e.target.closest('.expand');
+  const tr = e.target.closest('tr');
+  if (!tr || state.active === '__all' || tr.classList.contains('detail')) return;
+  if (!btn && !e.target.closest('td.sku')) return;
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('detail')){ next.remove(); return; }
+  document.querySelectorAll('tr.detail').forEach(d => d.remove());
+  const r = (state.an||[]).find(x => x.sku === tr.dataset.sku);
+  if (r) tr.insertAdjacentHTML('afterend', detailHtml(r));
+});
+
+window.addEventListener('pagehide', flushState);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushState(); });
+
+renderTabs(); renderRail(); loadState();
+</script>
