@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { BarChart3, Upload, Settings, Plus, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,8 @@ import { formatDate } from "@/lib/utils";
 
 export default async function CustomerPage({ params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
-  const userId = session!.user!.id!;
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
   const { customerId } = await params;
 
   const customer = await prisma.customer.findFirst({

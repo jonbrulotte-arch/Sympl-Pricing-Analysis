@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Building2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function CustomersPage() {
   const session = await auth();
-  const userId = session!.user!.id!;
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
 
   const customers = await prisma.customer.findMany({
     where: { users: { some: { userId } } },

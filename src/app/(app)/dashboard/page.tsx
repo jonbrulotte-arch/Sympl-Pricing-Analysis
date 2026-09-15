@@ -9,7 +9,8 @@ import { formatDate, formatDateTime } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const session = await auth();
-  const userId = session!.user!.id!;
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
 
   const customers = await prisma.customer.findMany({
     where: { users: { some: { userId } } },

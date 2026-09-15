@@ -1,13 +1,14 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export default async function ProductsPage({ params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
-  const userId = session!.user!.id!;
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
   const { customerId } = await params;
 
   const customer = await prisma.customer.findFirst({
