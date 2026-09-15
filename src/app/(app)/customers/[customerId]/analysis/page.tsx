@@ -21,7 +21,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
   if (!customer) notFound();
 
   const dbProducts = await prisma.product.findMany({
-    where: { customerId },
+    where: { customers: { some: { customerId } } },
     orderBy: { sku: "asc" },
   });
 

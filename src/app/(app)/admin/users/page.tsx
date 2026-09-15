@@ -42,11 +42,11 @@ export default async function AdminUsersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-2 text-gray-500 font-medium">Name</th>
-                  <th className="text-left py-3 px-2 text-gray-500 font-medium">Email</th>
-                  <th className="text-left py-3 px-2 text-gray-500 font-medium">Role</th>
-                  <th className="text-left py-3 px-2 text-gray-500 font-medium">Customers</th>
-                  <th className="text-right py-3 px-2 text-gray-500 font-medium">Created</th>
+                  <th className="text-left py-3 px-2 text-gray-600 font-medium">Name</th>
+                  <th className="text-left py-3 px-2 text-gray-600 font-medium">Email</th>
+                  <th className="text-left py-3 px-2 text-gray-600 font-medium">Role</th>
+                  <th className="text-left py-3 px-2 text-gray-600 font-medium">Customers</th>
+                  <th className="text-right py-3 px-2 text-gray-600 font-medium">Created</th>
                 </tr>
               </thead>
               <tbody>

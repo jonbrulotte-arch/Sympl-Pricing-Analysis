@@ -64,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
 
   for (const row of rows) {
     const existing = await prisma.product.findUnique({
-      where: { customerId_sku: { customerId, sku: row.sku } },
+      where: { sku: row.sku },
     });
 
     let productId: string;
@@ -88,7 +88,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
       await prisma.product.create({
         data: {
           id: productId,
-          customerId,
           sku: row.sku,
           name: row.name,
           brand: row.brand,
@@ -100,6 +99,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
       });
       created++;
     }
+
+    // Link product to customer
+    await prisma.customerProduct.upsert({
+      where: { customerId_productId: { customerId, productId } },
+      update: {},
+      create: { customerId, productId },
+    });
 
     // Record cost history
     if (row.cost != null) {

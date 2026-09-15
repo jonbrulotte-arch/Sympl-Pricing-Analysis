@@ -19,7 +19,7 @@ export default async function DashboardPage() {
       id: true,
       name: true,
       channels: { select: { id: true, name: true } },
-      products: { select: { id: true } },
+      customerProducts: { select: { productId: true } },
       analyses: {
         orderBy: { createdAt: "desc" },
         take: 3,
@@ -35,7 +35,7 @@ export default async function DashboardPage() {
   });
 
   const totalCustomers = customers.length;
-  const totalProducts = customers.reduce((sum, c) => sum + c.products.length, 0);
+  const totalProducts = customers.reduce((sum, c) => sum + c.customerProducts.length, 0);
   const totalChannels = customers.reduce((sum, c) => sum + c.channels.length, 0);
 
   const recentAnalyses = customers
@@ -111,7 +111,7 @@ export default async function DashboardPage() {
             <CardContent>
               {customers.length === 0 ? (
                 <div className="text-center py-12">
-                  <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500 mb-4">No customers yet. Create your first customer to get started.</p>
                   <Link href="/customers/new">
                     <Button>
@@ -148,12 +148,12 @@ export default async function DashboardPage() {
                       </div>
                       <div className="flex items-center gap-3 mt-1.5">
                         <span className="text-xs text-gray-500">{customer.channels.length} channels</span>
-                        <span className="text-xs text-gray-300">&middot;</span>
-                        <span className="text-xs text-gray-500">{customer.products.length} products</span>
+                        <span className="text-xs text-gray-500">&middot;</span>
+                        <span className="text-xs text-gray-500">{customer.customerProducts.length} products</span>
                         {customer.imports[0] && (
                           <>
-                            <span className="text-xs text-gray-300">&middot;</span>
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-gray-500">&middot;</span>
+                            <span className="text-xs text-gray-500">
                               Last import: {formatDate(customer.imports[0].createdAt)}
                             </span>
                           </>
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent>
               {recentAnalyses.length === 0 ? (
-                <p className="text-sm text-gray-400 py-4 text-center">No analyses yet.</p>
+                <p className="text-sm text-gray-500 py-4 text-center">No analyses yet.</p>
               ) : (
                 <div className="space-y-3">
                   {recentAnalyses.map((a) => (
@@ -191,7 +191,7 @@ export default async function DashboardPage() {
                         </div>
                         <ArrowRight className="h-3.5 w-3.5 text-gray-400 mt-0.5" />
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">{formatDateTime(a.createdAt)}</p>
+                      <p className="text-xs text-gray-500 mt-1">{formatDateTime(a.createdAt)}</p>
                     </Link>
                   ))}
                 </div>

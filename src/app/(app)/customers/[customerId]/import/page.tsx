@@ -143,7 +143,7 @@ export default function ImportPage() {
         >
           <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600 mb-2">Drag and drop a spreadsheet file here</p>
-          <p className="text-sm text-gray-400 mb-4">.xlsx, .xls, or .csv</p>
+          <p className="text-sm text-gray-500 mb-4">.xlsx, .xls, or .csv</p>
           <label>
             <Button variant="outline" asChild>
               <span>Browse Files</span>
@@ -173,7 +173,7 @@ export default function ImportPage() {
                   </select>
                 )}
               </p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 {sheet.headers.length} columns, {sheet.data.length} rows
               </p>
             </div>
@@ -245,11 +245,11 @@ export default function ImportPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 px-2 text-gray-500 font-medium">SKU</th>
-                      <th className="text-left py-2 px-2 text-gray-500 font-medium">Name</th>
-                      <th className="text-right py-2 px-2 text-gray-500 font-medium">Cost</th>
-                      <th className="text-left py-2 px-2 text-gray-500 font-medium">Brand</th>
-                      <th className="text-left py-2 px-2 text-gray-500 font-medium">Status</th>
+                      <th className="text-left py-2 px-2 text-gray-600 font-medium">SKU</th>
+                      <th className="text-left py-2 px-2 text-gray-600 font-medium">Name</th>
+                      <th className="text-right py-2 px-2 text-gray-600 font-medium">Cost</th>
+                      <th className="text-left py-2 px-2 text-gray-600 font-medium">Brand</th>
+                      <th className="text-left py-2 px-2 text-gray-600 font-medium">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -265,7 +265,7 @@ export default function ImportPage() {
                   </tbody>
                 </table>
                 {rows.length > 50 && (
-                  <p className="text-sm text-gray-400 text-center py-2">
+                  <p className="text-sm text-gray-500 text-center py-2">
                     Showing 50 of {rows.length} rows
                   </p>
                 )}

@@ -163,7 +163,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
               />
             </div>
             <div className="ml-auto flex items-center gap-3">
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-500">
                 {filteredResults.length} of {kpis.total} SKUs
               </span>
               <div className="relative">

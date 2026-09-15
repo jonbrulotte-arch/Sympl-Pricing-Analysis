@@ -31,10 +31,10 @@ model Customer {
   slug           String         @unique
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  users          CustomerUser[]
-  channels       SalesChannel[]
-  products       Product[]
-  brandRoyalties BrandRoyalty[]
+  users            CustomerUser[]
+  channels         SalesChannel[]
+  customerProducts CustomerProduct[]
+  brandRoyalties   BrandRoyalty[]
   analyses       Analysis[]
   imports        Import[]
 }
@@ -90,12 +90,19 @@ model SalesChannel {
   @@unique([customerId, slug])
 }
 
-model Product {
-  id         String   @id @default(uuid())
+model CustomerProduct {
   customerId String
+  productId  String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 
-  sku         String
+  @@id([customerId, productId])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  sku         String   @unique
   name        String?
   brand       String?
   asin        String?
@@ -106,12 +113,11 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  customers             CustomerProduct[]
   costHistories         CostHistory[]
   priceHistories        PriceHistory[]
   shippingCostHistories ShippingCostHistory[]
   analysisResults       AnalysisResult[]
-
-  @@unique([customerId, sku])
 }
 
 model CostHistory {

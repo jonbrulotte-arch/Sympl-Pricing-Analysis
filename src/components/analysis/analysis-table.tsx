@@ -29,7 +29,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
   function SortHeader({ label, field }: { label: string; field: string }) {
     return (
       <th
-        className="text-left py-2 px-2 text-gray-500 font-medium cursor-pointer select-none hover:text-gray-900 text-xs"
+        className="text-left py-2 px-2 text-gray-600 font-medium cursor-pointer select-none hover:text-gray-900 text-xs"
         onClick={() => onSort(field)}
       >
         <span className="flex items-center gap-1">
@@ -54,12 +54,12 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
             <SortHeader label="Brand" field="brand" />
             <SortHeader label="Cost" field="cost" />
             <SortHeader label="Price" field="price" />
-            <th className="text-right py-2 px-2 text-gray-500 font-medium text-xs">Ship</th>
+            <th className="text-right py-2 px-2 text-gray-600 font-medium text-xs">Ship</th>
             <SortHeader label="GM%" field="gm" />
             <SortHeader label="Net $" field="net" />
             <SortHeader label="Rec" field="rec" />
             <SortHeader label="+/-%" field="delta" />
-            <th className="text-center py-2 px-2 text-gray-500 font-medium text-xs">Status</th>
+            <th className="text-center py-2 px-2 text-gray-600 font-medium text-xs">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -109,7 +109,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
         </tbody>
       </table>
       {results.length === 0 && (
-        <p className="text-sm text-gray-400 text-center py-8">No products match the current filters.</p>
+        <p className="text-sm text-gray-500 text-center py-8">No products match the current filters.</p>
       )}
     </div>
   );

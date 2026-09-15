@@ -299,7 +299,7 @@ function InputRow({ label, value, from }: { label: string; value: string; from?:
       <p className="text-xs text-gray-500">{label}</p>
       <p className="font-mono text-sm">
         {value}
-        {from && <span className="text-xs text-gray-400 ml-1">({from})</span>}
+        {from && <span className="text-xs text-gray-500 ml-1">({from})</span>}
       </p>
     </div>
   );
@@ -308,7 +308,7 @@ function InputRow({ label, value, from }: { label: string; value: string; from?:
 function Step({ n, label, per, units, neg, bold }: { n: number; label: string; per: number; units: number; neg?: boolean; bold?: boolean }) {
   return (
     <tr className={bold ? "font-medium" : ""}>
-      <td className="py-0.5 text-gray-400 w-8">{n}</td>
+      <td className="py-0.5 text-gray-500 w-8">{n}</td>
       <td className="py-0.5">{label}</td>
       <td className={`py-0.5 text-right font-mono ${neg ? "text-red-600" : ""}`}>
         {neg ? "-" : ""}${Math.abs(per).toFixed(4)}

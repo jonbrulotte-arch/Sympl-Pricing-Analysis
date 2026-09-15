@@ -160,7 +160,7 @@ export default function NewChannelPage() {
                 onChange={(e) => setTabLabel(e.target.value)}
                 placeholder={name || "Short label for tabs"}
               />
-              <p className="text-xs text-gray-400 mt-1">Appears on analysis tabs. Defaults to channel name.</p>
+              <p className="text-xs text-gray-500 mt-1">Appears on analysis tabs. Defaults to channel name.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Shipping Mode</label>
@@ -340,7 +340,7 @@ export default function NewChannelPage() {
                 {FLAG_INFO.filter((f) => flags[f.key]).map((f) => (
                   <Badge key={f.key} variant="secondary">{f.label}</Badge>
                 ))}
-                {FLAG_INFO.every((f) => !flags[f.key]) && <p className="text-gray-400 text-sm">None</p>}
+                {FLAG_INFO.every((f) => !flags[f.key]) && <p className="text-gray-500 text-sm">None</p>}
               </div>
             </div>
 

@@ -14,6 +14,7 @@ import {
   ChevronRight,
   DollarSign,
   BarChart3,
+  Package,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useState } from "react";
@@ -22,6 +23,7 @@ import type { SafeUser, Permission } from "@/types";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/customers", label: "Customers", icon: Building2 },
+  { href: "/products", label: "Products", icon: Package },
 ];
 
 const adminNavItems: { href: string; label: string; icon: React.ElementType; permission: Permission | null }[] = [

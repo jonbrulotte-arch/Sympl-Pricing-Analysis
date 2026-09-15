@@ -102,15 +102,20 @@ async function main() {
 
   for (const sp of sampleProducts) {
     const product = await prisma.product.upsert({
-      where: { customerId_sku: { customerId: customer.id, sku: sp.sku } },
+      where: { sku: sp.sku },
       update: {},
       create: {
         id: randomUUID(),
-        customerId: customer.id,
         sku: sp.sku,
         name: sp.name,
         brand: sp.brand,
       },
+    });
+
+    await prisma.customerProduct.upsert({
+      where: { customerId_productId: { customerId: customer.id, productId: product.id } },
+      update: {},
+      create: { customerId: customer.id, productId: product.id },
     });
 
     // Cost history

@@ -33,15 +33,15 @@ export default async function AdminSettingsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Name</span>
+              <span className="text-sm text-gray-600">Name</span>
               <span className="text-sm font-medium text-gray-900">Sympl Pricing Analysis</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Version</span>
+              <span className="text-sm text-gray-600">Version</span>
               <Badge variant="secondary" className="text-xs">0.1.0</Badge>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Environment</span>
+              <span className="text-sm text-gray-600">Environment</span>
               <Badge variant={process.env.NODE_ENV === "production" ? "default" : "secondary"} className="text-xs">
                 {process.env.NODE_ENV}
               </Badge>
@@ -55,23 +55,23 @@ export default async function AdminSettingsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Status</span>
+              <span className="text-sm text-gray-600">Status</span>
               <Badge variant="default" className="text-xs bg-green-600">Connected</Badge>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Users</span>
+              <span className="text-sm text-gray-600">Users</span>
               <span className="text-sm font-medium text-gray-900">{userCount}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Customers</span>
+              <span className="text-sm text-gray-600">Customers</span>
               <span className="text-sm font-medium text-gray-900">{customerCount}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Products</span>
+              <span className="text-sm text-gray-600">Products</span>
               <span className="text-sm font-medium text-gray-900">{productCount}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Sales Channels</span>
+              <span className="text-sm text-gray-600">Sales Channels</span>
               <span className="text-sm font-medium text-gray-900">{channelCount}</span>
             </div>
           </CardContent>
@@ -83,15 +83,15 @@ export default async function AdminSettingsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Provider</span>
+              <span className="text-sm text-gray-600">Provider</span>
               <span className="text-sm font-medium text-gray-900">Credentials</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Session Strategy</span>
+              <span className="text-sm text-gray-600">Session Strategy</span>
               <span className="text-sm font-medium text-gray-900">JWT</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Trust Host</span>
+              <span className="text-sm text-gray-600">Trust Host</span>
               <Badge variant="default" className="text-xs bg-green-600">Enabled</Badge>
             </div>
           </CardContent>

@@ -18,7 +18,7 @@ export default async function CustomersPage() {
       name: true,
       slug: true,
       channels: { select: { id: true }, orderBy: { sortOrder: "asc" } },
-      _count: { select: { products: true } },
+      _count: { select: { customerProducts: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -41,7 +41,7 @@ export default async function CustomersPage() {
       {customers.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500 mb-4">No customers yet.</p>
             <Link href="/customers/new">
               <Button>
@@ -61,7 +61,7 @@ export default async function CustomersPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-gray-500">
-                    {c.channels.length} channels &middot; {c._count.products} products
+                    {c.channels.length} channels &middot; {c._count.customerProducts} products
                   </p>
                 </CardContent>
               </Card>

@@ -161,7 +161,7 @@ function FieldRow({
           className="h-4 w-4 rounded border-gray-300 text-blue-600"
         />
         <span className="text-sm text-gray-900">{field.label}</span>
-        {field.hint && <span className="text-xs text-gray-400">{field.hint}</span>}
+        {field.hint && <span className="text-xs text-gray-500">{field.hint}</span>}
       </label>
     );
   }
@@ -172,7 +172,7 @@ function FieldRow({
       <div className="flex items-center gap-3">
         <label className="text-sm text-gray-700 w-48 shrink-0">
           {field.label}
-          {field.hint && <span className="text-xs text-gray-400 ml-1">{field.hint}</span>}
+          {field.hint && <span className="text-xs text-gray-500 ml-1">{field.hint}</span>}
         </label>
         <select
           value={String(value ?? "")}
@@ -191,7 +191,7 @@ function FieldRow({
     <div className="flex items-center gap-3">
       <label className="text-sm text-gray-700 w-48 shrink-0">
         {field.label}
-        {field.hint && <span className="text-xs text-gray-400 ml-1">{field.hint}</span>}
+        {field.hint && <span className="text-xs text-gray-500 ml-1">{field.hint}</span>}
       </label>
       <div className="flex items-center gap-1.5">
         {field.unit === "$" && <span className="text-sm text-gray-500">$</span>}

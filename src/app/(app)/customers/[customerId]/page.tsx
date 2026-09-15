@@ -18,7 +18,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
     where: { id: customerId, users: { some: { userId } } },
     include: {
       channels: { orderBy: { sortOrder: "asc" } },
-      _count: { select: { products: true } },
+      _count: { select: { customerProducts: true } },
       analyses: { orderBy: { createdAt: "desc" }, take: 5, select: { id: true, name: true, createdAt: true } },
     },
   });
@@ -31,7 +31,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{customer.name}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {customer.channels.length} channels &middot; {customer._count.products} products
+            {customer.channels.length} channels &middot; {customer._count.customerProducts} products
           </p>
         </div>
         <div className="flex gap-2">
@@ -41,7 +41,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
               Import Data
             </Button>
           </Link>
-          <Link href={`/customers/${customerId}/products`}>
+          <Link href="/products">
             <Button variant="outline">
               <Package className="h-4 w-4 mr-2" />
               Products
@@ -124,7 +124,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
                       className="block text-sm hover:text-blue-600 transition-colors"
                     >
                       <p className="font-medium text-gray-900">{a.name || "Untitled"}</p>
-                      <p className="text-xs text-gray-400">{formatDate(a.createdAt)}</p>
+                      <p className="text-xs text-gray-500">{formatDate(a.createdAt)}</p>
                     </Link>
                   ))}
                 </div>

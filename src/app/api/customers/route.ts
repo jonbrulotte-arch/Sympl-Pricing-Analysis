@@ -12,7 +12,7 @@ export async function GET() {
     where: { users: { some: { userId: session.user.id } } },
     include: {
       channels: { select: { id: true, name: true, tabLabel: true, sortOrder: true }, orderBy: { sortOrder: "asc" } },
-      _count: { select: { products: true } },
+      _count: { select: { customerProducts: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
