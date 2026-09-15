@@ -1,13 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { useAnalysis, type StatusFilter } from "@/hooks/use-analysis";
 import { KpiCards } from "./kpi-cards";
 import { AnalysisTable } from "./analysis-table";
+import { CalculationCheck } from "./calculation-check";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import type { ProductRow, BrandRoyaltyTable } from "@/lib/pricing/types";
-import { Search, Download } from "lucide-react";
+import type { ProductRow, BrandRoyaltyTable, ChannelDefaults } from "@/lib/pricing/types";
+import { exportChangeReport, exportFullAnalysis } from "@/lib/export/change-report";
+import { Search, Download, ChevronDown } from "lucide-react";
+import * as XLSX from "xlsx";
 
 interface ChannelDb {
   id: string;
@@ -52,6 +55,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     configs,
     activeTab,
     setActiveTab,
+    results,
     filteredResults,
     kpis,
     statusFilter,
@@ -62,7 +66,23 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     sortDir,
     handleSort,
     setOverride,
+    settingsMap,
   } = useAnalysis(channels, products, brandRoyalties);
+
+  const isCalcCheck = activeTab === "__calc_check__";
+  const [exportOpen, setExportOpen] = useState(false);
+
+  function handleExport(type: "change" | "full") {
+    setExportOpen(false);
+    const cfg = configs.find((c) => c.id === activeTab);
+    if (!cfg) return;
+    const channelResults = results[activeTab] ?? [];
+    const settings = settingsMap[activeTab] as unknown as ChannelDefaults;
+    const wb = type === "change"
+      ? exportChangeReport(channelResults, cfg.name, settings)
+      : exportFullAnalysis(channelResults, cfg.name);
+    XLSX.writeFile(wb, `${cfg.name.replace(/\s+/g, "_")}_${type === "change" ? "changes" : "full"}.xlsx`);
+  }
 
   if (channels.length === 0) {
     return (
@@ -97,51 +117,97 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             {cfg.tabLabel}
           </button>
         ))}
+        <button
+          onClick={() => setActiveTab("__calc_check__")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+            isCalcCheck
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Calculation Check
+        </button>
       </div>
 
-      {/* KPIs */}
-      <KpiCards kpis={kpis} />
+      {isCalcCheck ? (
+        <CalculationCheck results={results} configs={configs} settingsMap={settingsMap} />
+      ) : (
+        <>
+          {/* KPIs */}
+          <KpiCards kpis={kpis} />
 
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex gap-1">
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setStatusFilter(f.value)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                statusFilter === f.value
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search SKU, name, or brand..."
-            className="pl-8 h-8 text-sm"
+          {/* Toolbar */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex gap-1">
+              {STATUS_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setStatusFilter(f.value)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    statusFilter === f.value
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search SKU, name, or brand..."
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
+            <div className="ml-auto flex items-center gap-3">
+              <span className="text-xs text-gray-400">
+                {filteredResults.length} of {kpis.total} SKUs
+              </span>
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setExportOpen((o) => !o)}
+                  className="h-8 text-xs"
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  Export
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+                {exportOpen && (
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1 w-44">
+                    <button
+                      onClick={() => handleExport("change")}
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Change Report
+                    </button>
+                    <button
+                      onClick={() => handleExport("full")}
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Full Analysis
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <AnalysisTable
+            results={filteredResults}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
+            onOverride={(sku, field, value) => setOverride(activeTab, sku, field, value)}
+            channelId={activeTab}
           />
-        </div>
-        <div className="ml-auto text-xs text-gray-400">
-          {filteredResults.length} of {kpis.total} SKUs
-        </div>
-      </div>
-
-      {/* Table */}
-      <AnalysisTable
-        results={filteredResults}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onSort={handleSort}
-        onOverride={(sku, field, value) => setOverride(activeTab, sku, field, value)}
-        channelId={activeTab}
-      />
+        </>
+      )}
     </div>
   );
 }
