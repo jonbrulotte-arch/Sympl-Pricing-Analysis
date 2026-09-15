@@ -171,6 +171,7 @@ export interface AnalysisResult {
   net: number;
   mcfShip?: number | null;
   mcfFreight?: number | null;
+  hasShippingData: boolean;
 }
 
 export interface VerificationCheck {

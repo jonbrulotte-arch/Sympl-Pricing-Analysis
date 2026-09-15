@@ -87,7 +87,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
                     onChange={(v) => onOverride(r.sku, "price", v)}
                   />
                 </td>
-                <td className="py-1.5 px-2 text-right text-xs text-gray-600">${r.ship.toFixed(2)}</td>
+                <td className="py-1.5 px-2 text-right text-xs text-gray-600">{r.hasShippingData ? `$${r.ship.toFixed(2)}` : "-"}</td>
                 <td className={`py-1.5 px-2 text-right text-xs font-medium ${gmColor(r.gm, r.goalUsed)}`}>
                   {r.price > 0 ? `${(r.gm * 100).toFixed(1)}%` : "-"}
                 </td>
