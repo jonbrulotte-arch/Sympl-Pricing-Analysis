@@ -23,6 +23,7 @@ model User {
   customers    CustomerUser[]
   analyses     Analysis[]
   imports      Import[]
+  projects     Project[]
 }
 
 model Customer {
@@ -37,6 +38,7 @@ model Customer {
   brandRoyalties   BrandRoyalty[]
   analyses       Analysis[]
   imports        Import[]
+  projects       Project[]
 }
 
 model CustomerUser {
@@ -57,6 +59,9 @@ model SalesChannel {
   name         String
   slug         String
   tabLabel     String
+  channelType  String  @default("online") // "online" | "commercial"
+  channelSubtype String? // online: template id; commercial: "bulk_b2b" | "dropship_dsv" | "direct_import"
+  freightMode  String  @default("prepaid") // "prepaid" | "collect"
   shippingMode String  @default("std") // "std" | "mcf" | "fba"
   priceField   String  // which import column maps to this channel's price
   fallbackPriceField String? // import field name to fall back to when price is blank
@@ -118,6 +123,7 @@ model Product {
   priceHistories        PriceHistory[]
   shippingCostHistories ShippingCostHistory[]
   analysisResults       AnalysisResult[]
+  projects              ProjectProduct[]
 }
 
 model CostHistory {
@@ -222,6 +228,35 @@ model Import {
   createdAt    DateTime @default(now())
 
   analysis Analysis?
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  status      String   @default("active") // "active" | "archived"
+  settings    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products ProjectProduct[]
+
+  @@unique([customerId, slug])
+}
+
+model ProjectProduct {
+  projectId String
+  productId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([projectId, productId])
 }
 
 model SavedMapping {

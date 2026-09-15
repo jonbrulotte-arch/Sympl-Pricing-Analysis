@@ -13,6 +13,9 @@ interface ChannelData {
   id: string;
   name: string;
   tabLabel: string;
+  channelType: string;
+  channelSubtype: string | null;
+  freightMode: string;
   shippingMode: string;
   priceField: string;
   fallbackPriceField: string | null;
@@ -97,7 +100,11 @@ export default function ChannelSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{channel.name}</h1>
           <p className="text-sm text-gray-500 mt-1">
+            <Badge variant="secondary" className="text-xs mr-2">
+              {channel.channelType === "commercial" ? "Commercial" : "Online"}
+            </Badge>
             {channel.shippingMode === "fba" ? "FBA" : channel.shippingMode === "mcf" ? "MCF" : "Standard"} shipping
+            {" · "}{channel.freightMode === "collect" ? "Collect" : "Prepaid"}
             {channel.isDefault && " · Default channel"}
           </p>
         </div>

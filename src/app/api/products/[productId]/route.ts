@@ -3,6 +3,36 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ productId: string }> },
+) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { productId } = await params;
+
+  const customerIds = (
+    await prisma.customerUser.findMany({
+      where: { userId: session.user.id },
+      select: { customerId: true },
+    })
+  ).map((cu) => cu.customerId);
+
+  const product = await prisma.product.findFirst({
+    where: {
+      id: productId,
+      customers: { some: { customerId: { in: customerIds } } },
+    },
+  });
+
+  if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await prisma.product.delete({ where: { id: productId } });
+
+  return NextResponse.json({ ok: true });
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> },

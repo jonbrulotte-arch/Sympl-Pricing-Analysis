@@ -66,3 +66,30 @@ export const SHIPPING_MODES = [
   { value: "mcf", label: "MCF (Multi-Channel Fulfillment)", description: "MCF shipping + inbound freight costs" },
   { value: "fba", label: "FBA (Fulfilled by Amazon)", description: "FBA fulfillment cost from spreadsheet or Amazon" },
 ];
+
+export const COMMERCIAL_SUBTYPES = [
+  {
+    id: "bulk_b2b",
+    label: "Domestic Bulk Commercial/Retail (B2B)",
+    tabLabel: "B2B",
+    description: "Bulk wholesale and retail distribution to domestic business customers",
+    hasCC: false,
+    defaults: { goal: 20, roymode: "pct", roy: 6.9, returns: 1, round: "99", target: 15 },
+  },
+  {
+    id: "dropship_dsv",
+    label: "Domestic DropShip (DSV-D2C)",
+    tabLabel: "DSV",
+    description: "Drop-ship vendor programs shipping direct to consumer on behalf of retailers",
+    hasCC: false,
+    defaults: { goal: 20, roymode: "pct", roy: 6.9, returns: 2, round: "99", target: 15 },
+  },
+  {
+    id: "direct_import",
+    label: "Direct Import (FOB/FCA)",
+    tabLabel: "Import",
+    description: "International shipments under FOB or FCA incoterms for direct import buyers",
+    hasCC: false,
+    defaults: { goal: 15, roymode: "pct", roy: 6.9, returns: 0, round: "99", target: 10 },
+  },
+] as const;

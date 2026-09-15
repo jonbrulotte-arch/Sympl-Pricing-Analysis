@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { CustomerActions } from "@/components/customers/customer-actions";
 
 export default async function CustomerPage({ params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -35,6 +36,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
           </p>
         </div>
         <div className="flex gap-2">
+          <CustomerActions
+            customerId={customerId}
+            customerName={customer.name}
+            channelCount={customer.channels.length}
+          />
           <Link href={`/customers/${customerId}/import`}>
             <Button>
               <Upload className="h-4 w-4 mr-2" />
@@ -85,8 +91,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
                         <div>
                           <p className="text-sm font-medium text-gray-900">{ch.name}</p>
                           <p className="text-xs text-gray-500">
-                            {ch.shippingMode === "fba" ? "FBA" : ch.shippingMode === "mcf" ? "MCF" : "Standard"}{" "}
-                            shipping
+                            {ch.channelType === "commercial" ? "Commercial" : "Online"}{" · "}
+                            {ch.freightMode === "collect" ? "Collect" : "Prepaid"}
                           </p>
                         </div>
                       </div>

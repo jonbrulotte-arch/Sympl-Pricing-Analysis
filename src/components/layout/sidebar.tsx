@@ -15,6 +15,7 @@ import {
   DollarSign,
   BarChart3,
   Package,
+  FolderKanban,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useState } from "react";
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/customers", label: "Customers", icon: Building2 },
   { href: "/products", label: "Products", icon: Package },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
 ];
 
 const adminNavItems: { href: string; label: string; icon: React.ElementType; permission: Permission | null }[] = [

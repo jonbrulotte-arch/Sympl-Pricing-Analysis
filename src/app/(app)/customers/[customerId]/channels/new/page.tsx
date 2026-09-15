@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Globe, Building2, Truck } from "lucide-react";
 import {
   CHANNEL_TEMPLATES,
   PRICE_FIELDS,
   SHIPPING_MODES,
+  COMMERCIAL_SUBTYPES,
   type ChannelTemplate,
 } from "@/components/channels/channel-templates";
 import { ROUND_OPTS } from "@/lib/pricing/constants";
@@ -34,11 +36,20 @@ const FLAG_INFO: { key: keyof ChannelFlags; label: string; hint?: string }[] = [
   { key: "asin", label: "Amazon ASIN tracking" },
 ];
 
-type Step = "template" | "basics" | "flags" | "defaults" | "rules" | "review";
-const STEPS: { id: Step; label: string }[] = [
+type Step = "category" | "template" | "basics" | "flags" | "defaults" | "rules" | "review";
+const ONLINE_STEPS: { id: Step; label: string }[] = [
+  { id: "category", label: "Type" },
   { id: "template", label: "Template" },
   { id: "basics", label: "Basics" },
   { id: "flags", label: "Fee Types" },
+  { id: "defaults", label: "Defaults" },
+  { id: "rules", label: "Rules" },
+  { id: "review", label: "Review" },
+];
+const COMMERCIAL_STEPS: { id: Step; label: string }[] = [
+  { id: "category", label: "Type" },
+  { id: "template", label: "Option" },
+  { id: "basics", label: "Basics" },
   { id: "defaults", label: "Defaults" },
   { id: "rules", label: "Rules" },
   { id: "review", label: "Review" },
@@ -47,10 +58,13 @@ const STEPS: { id: Step; label: string }[] = [
 export default function NewChannelPage() {
   const router = useRouter();
   const { customerId } = useParams<{ customerId: string }>();
-  const [step, setStep] = useState<Step>("template");
+  const [step, setStep] = useState<Step>("category");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [channelType, setChannelType] = useState<"online" | "commercial">("online");
+  const [channelSubtype, setChannelSubtype] = useState<string>("");
+  const [freightMode, setFreightMode] = useState<"prepaid" | "collect">("prepaid");
   const [name, setName] = useState("");
   const [tabLabel, setTabLabel] = useState("");
   const [shippingMode, setShippingMode] = useState<"std" | "mcf" | "fba">("std");
@@ -66,10 +80,28 @@ export default function NewChannelPage() {
     round: "99", target: 20,
   });
 
+  const steps = channelType === "commercial" ? COMMERCIAL_STEPS : ONLINE_STEPS;
+
   function applyTemplate(t: ChannelTemplate) {
     setFlags({ ...t.flags });
     setShippingMode(t.shippingMode);
     setDefaults((prev) => ({ ...prev, ...t.defaults }));
+    setStep("basics");
+  }
+
+  function selectCommercialSubtype(subtype: typeof COMMERCIAL_SUBTYPES[number]) {
+    setChannelSubtype(subtype.id);
+    setName(subtype.label);
+    setTabLabel(subtype.tabLabel);
+    setShippingMode("std");
+    setFlags({
+      coupon: false, tax: false, comm: false, tsd: false, promo: false,
+      fvf: false, cc: subtype.hasCC, ppc: false, ad: false, commSku: false, fb: false, asin: false,
+    });
+    setDefaults((prev) => ({
+      ...prev,
+      ...subtype.defaults,
+    }));
     setStep("basics");
   }
 
@@ -91,6 +123,9 @@ export default function NewChannelPage() {
       body: JSON.stringify({
         name,
         tabLabel: tabLabel || name,
+        channelType,
+        channelSubtype: channelSubtype || null,
+        freightMode,
         shippingMode,
         priceField,
         fallbackPriceField: flags.fb ? fallbackPriceField : null,
@@ -109,7 +144,9 @@ export default function NewChannelPage() {
     router.push(`/customers/${customerId}`);
   }
 
-  const stepIdx = STEPS.findIndex((s) => s.id === step);
+  const stepIdx = steps.findIndex((s) => s.id === step);
+  const prevStep = steps[stepIdx - 1]?.id;
+  const nextStep = steps[stepIdx + 1]?.id;
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -117,7 +154,7 @@ export default function NewChannelPage() {
 
       {/* Step indicator */}
       <div className="flex gap-1 mb-6">
-        {STEPS.map((s, i) => (
+        {steps.map((s, i) => (
           <div
             key={s.id}
             className={`h-1.5 flex-1 rounded-full ${i <= stepIdx ? "bg-blue-600" : "bg-gray-200"}`}
@@ -125,8 +162,43 @@ export default function NewChannelPage() {
         ))}
       </div>
 
-      {/* Template selection */}
-      {step === "template" && (
+      {/* Category selection */}
+      {step === "category" && (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 mb-4">What type of sales channel are you adding?</p>
+          <button
+            onClick={() => { setChannelType("online"); setStep("template"); }}
+            className="w-full text-left border border-gray-200 rounded-lg p-5 hover:border-blue-300 hover:bg-blue-50/50 transition-colors"
+          >
+            <div className="flex items-start gap-4">
+              <Globe className="h-6 w-6 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-gray-900">Online Channel</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  eBay, Amazon, Walmart, Shopify, and other online marketplaces or DTC platforms
+                </p>
+              </div>
+            </div>
+          </button>
+          <button
+            onClick={() => { setChannelType("commercial"); setStep("template"); }}
+            className="w-full text-left border border-gray-200 rounded-lg p-5 hover:border-blue-300 hover:bg-blue-50/50 transition-colors"
+          >
+            <div className="flex items-start gap-4">
+              <Building2 className="h-6 w-6 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-gray-900">Commercial / Retail Channel</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Bulk B2B, Dropship (DSV-D2C), Direct Import (FOB/FCA), and other traditional trade channels
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* Template selection (online) */}
+      {step === "template" && channelType === "online" && (
         <div className="space-y-3">
           <p className="text-sm text-gray-600 mb-4">Choose a template to start with, or create a custom channel.</p>
           {CHANNEL_TEMPLATES.map((t) => (
@@ -137,6 +209,28 @@ export default function NewChannelPage() {
             >
               <p className="font-medium text-gray-900">{t.label}</p>
               <p className="text-sm text-gray-500 mt-0.5">{t.description}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Commercial subtype selection */}
+      {step === "template" && channelType === "commercial" && (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 mb-4">Select the commercial channel type.</p>
+          {COMMERCIAL_SUBTYPES.map((sub) => (
+            <button
+              key={sub.id}
+              onClick={() => selectCommercialSubtype(sub)}
+              className="w-full text-left border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50/50 transition-colors"
+            >
+              <div className="flex items-start gap-3">
+                <Truck className="h-5 w-5 text-gray-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-gray-900">{sub.label}</p>
+                  <p className="text-sm text-gray-500 mt-0.5">{sub.description}</p>
+                </div>
+              </div>
             </button>
           ))}
         </div>
@@ -162,27 +256,67 @@ export default function NewChannelPage() {
               />
               <p className="text-xs text-gray-500 mt-1">Appears on analysis tabs. Defaults to channel name.</p>
             </div>
+
+            {/* Freight mode (all channels) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Shipping Mode</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Freight Terms</label>
               <div className="space-y-2">
-                {SHIPPING_MODES.map((m) => (
-                  <label key={m.value} className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="shippingMode"
-                      value={m.value}
-                      checked={shippingMode === m.value}
-                      onChange={() => setShippingMode(m.value as "std" | "mcf" | "fba")}
-                      className="mt-1"
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{m.label}</p>
-                      <p className="text-xs text-gray-500">{m.description}</p>
-                    </div>
-                  </label>
-                ))}
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="freightMode"
+                    value="prepaid"
+                    checked={freightMode === "prepaid"}
+                    onChange={() => setFreightMode("prepaid")}
+                    className="mt-1"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Prepaid</p>
+                    <p className="text-xs text-gray-500">Shipping cost is included in the analysis (uses product shipping cost data)</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="freightMode"
+                    value="collect"
+                    checked={freightMode === "collect"}
+                    onChange={() => setFreightMode("collect")}
+                    className="mt-1"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Collect</p>
+                    <p className="text-xs text-gray-500">Buyer pays shipping — freight cost excluded from analysis</p>
+                  </div>
+                </label>
               </div>
             </div>
+
+            {/* Shipping mode (online channels) */}
+            {channelType === "online" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Shipping Mode</label>
+                <div className="space-y-2">
+                  {SHIPPING_MODES.map((m) => (
+                    <label key={m.value} className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="shippingMode"
+                        value={m.value}
+                        checked={shippingMode === m.value}
+                        onChange={() => setShippingMode(m.value as "std" | "mcf" | "fba")}
+                        className="mt-1"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{m.label}</p>
+                        <p className="text-xs text-gray-500">{m.description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Price Column</label>
               <select
@@ -201,7 +335,7 @@ export default function NewChannelPage() {
         </Card>
       )}
 
-      {/* Fee type flags */}
+      {/* Fee type flags (online channels only) */}
       {step === "flags" && (
         <Card>
           <CardHeader>
@@ -323,26 +457,38 @@ export default function NewChannelPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
+              <p className="text-sm font-medium text-gray-500">Type</p>
+              <p className="text-gray-900">{channelType === "online" ? "Online" : "Commercial / Retail"}</p>
+            </div>
+            <div>
               <p className="text-sm font-medium text-gray-500">Name</p>
               <p className="text-gray-900">{name || "(not set)"}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Shipping</p>
-              <p className="text-gray-900">{SHIPPING_MODES.find((m) => m.value === shippingMode)?.label}</p>
+              <p className="text-sm font-medium text-gray-500">Freight Terms</p>
+              <p className="text-gray-900">{freightMode === "prepaid" ? "Prepaid" : "Collect"}</p>
             </div>
+            {channelType === "online" && (
+              <div>
+                <p className="text-sm font-medium text-gray-500">Shipping</p>
+                <p className="text-gray-900">{SHIPPING_MODES.find((m) => m.value === shippingMode)?.label}</p>
+              </div>
+            )}
             <div>
               <p className="text-sm font-medium text-gray-500">Price Column</p>
               <p className="text-gray-900">{PRICE_FIELDS.find((f) => f.value === priceField)?.label}</p>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Enabled Fee Types</p>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {FLAG_INFO.filter((f) => flags[f.key]).map((f) => (
-                  <Badge key={f.key} variant="secondary">{f.label}</Badge>
-                ))}
-                {FLAG_INFO.every((f) => !flags[f.key]) && <p className="text-gray-500 text-sm">None</p>}
+            {channelType === "online" && (
+              <div>
+                <p className="text-sm font-medium text-gray-500">Enabled Fee Types</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {FLAG_INFO.filter((f) => flags[f.key]).map((f) => (
+                    <Badge key={f.key} variant="secondary">{f.label}</Badge>
+                  ))}
+                  {FLAG_INFO.every((f) => !flags[f.key]) && <p className="text-gray-500 text-sm">None</p>}
+                </div>
               </div>
-            </div>
+            )}
 
             {error && (
               <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
@@ -352,11 +498,11 @@ export default function NewChannelPage() {
       )}
 
       {/* Navigation */}
-      {step !== "template" && (
+      {step !== "category" && (
         <div className="flex justify-between mt-6">
           <Button
             variant="outline"
-            onClick={() => setStep(STEPS[stepIdx - 1]?.id ?? "template")}
+            onClick={() => setStep(prevStep ?? "category")}
           >
             Back
           </Button>
@@ -366,7 +512,7 @@ export default function NewChannelPage() {
             </Button>
           ) : (
             <Button
-              onClick={() => setStep(STEPS[stepIdx + 1]?.id ?? "review")}
+              onClick={() => setStep(nextStep ?? "review")}
               disabled={step === "basics" && !name.trim()}
             >
               Next

@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
 import { ProductEditor } from "@/components/products/product-editor";
+import { ProductDelete } from "@/components/products/product-delete";
+import { CostHistoryChart, ShippingHistoryChart } from "@/components/products/cost-chart";
 
 export default async function ProductDetailPage({
   params,
@@ -67,7 +69,16 @@ export default async function ProductDetailPage({
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">{product.sku}</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-bold text-gray-900">{product.sku}</h1>
+        <ProductDelete
+          productId={productId}
+          sku={product.sku}
+          costRecords={costHistory.length}
+          priceRecords={priceHistory.length}
+          shippingRecords={shippingHistory.length}
+        />
+      </div>
       <p className="text-sm text-gray-600 mb-6">{product.name || "Unnamed product"}</p>
 
       {/* Product info */}
@@ -112,32 +123,39 @@ export default async function ProductDetailPage({
           {costHistory.length === 0 ? (
             <p className="text-sm text-gray-500">No cost records yet.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 text-gray-600 font-medium">Date</th>
-                  <th className="text-right py-2 text-gray-600 font-medium">Cost</th>
-                  <th className="text-right py-2 text-gray-600 font-medium">Change</th>
-                </tr>
-              </thead>
-              <tbody>
-                {costHistory.map((ch, i) => {
-                  const prev = costHistory[i + 1];
-                  const change = prev ? Number(ch.cost) - Number(prev.cost) : 0;
-                  return (
-                    <tr key={ch.id} className="border-b border-gray-50">
-                      <td className="py-1.5 text-gray-700">{formatDateTime(ch.recordedAt)}</td>
-                      <td className="py-1.5 text-right font-mono">${Number(ch.cost).toFixed(2)}</td>
-                      <td className={`py-1.5 text-right ${change > 0 ? "text-red-600" : change < 0 ? "text-green-600" : "text-gray-500"}`}>
-                        {i < costHistory.length - 1
-                          ? `${change > 0 ? "+" : ""}$${change.toFixed(2)}`
-                          : "-"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <>
+              <CostHistoryChart data={costHistory.map((ch) => ({
+                id: ch.id,
+                cost: ch.cost.toString(),
+                recordedAt: ch.recordedAt.toISOString(),
+              }))} />
+              <table className="w-full text-sm mt-4">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-2 text-gray-600 font-medium">Date</th>
+                    <th className="text-right py-2 text-gray-600 font-medium">Cost</th>
+                    <th className="text-right py-2 text-gray-600 font-medium">Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {costHistory.map((ch, i) => {
+                    const prev = costHistory[i + 1];
+                    const change = prev ? Number(ch.cost) - Number(prev.cost) : 0;
+                    return (
+                      <tr key={ch.id} className="border-b border-gray-50">
+                        <td className="py-1.5 text-gray-700">{formatDateTime(ch.recordedAt)}</td>
+                        <td className="py-1.5 text-right font-mono">${Number(ch.cost).toFixed(2)}</td>
+                        <td className={`py-1.5 text-right ${change > 0 ? "text-red-600" : change < 0 ? "text-green-600" : "text-gray-500"}`}>
+                          {i < costHistory.length - 1
+                            ? `${change > 0 ? "+" : ""}$${change.toFixed(2)}`
+                            : "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </>
           )}
         </CardContent>
       </Card>
@@ -184,45 +202,53 @@ export default async function ProductDetailPage({
           {shippingHistory.length === 0 ? (
             <p className="text-sm text-gray-500">No shipping cost records yet.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 text-gray-600 font-medium">Date</th>
-                  <th className="text-left py-2 text-gray-600 font-medium">Type</th>
-                  <th className="text-right py-2 text-gray-600 font-medium">Amount</th>
-                  <th className="text-right py-2 text-gray-600 font-medium">Change</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shippingHistory.map((sh, i) => {
-                  const sameType = shippingHistory.slice(i + 1).find((s) => s.shippingType === sh.shippingType);
-                  const change = sameType ? Number(sh.amount) - Number(sameType.amount) : 0;
-                  const hasComparison = !!sameType;
-                  const typeLabels: Record<string, string> = {
-                    std: "Standard",
-                    mcf_ship: "MCF Ship",
-                    mcf_freight: "MCF Freight",
-                    fba_fee: "FBA Fee",
-                  };
-                  return (
-                    <tr key={sh.id} className="border-b border-gray-50">
-                      <td className="py-1.5 text-gray-700">{formatDateTime(sh.recordedAt)}</td>
-                      <td className="py-1.5">
-                        <Badge variant="secondary" className="text-xs">
-                          {typeLabels[sh.shippingType] || sh.shippingType}
-                        </Badge>
-                      </td>
-                      <td className="py-1.5 text-right font-mono">${Number(sh.amount).toFixed(2)}</td>
-                      <td className={`py-1.5 text-right ${change > 0 ? "text-red-600" : change < 0 ? "text-green-600" : "text-gray-500"}`}>
-                        {hasComparison
-                          ? `${change > 0 ? "+" : ""}$${change.toFixed(2)}`
-                          : "-"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <>
+              <ShippingHistoryChart data={shippingHistory.map((sh) => ({
+                id: sh.id,
+                shippingType: sh.shippingType,
+                amount: sh.amount.toString(),
+                recordedAt: sh.recordedAt.toISOString(),
+              }))} />
+              <table className="w-full text-sm mt-4">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-2 text-gray-600 font-medium">Date</th>
+                    <th className="text-left py-2 text-gray-600 font-medium">Type</th>
+                    <th className="text-right py-2 text-gray-600 font-medium">Amount</th>
+                    <th className="text-right py-2 text-gray-600 font-medium">Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shippingHistory.map((sh, i) => {
+                    const sameType = shippingHistory.slice(i + 1).find((s) => s.shippingType === sh.shippingType);
+                    const change = sameType ? Number(sh.amount) - Number(sameType.amount) : 0;
+                    const hasComparison = !!sameType;
+                    const typeLabels: Record<string, string> = {
+                      std: "Standard",
+                      mcf_ship: "MCF Ship",
+                      mcf_freight: "MCF Freight",
+                      fba_fee: "FBA Fee",
+                    };
+                    return (
+                      <tr key={sh.id} className="border-b border-gray-50">
+                        <td className="py-1.5 text-gray-700">{formatDateTime(sh.recordedAt)}</td>
+                        <td className="py-1.5">
+                          <Badge variant="secondary" className="text-xs">
+                            {typeLabels[sh.shippingType] || sh.shippingType}
+                          </Badge>
+                        </td>
+                        <td className="py-1.5 text-right font-mono">${Number(sh.amount).toFixed(2)}</td>
+                        <td className={`py-1.5 text-right ${change > 0 ? "text-red-600" : change < 0 ? "text-green-600" : "text-gray-500"}`}>
+                          {hasComparison
+                            ? `${change > 0 ? "+" : ""}$${change.toFixed(2)}`
+                            : "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </>
           )}
         </CardContent>
       </Card>
