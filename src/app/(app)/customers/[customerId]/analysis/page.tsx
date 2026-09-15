@@ -2,7 +2,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
-import type { ProductRow, BrandRoyaltyTable } from "@/lib/pricing/types";
+import { loadProductRows } from "@/lib/db/load-product-rows";
+import type { BrandRoyaltyTable } from "@/lib/pricing/types";
 
 export default async function AnalysisPage({ params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -23,60 +24,13 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
   const dbProducts = await prisma.product.findMany({
     where: { customers: { some: { customerId } } },
     orderBy: { sku: "asc" },
+    select: { id: true },
   });
 
-  // Load latest cost and prices per channel for each product
-  const products: ProductRow[] = [];
-  for (const p of dbProducts) {
-    const latestCost = await prisma.costHistory.findFirst({
-      where: { productId: p.id },
-      orderBy: { recordedAt: "desc" },
-    });
-
-    // Load latest shipping costs
-    const shippingTypes = ["std", "mcf_ship", "mcf_freight", "fba_fee"] as const;
-    const shippingFieldMap: Record<string, keyof ProductRow> = {
-      std: "shipping",
-      mcf_ship: "mcfShip",
-      mcf_freight: "mcfFreight",
-      fba_fee: "fbaFee",
-    };
-    const shippingValues: Partial<ProductRow> = {};
-    for (const st of shippingTypes) {
-      const latest = await prisma.shippingCostHistory.findFirst({
-        where: { productId: p.id, shippingType: st },
-        orderBy: { recordedAt: "desc" },
-      });
-      if (latest) {
-        shippingValues[shippingFieldMap[st] as keyof ProductRow] = Number(latest.amount) as never;
-      }
-    }
-
-    const row: ProductRow = {
-      sku: p.sku,
-      name: p.name ?? undefined,
-      cost: latestCost ? Number(latestCost.cost) : null,
-      brand: p.brand ?? undefined,
-      asin: p.asin ?? undefined,
-      fbaClass: p.fbaClass ?? undefined,
-      amzCategory: p.amzCategory ?? undefined,
-      amzItemType: p.amzItemType ?? undefined,
-      ...shippingValues,
-    };
-
-    // Load latest prices per channel
-    for (const ch of customer.channels) {
-      const latestPrice = await prisma.priceHistory.findFirst({
-        where: { productId: p.id, channelId: ch.id },
-        orderBy: { recordedAt: "desc" },
-      });
-      if (latestPrice) {
-        (row as Record<string, unknown>)[ch.priceField] = Number(latestPrice.price);
-      }
-    }
-
-    products.push(row);
-  }
+  const products = await loadProductRows(
+    dbProducts.map((p) => p.id),
+    customer.channels,
+  );
 
   const brandRoyalties: BrandRoyaltyTable = {};
   for (const br of customer.brandRoyalties) {
