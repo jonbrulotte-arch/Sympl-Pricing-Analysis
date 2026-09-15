@@ -26,6 +26,7 @@ const navItems = [
   { href: "/customers", label: "Customers", icon: Building2 },
   { href: "/products", label: "Products", icon: Package },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/royalty-rules", label: "Royalty Rules", icon: DollarSign },
 ];
 
 const adminNavItems: { href: string; label: string; icon: React.ElementType; permission: Permission | null }[] = [

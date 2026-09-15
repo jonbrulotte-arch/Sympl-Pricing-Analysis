@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { loadProductRows } from "@/lib/db/load-product-rows";
-import type { BrandRoyaltyTable } from "@/lib/pricing/types";
+import type { BrandRoyaltyTable, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
   const session = await auth();
@@ -21,6 +21,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         include: {
           channels: { orderBy: { sortOrder: "asc" } },
           brandRoyalties: true,
+          royaltyRules: true,
         },
       },
       createdBy: { select: { name: true } },
@@ -48,6 +49,16 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   for (const br of customer.brandRoyalties) {
     brandRoyalties[br.brandKey] = Number(br.value);
   }
+
+  const royaltyRules: RoyaltyRuleEntry[] = (customer.royaltyRules ?? []).map((r) => ({
+    id: r.id,
+    scope: r.scope as "brand" | "sku",
+    brandKey: r.brandKey ?? undefined,
+    brandName: r.brandName ?? undefined,
+    skus: r.skus,
+    value: Number(r.value),
+    mode: r.mode as "pct" | "usd",
+  }));
 
   const channelsData = customer.channels.map((ch) => ({
     id: ch.id,
@@ -132,6 +143,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           products={products}
           brandRoyalties={brandRoyalties}
           customerId={project.customerId}
+          royaltyRules={royaltyRules}
         />
       )}
     </div>

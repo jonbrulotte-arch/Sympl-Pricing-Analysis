@@ -36,6 +36,7 @@ model Customer {
   channels         SalesChannel[]
   customerProducts CustomerProduct[]
   brandRoyalties   BrandRoyalty[]
+  royaltyRules     RoyaltyRule[]
   analyses       Analysis[]
   imports        Import[]
   projects       Project[]
@@ -257,6 +258,23 @@ model ProjectProduct {
   createdAt DateTime @default(now())
 
   @@id([projectId, productId])
+}
+
+model RoyaltyRule {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  scope      String   // "brand" or "sku"
+  brandKey   String?
+  brandName  String?
+  skus       String[]
+  value      Decimal  @db.Decimal(10, 4)
+  mode       String   // "pct" or "usd"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([customerId, scope])
+  @@index([customerId, brandKey])
 }
 
 model SavedMapping {

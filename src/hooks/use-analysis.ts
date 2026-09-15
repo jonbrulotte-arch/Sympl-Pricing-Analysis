@@ -9,6 +9,7 @@ import type {
   BrandRoyaltyTable,
   Overrides,
   ChannelFlags,
+  RoyaltyRuleEntry,
 } from "@/lib/pricing/types";
 import { analyzeProduct } from "@/lib/pricing/engine";
 import { brandKey } from "@/lib/pricing/helpers";
@@ -68,9 +69,12 @@ export function useAnalysis(
   channels: ChannelWithDb[],
   products: ProductRow[],
   brandRoyalties: BrandRoyaltyTable,
+  customerId: string,
+  royaltyRules: RoyaltyRuleEntry[] = [],
 ) {
   const [activeTab, setActiveTab] = useState<string>(channels[0]?.id ?? "");
   const [overrides, setOverrides] = useState<Overrides>({});
+  const [committedPrices, setCommittedPrices] = useState<Record<string, Record<string, number>>>({});
   const [settingsMap, setSettingsMap] = useState<Record<string, Record<string, unknown>>>(() => {
     const m: Record<string, Record<string, unknown>> = {};
     for (const ch of channels) m[ch.id] = { ...(ch.defaults as Record<string, unknown>) };
@@ -96,12 +100,19 @@ export function useAnalysis(
     for (const cfg of configs) {
       const settings = settingsMap[cfg.id] as unknown as ChannelDefaults;
       const blocked = blockedBrands[cfg.id];
+      const committed = committedPrices[cfg.id];
       all[cfg.id] = products
         .filter((p) => !blocked?.has(brandKey(p.brand)))
-        .map((p) => analyzeProduct(p, cfg, settings, overrides, brandRoyalties));
+        .map((p) => {
+          let row = p;
+          if (committed?.[p.sku] != null) {
+            row = { ...p, [cfg.priceField]: committed[p.sku] };
+          }
+          return analyzeProduct(row, cfg, settings, overrides, brandRoyalties, royaltyRules);
+        });
     }
     return all;
-  }, [configs, products, settingsMap, overrides, brandRoyalties, blockedBrands]);
+  }, [configs, products, settingsMap, overrides, brandRoyalties, blockedBrands, committedPrices, royaltyRules]);
 
   const filteredResults = useMemo(() => {
     const channelResults = results[activeTab] ?? [];
@@ -181,6 +192,31 @@ export function useAnalysis(
     }));
   }, []);
 
+  const commitPrice = useCallback(async (sku: string) => {
+    const channelId = activeTab;
+    const channelResults = results[channelId] ?? [];
+    const row = channelResults.find((r) => r.sku === sku);
+    if (!row) return;
+
+    const override = overrides[channelId]?.[sku]?.price;
+    const priceToCommit = override ?? row.rec;
+    if (priceToCommit == null || priceToCommit <= 0) return;
+
+    const res = await fetch(`/api/customers/${customerId}/commit-price`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sku, channelId, price: priceToCommit }),
+    });
+
+    if (!res.ok) return;
+
+    setCommittedPrices((prev) => ({
+      ...prev,
+      [channelId]: { ...prev[channelId], [sku]: priceToCommit },
+    }));
+    setOverride(channelId, sku, "price", undefined);
+  }, [activeTab, results, overrides, customerId, setOverride]);
+
   function handleSort(key: string) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -208,5 +244,6 @@ export function useAnalysis(
     setOverride,
     settingsMap,
     updateSetting,
+    commitPrice,
   };
 }

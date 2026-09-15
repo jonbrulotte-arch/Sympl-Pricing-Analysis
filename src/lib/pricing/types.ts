@@ -146,7 +146,7 @@ export interface AnalysisResult {
   brand?: string;
   royRate: number;
   royFlat: number;
-  royFrom: "brand" | "sheet" | "default";
+  royFrom: "sku" | "brand" | "sheet" | "default";
   commR: number;
   commFrom: "channel" | "sheet";
   ppcUsed: number;
@@ -195,4 +195,14 @@ export interface Overrides {
 
 export interface BrandRoyaltyTable {
   [brandKey: string]: number;
+}
+
+export interface RoyaltyRuleEntry {
+  id: string;
+  scope: "brand" | "sku";
+  brandKey?: string;
+  brandName?: string;
+  skus: string[];
+  value: number;
+  mode: "pct" | "usd";
 }

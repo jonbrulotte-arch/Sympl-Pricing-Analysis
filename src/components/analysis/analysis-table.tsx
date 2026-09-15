@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { AnalysisResult } from "@/lib/pricing/types";
-import { ChevronDown, ChevronUp, ArrowUpDown } from "lucide-react";
+import { ChevronDown, ChevronUp, ArrowUpDown, Check } from "lucide-react";
 
 interface Props {
   results: AnalysisResult[];
@@ -13,6 +13,7 @@ interface Props {
   onSort: (key: string) => void;
   onOverride: (sku: string, field: "price" | "ship", value: number | undefined) => void;
   channelId: string;
+  onCommit?: (sku: string) => Promise<void>;
 }
 
 const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -23,8 +24,9 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "second
   invalid: { label: "Invalid", variant: "outline" },
 };
 
-export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, channelId }: Props) {
+export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, channelId, onCommit }: Props) {
   const [expandedSku, setExpandedSku] = useState<string | null>(null);
+  const [committingSkus, setCommittingSkus] = useState<Set<string>>(new Set());
 
   function SortHeader({ label, field }: { label: string; field: string }) {
     return (
@@ -60,6 +62,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
             <SortHeader label="Rec" field="rec" />
             <SortHeader label="+/-%" field="delta" />
             <th className="text-center py-2 px-2 text-gray-600 font-medium text-xs">Status</th>
+            {onCommit && <th className="text-center py-2 px-2 text-gray-600 font-medium text-xs w-16"></th>}
           </tr>
         </thead>
         <tbody>
@@ -103,6 +106,25 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
                 <td className="py-1.5 px-2 text-center">
                   <Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>
                 </td>
+                {onCommit && (
+                  <td className="py-1.5 px-2 text-center">
+                    {(r.edited || (r.rec != null && r.rec !== r.price && !r.invalid && !r.unpriced)) && (
+                      <button
+                        disabled={committingSkus.has(r.sku)}
+                        onClick={async () => {
+                          setCommittingSkus((s) => new Set(s).add(r.sku));
+                          try { await onCommit(r.sku); } finally {
+                            setCommittingSkus((s) => { const n = new Set(s); n.delete(r.sku); return n; });
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        <Check className="h-3 w-3" />
+                        {committingSkus.has(r.sku) ? "..." : "Commit"}
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             );
           })}

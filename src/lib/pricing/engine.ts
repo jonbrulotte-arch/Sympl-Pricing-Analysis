@@ -8,6 +8,7 @@ import type {
   AnalysisStatus,
   BrandRoyaltyTable,
   Overrides,
+  RoyaltyRuleEntry,
 } from "./types";
 import { parseNum, parseStatus, roundUp, brandKey } from "./helpers";
 
@@ -123,7 +124,22 @@ function resolveRoyalty(
   cfg: ChannelConfig,
   settings: ChannelDefaults,
   brandRoyalty?: BrandRoyaltyTable,
-): { royRate: number; royFlat: number; royFrom: "brand" | "sheet" | "default" } {
+  royaltyRules?: RoyaltyRuleEntry[],
+): { royRate: number; royFlat: number; royFrom: "sku" | "brand" | "sheet" | "default" } {
+  if (royaltyRules && royaltyRules.length > 0) {
+    const skuRule = royaltyRules.find((r) => r.scope === "sku" && r.skus.includes(row.sku));
+    if (skuRule) {
+      return applyRuleValue(skuRule.value, skuRule.mode, "sku");
+    }
+    const bk = brandKey(row.brand);
+    if (bk) {
+      const brandRule = royaltyRules.find((r) => r.scope === "brand" && r.brandKey === bk);
+      if (brandRule) {
+        return applyRuleValue(brandRule.value, brandRule.mode, "brand");
+      }
+    }
+  }
+
   const roymode = settings.roymode ?? "pct";
   const defaultRoy = (settings.roy ?? 6.9) / 100;
   const bk = brandKey(row.brand);
@@ -133,7 +149,7 @@ function resolveRoyalty(
   const prefer = settings.royaltySource ?? "sheet";
 
   let raw: number | null = null;
-  let from: "brand" | "sheet" | "default" = "default";
+  let from: "sku" | "brand" | "sheet" | "default" = "default";
 
   if (prefer === "brand" && brandVal != null) {
     raw = brandVal;
@@ -159,6 +175,19 @@ function resolveRoyalty(
   return { royRate: val, royFlat: 0, royFrom: from };
 }
 
+function applyRuleValue(
+  value: number,
+  mode: "pct" | "usd",
+  from: "sku" | "brand",
+): { royRate: number; royFlat: number; royFrom: "sku" | "brand" | "sheet" | "default" } {
+  let val = value;
+  if (mode === "pct" && val > 1) val = val / 100;
+  if (mode === "usd") {
+    return { royRate: 0, royFlat: val, royFrom: from };
+  }
+  return { royRate: val, royFlat: 0, royFrom: from };
+}
+
 function resolveCommission(
   row: ProductRow,
   cfg: ChannelConfig,
@@ -178,6 +207,7 @@ export function analyzeProduct(
   settings: ChannelDefaults,
   overrides?: Overrides,
   brandRoyalty?: BrandRoyaltyTable,
+  royaltyRules?: RoyaltyRuleEntry[],
 ): AnalysisResult {
   const r = computeRates(cfg, settings);
   const cost = parseNum(row.cost);
@@ -207,7 +237,7 @@ export function analyzeProduct(
   const invalid = cost <= 0;
   const unpriced = price <= 0 && !invalid;
 
-  const { royRate, royFlat, royFrom } = resolveRoyalty(row, cfg, settings, brandRoyalty);
+  const { royRate, royFlat, royFrom } = resolveRoyalty(row, cfg, settings, brandRoyalty, royaltyRules);
   const { commR, commFrom } = resolveCommission(row, cfg, r);
 
   const ppcUsed = cfg.flags.ppc ? parseNum(row.ppc ?? settings.ppc ?? 0) : 0;

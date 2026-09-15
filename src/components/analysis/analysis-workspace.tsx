@@ -7,7 +7,7 @@ import { AnalysisTable } from "./analysis-table";
 import { CalculationCheck } from "./calculation-check";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import type { ProductRow, BrandRoyaltyTable, ChannelDefaults } from "@/lib/pricing/types";
+import type { ProductRow, BrandRoyaltyTable, ChannelDefaults, RoyaltyRuleEntry } from "@/lib/pricing/types";
 import { exportChangeReport, exportFullAnalysis } from "@/lib/export/change-report";
 import { Search, Download, ChevronDown } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -40,6 +40,7 @@ interface Props {
   products: ProductRow[];
   brandRoyalties: BrandRoyaltyTable;
   customerId: string;
+  royaltyRules?: RoyaltyRuleEntry[];
 }
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -50,7 +51,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "unpriced", label: "Unpriced" },
 ];
 
-export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId }: Props) {
+export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [] }: Props) {
   const {
     configs,
     activeTab,
@@ -67,7 +68,8 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     handleSort,
     setOverride,
     settingsMap,
-  } = useAnalysis(channels, products, brandRoyalties);
+    commitPrice,
+  } = useAnalysis(channels, products, brandRoyalties, customerId, royaltyRules);
 
   const isCalcCheck = activeTab === "__calc_check__";
   const [exportOpen, setExportOpen] = useState(false);
@@ -205,6 +207,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             onSort={handleSort}
             onOverride={(sku, field, value) => setOverride(activeTab, sku, field, value)}
             channelId={activeTab}
+            onCommit={commitPrice}
           />
         </>
       )}
