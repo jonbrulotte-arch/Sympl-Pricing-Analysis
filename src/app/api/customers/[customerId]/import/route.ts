@@ -130,6 +130,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
         }
       }
     }
+
+    // Record shipping cost history
+    const shippingFields: [keyof ProductRow, string][] = [
+      ["shipping", "std"],
+      ["mcfShip", "mcf_ship"],
+      ["mcfFreight", "mcf_freight"],
+      ["fbaFee", "fba_fee"],
+    ];
+    for (const [field, shippingType] of shippingFields) {
+      const val = row[field];
+      if (val != null && typeof val === "number" && val > 0) {
+        const last = await prisma.shippingCostHistory.findFirst({
+          where: { productId, shippingType },
+          orderBy: { recordedAt: "desc" },
+        });
+        if (!last || Number(last.amount) !== val) {
+          await prisma.shippingCostHistory.create({
+            data: { id: randomUUID(), productId, shippingType, amount: val, importId },
+          });
+        }
+      }
+    }
   }
 
   await prisma.import.update({

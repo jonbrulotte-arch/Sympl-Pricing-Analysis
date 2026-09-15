@@ -39,6 +39,12 @@ export default async function ProductDetailPage({
     include: { channel: { select: { name: true } } },
   });
 
+  const shippingHistory = await prisma.shippingCostHistory.findMany({
+    where: { productId },
+    orderBy: { recordedAt: "desc" },
+    take: 50,
+  });
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">{product.sku}</h1>
@@ -110,7 +116,7 @@ export default async function ProductDetailPage({
       </Card>
 
       {/* Price History */}
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-base">Price History ({priceHistory.length} records)</CardTitle>
         </CardHeader>
@@ -136,6 +142,58 @@ export default async function ProductDetailPage({
                     <td className="py-1.5 text-right font-mono">${Number(ph.price).toFixed(2)}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Shipping Cost History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Shipping Cost History ({shippingHistory.length} records)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {shippingHistory.length === 0 ? (
+            <p className="text-sm text-gray-400">No shipping cost records yet.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-2 text-gray-500 font-medium">Date</th>
+                  <th className="text-left py-2 text-gray-500 font-medium">Type</th>
+                  <th className="text-right py-2 text-gray-500 font-medium">Amount</th>
+                  <th className="text-right py-2 text-gray-500 font-medium">Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shippingHistory.map((sh, i) => {
+                  const sameType = shippingHistory.slice(i + 1).find((s) => s.shippingType === sh.shippingType);
+                  const change = sameType ? Number(sh.amount) - Number(sameType.amount) : 0;
+                  const hasComparison = !!sameType;
+                  const typeLabels: Record<string, string> = {
+                    std: "Standard",
+                    mcf_ship: "MCF Ship",
+                    mcf_freight: "MCF Freight",
+                    fba_fee: "FBA Fee",
+                  };
+                  return (
+                    <tr key={sh.id} className="border-b border-gray-50">
+                      <td className="py-1.5 text-gray-700">{formatDateTime(sh.recordedAt)}</td>
+                      <td className="py-1.5">
+                        <Badge variant="secondary" className="text-xs">
+                          {typeLabels[sh.shippingType] || sh.shippingType}
+                        </Badge>
+                      </td>
+                      <td className="py-1.5 text-right font-mono">${Number(sh.amount).toFixed(2)}</td>
+                      <td className={`py-1.5 text-right ${change > 0 ? "text-red-600" : change < 0 ? "text-green-600" : "text-gray-400"}`}>
+                        {hasComparison
+                          ? `${change > 0 ? "+" : ""}$${change.toFixed(2)}`
+                          : "-"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

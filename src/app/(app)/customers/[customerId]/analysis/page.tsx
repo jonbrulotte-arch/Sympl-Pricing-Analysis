@@ -33,6 +33,25 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
       orderBy: { recordedAt: "desc" },
     });
 
+    // Load latest shipping costs
+    const shippingTypes = ["std", "mcf_ship", "mcf_freight", "fba_fee"] as const;
+    const shippingFieldMap: Record<string, keyof ProductRow> = {
+      std: "shipping",
+      mcf_ship: "mcfShip",
+      mcf_freight: "mcfFreight",
+      fba_fee: "fbaFee",
+    };
+    const shippingValues: Partial<ProductRow> = {};
+    for (const st of shippingTypes) {
+      const latest = await prisma.shippingCostHistory.findFirst({
+        where: { productId: p.id, shippingType: st },
+        orderBy: { recordedAt: "desc" },
+      });
+      if (latest) {
+        shippingValues[shippingFieldMap[st] as keyof ProductRow] = Number(latest.amount) as never;
+      }
+    }
+
     const row: ProductRow = {
       sku: p.sku,
       name: p.name ?? undefined,
@@ -42,6 +61,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
       fbaClass: p.fbaClass ?? undefined,
       amzCategory: p.amzCategory ?? undefined,
       amzItemType: p.amzItemType ?? undefined,
+      ...shippingValues,
     };
 
     // Load latest prices per channel

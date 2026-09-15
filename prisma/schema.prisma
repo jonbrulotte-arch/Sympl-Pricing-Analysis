@@ -106,9 +106,10 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  costHistories   CostHistory[]
-  priceHistories  PriceHistory[]
-  analysisResults AnalysisResult[]
+  costHistories         CostHistory[]
+  priceHistories        PriceHistory[]
+  shippingCostHistories ShippingCostHistory[]
+  analysisResults       AnalysisResult[]
 
   @@unique([customerId, sku])
 }
@@ -135,6 +136,18 @@ model PriceHistory {
   importId   String?
 
   @@index([productId, channelId, recordedAt])
+}
+
+model ShippingCostHistory {
+  id           String   @id @default(uuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  shippingType String   // "std" | "mcf_ship" | "mcf_freight" | "fba_fee"
+  amount       Decimal  @db.Decimal(10, 4)
+  recordedAt   DateTime @default(now())
+  importId     String?
+
+  @@index([productId, shippingType, recordedAt])
 }
 
 model BrandRoyalty {
