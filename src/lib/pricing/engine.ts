@@ -348,6 +348,7 @@ export function analyzeProduct(
     net: cur.net,
     mcfShip: row.mcfShip != null ? parseNum(row.mcfShip) : null,
     mcfFreight: row.mcfFreight != null ? parseNum(row.mcfFreight) : null,
+    shipping: row.shipping != null ? parseNum(row.shipping) : null,
     hasShippingData: row.shipping != null || row.mcfShip != null || row.mcfFreight != null || row.fbaFee != null,
   };
 }

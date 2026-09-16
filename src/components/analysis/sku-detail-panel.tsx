@@ -150,7 +150,7 @@ export function SkuDetailPanel({ result: r, cfg, settings, onShowMath }: Props) 
             <LedgerRow label={`Royalty (${r.royFrom})`} value={-cur.roy} />
             {cfg.flags.ppc && <LedgerRow label="PPC fee" value={-r.ppcUsed} />}
             <LedgerRow label="Total fees and allocations" value={-cur.alloc} bold border />
-            {r.hasShippingData && <LedgerRow label="Shipping cost" value={-r.ship} />}
+            <ShippingRows result={r} cfg={cfg} />
             <LedgerRow label={`SKU cost × ${r.units}`} value={-costTotal} />
             <LedgerRow
               label="Net margin"
@@ -165,6 +165,39 @@ export function SkuDetailPanel({ result: r, cfg, settings, onShowMath }: Props) 
       </div>
     </div>
   );
+}
+
+function ShippingRows({ result: r, cfg }: { result: AnalysisResult; cfg: ChannelConfig }) {
+  if (cfg.channelType === "commercial") {
+    return (
+      <tr>
+        <td colSpan={2} className="py-1 text-gray-400 italic">
+          Freight excluded — commercial channel
+        </td>
+      </tr>
+    );
+  }
+
+  if (!r.hasShippingData) return null;
+
+  if (cfg.shippingMode === "fba") {
+    const fbaFee = r.fbaFee ?? 0;
+    return <LedgerRow label={`Shipping cost (FBA fee $${fbaFee.toFixed(2)} × ${r.units})`} value={-r.ship} />;
+  }
+
+  if (cfg.shippingMode === "mcf") {
+    const mcfShip = r.mcfShip ?? 0;
+    const mcfFreight = r.mcfFreight ?? 0;
+    return (
+      <>
+        <LedgerRow label={`MCF fulfillment ($${mcfShip.toFixed(2)} × ${r.units})`} value={-(mcfShip * r.units)} />
+        {mcfFreight > 0 && <LedgerRow label="Freight to MCF" value={-mcfFreight} />}
+      </>
+    );
+  }
+
+  const perUnit = r.shipping ?? (r.units > 0 ? r.ship / r.units : 0);
+  return <LedgerRow label={`Shipping cost ($${perUnit.toFixed(2)} × ${r.units})`} value={-r.ship} />;
 }
 
 function LedgerRow({

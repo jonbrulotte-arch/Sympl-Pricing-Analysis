@@ -183,6 +183,7 @@ export interface AnalysisResult {
   net: number;
   mcfShip?: number | null;
   mcfFreight?: number | null;
+  shipping?: number | null;
   hasShippingData: boolean;
 }
 
