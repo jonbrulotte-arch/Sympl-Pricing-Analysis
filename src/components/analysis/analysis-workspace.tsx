@@ -7,10 +7,13 @@ import { AnalysisTable } from "./analysis-table";
 import { CalculationCheck } from "./calculation-check";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ProductRow, BrandRoyaltyTable, ChannelDefaults, RoyaltyRuleEntry } from "@/lib/pricing/types";
 import { exportChangeReport, exportFullAnalysis } from "@/lib/export/change-report";
-import { Search, Download, ChevronDown } from "lucide-react";
+import { Search, Download, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx";
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 
 interface ChannelDb {
   id: string;
@@ -58,6 +61,12 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     setActiveTab,
     results,
     filteredResults,
+    pagedResults,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    totalPages,
     kpis,
     statusFilter,
     setStatusFilter,
@@ -201,7 +210,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
 
           {/* Table */}
           <AnalysisTable
-            results={filteredResults}
+            results={pagedResults}
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}
@@ -209,6 +218,50 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             channelId={activeTab}
             onCommit={commitPrice}
           />
+
+          {/* Pagination */}
+          {filteredResults.length > 0 && (
+            <div className="flex items-center justify-between mt-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">Rows per page</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => setPageSize(v === "all" ? "all" : Number(v))}
+                >
+                  <SelectTrigger className="w-24 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                    ))}
+                    <SelectItem value="all">All</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {pageSize !== "all" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">Page {page} of {totalPages}</span>
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Prev
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"
+                  >
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>

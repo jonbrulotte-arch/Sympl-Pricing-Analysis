@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type {
   ChannelConfig,
@@ -88,6 +88,8 @@ export function useAnalysis(
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<string>("sku");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [pageSize, setPageSize] = useState<number | "all">(25);
+  const [page, setPage] = useState(1);
 
   const configs = useMemo(() => channels.map(toChannelConfig), [channels]);
 
@@ -162,6 +164,19 @@ export function useAnalysis(
     });
     return sorted;
   }, [filteredResults, sortKey, sortDir]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, statusFilter, search, sortKey, sortDir, pageSize]);
+
+  const totalPages = pageSize === "all" ? 1 : Math.max(1, Math.ceil(sortedResults.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const pagedResults = useMemo(() => {
+    if (pageSize === "all") return sortedResults;
+    const start = (safePage - 1) * pageSize;
+    return sortedResults.slice(start, start + pageSize);
+  }, [sortedResults, pageSize, safePage]);
 
   const kpis = useMemo(() => {
     const channelResults = results[activeTab] ?? [];
@@ -241,6 +256,12 @@ export function useAnalysis(
     setActiveTab,
     results,
     filteredResults: sortedResults,
+    pagedResults,
+    page: safePage,
+    setPage,
+    pageSize,
+    setPageSize,
+    totalPages,
     kpis,
     statusFilter,
     setStatusFilter,
