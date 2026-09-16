@@ -77,6 +77,7 @@ export interface ProductRow {
   invStatus?: string;
   invRaw?: string;
   available?: number | null;
+  channelPrices?: Record<string, number>;
   [key: string]: unknown;
 }
 

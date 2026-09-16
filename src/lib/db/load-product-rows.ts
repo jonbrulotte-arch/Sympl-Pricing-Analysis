@@ -54,6 +54,7 @@ export async function loadProductRows(
       fbaClass: p.fbaClass ?? undefined,
       amzCategory: p.amzCategory ?? undefined,
       amzItemType: p.amzItemType ?? undefined,
+      channelPrices: {},
       ...shippingValues,
     };
 
@@ -63,7 +64,9 @@ export async function loadProductRows(
         orderBy: { recordedAt: "desc" },
       });
       if (latestPrice) {
-        (row as Record<string, unknown>)[ch.priceField] = Number(latestPrice.price);
+        const price = Number(latestPrice.price);
+        (row as Record<string, unknown>)[ch.priceField] = price;
+        row.channelPrices![ch.id] = price;
       }
     }
 

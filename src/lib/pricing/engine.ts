@@ -230,7 +230,10 @@ export function analyzeProduct(
 
   const priceField = cfg.priceField as keyof ProductRow;
   const fallbackField = cfg.fallbackPriceField as keyof ProductRow | undefined;
-  let basePrice = row[priceField] != null ? parseNum(row[priceField]) : null;
+  const channelOwnPrice = row.channelPrices?.[cfg.id];
+  let basePrice = channelOwnPrice != null
+    ? channelOwnPrice
+    : row[priceField] != null ? parseNum(row[priceField]) : null;
   let fellBack = false;
   if ((basePrice == null || basePrice === 0) && fallbackField && settings.priceFallback) {
     basePrice = row[fallbackField] != null ? parseNum(row[fallbackField]) : null;

@@ -108,7 +108,11 @@ export function useAnalysis(
         .map((p) => {
           let row = p;
           if (committed?.[p.sku] != null) {
-            row = { ...p, [cfg.priceField]: committed[p.sku] };
+            row = {
+              ...p,
+              [cfg.priceField]: committed[p.sku],
+              channelPrices: { ...p.channelPrices, [cfg.id]: committed[p.sku] },
+            };
           }
           return analyzeProduct(row, cfg, settings, overrides, brandRoyalties, royaltyRules);
         });
