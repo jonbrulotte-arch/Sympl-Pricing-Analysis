@@ -24,6 +24,7 @@ interface ChannelWithDb {
   shippingMode: string;
   priceField: string;
   fallbackPriceField?: string | null;
+  channelType?: string;
   hasCoupon: boolean;
   hasTax: boolean;
   hasCommission: boolean;
@@ -48,6 +49,7 @@ function toChannelConfig(ch: ChannelWithDb): ChannelConfig {
     shippingMode: ch.shippingMode as "std" | "mcf" | "fba",
     priceField: ch.priceField,
     fallbackPriceField: ch.fallbackPriceField ?? undefined,
+    channelType: ch.channelType === "commercial" ? "commercial" : "online",
     flags: {
       coupon: ch.hasCoupon,
       tax: ch.hasTax,

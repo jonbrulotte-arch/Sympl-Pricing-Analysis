@@ -117,7 +117,11 @@ export default function ChannelSettingsPage() {
       </div>
 
       {SECTIONS.map((sec) => {
-        const fields = FIELDS_UI.filter((f) => f.sec === sec.id && (!f.flag || flags[f.flag as keyof ChannelFlags]));
+        const fields = FIELDS_UI.filter((f) =>
+          f.sec === sec.id &&
+          (!f.flag || flags[f.flag as keyof ChannelFlags]) &&
+          (!f.commercialOnly || channel.channelType === "commercial")
+        );
         if (fields.length === 0 && sec.id !== "brands") return null;
 
         return (

@@ -65,7 +65,9 @@ export async function loadProductRows(
       });
       if (latestPrice) {
         const price = Number(latestPrice.price);
-        (row as Record<string, unknown>)[ch.priceField] = price;
+        if (ch.priceField && ch.priceField !== "__none__") {
+          (row as Record<string, unknown>)[ch.priceField] = price;
+        }
         row.channelPrices![ch.id] = price;
       }
     }

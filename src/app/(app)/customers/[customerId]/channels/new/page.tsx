@@ -290,6 +290,11 @@ export default function NewChannelPage() {
                   </div>
                 </label>
               </div>
+              {channelType === "commercial" && (
+                <p className="text-xs text-gray-500 mt-2">
+                  For commercial/retail channels this is informational only — freight cost is always excluded from the analysis regardless of which is selected.
+                </p>
+              )}
             </div>
 
             {/* Shipping mode (online channels) */}
@@ -404,6 +409,16 @@ export default function NewChannelPage() {
             )}
             <NumberField label="Default royalty" value={(defaults.roy as number) ?? 6.9} onChange={(v) => setDefault("roy", v)} suffix="%" />
             <NumberField label="Returns & warranty" value={(defaults.returns as number) ?? 2} onChange={(v) => setDefault("returns", v)} suffix="%" />
+            {channelType === "commercial" && (
+              <>
+                <NumberField label="Net Terms" value={(defaults.netTerms as number) ?? 0} onChange={(v) => setDefault("netTerms", v)} suffix="%" />
+                <NumberField label="Add. Allocation 1" value={(defaults.alloc1 as number) ?? 0} onChange={(v) => setDefault("alloc1", v)} suffix="%" />
+                <NumberField label="Add. Allocation 2" value={(defaults.alloc2 as number) ?? 0} onChange={(v) => setDefault("alloc2", v)} suffix="%" />
+                <NumberField label="Add. Allocation 3" value={(defaults.alloc3 as number) ?? 0} onChange={(v) => setDefault("alloc3", v)} suffix="%" />
+                <NumberField label="Add. Allocation 4" value={(defaults.alloc4 as number) ?? 0} onChange={(v) => setDefault("alloc4", v)} suffix="%" />
+                <NumberField label="Add. Allocation 5" value={(defaults.alloc5 as number) ?? 0} onChange={(v) => setDefault("alloc5", v)} suffix="%" />
+              </>
+            )}
           </CardContent>
         </Card>
       )}
@@ -437,7 +452,7 @@ export default function NewChannelPage() {
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 >
                   <option value="">None</option>
-                  {PRICE_FIELDS.filter((f) => f.value !== priceField).map((f) => (
+                  {PRICE_FIELDS.filter((f) => f.value !== priceField && f.value !== "__none__").map((f) => (
                     <option key={f.value} value={f.value}>{f.label}</option>
                   ))}
                 </select>

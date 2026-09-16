@@ -37,6 +37,12 @@ export interface ChannelDefaults {
   round: string;
   target: number;
   priceFallback?: boolean;
+  netTerms?: number;
+  alloc1?: number;
+  alloc2?: number;
+  alloc3?: number;
+  alloc4?: number;
+  alloc5?: number;
 }
 
 export interface ChannelConfig {
@@ -46,6 +52,7 @@ export interface ChannelConfig {
   shippingMode: "std" | "mcf" | "fba";
   priceField: string;
   fallbackPriceField?: string;
+  channelType?: "online" | "commercial";
   flags: ChannelFlags;
   defaults: ChannelDefaults;
 }
@@ -91,6 +98,8 @@ export interface RateTuple {
   ccFlat: number; // card processing flat fee
   ad: number;    // advertising rate
   ret: number;   // returns rate
+  netTerms: number;  // net terms rate
+  otherAlloc: number; // sum of additional allocation rates
   goal: number;  // target GM%
   round: string; // rounding mode
   target: number; // target profit as % of cost
@@ -111,6 +120,8 @@ export interface ForwardPassResult {
   ccFlat: number;
   ret: number;
   ad: number;
+  netTerms: number;
+  otherAlloc: number;
   roy: number;
   fees: number;
   ppc: number;

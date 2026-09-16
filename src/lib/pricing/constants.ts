@@ -14,6 +14,7 @@ export const SECTIONS = [
   { id: "market", title: "Marketplace assumptions", note: "Applied to every SKU on this channel." },
   { id: "royalty", title: "Royalty", note: "Charged on the sale after coupons, not on the list price. Used when the sheet has no royalty value for a SKU." },
   { id: "returns", title: "Returns and warranty", note: "Allowance for returns and defects, taken as a share of the sale after discounts." },
+  { id: "commercial", title: "Channel Assumptions & Allocations", note: "Applies to commercial/retail channels. Net terms and additional allocations reduce margin the same way returns do." },
   { id: "brands", title: "Brand availability", note: "Turn off any brand this channel cannot sell. Blocked brands leave this analysis entirely." },
   { id: "life", title: "Inventory and lifecycle", note: "Discontinued SKUs are in sell down or liquidation, so they are judged against their own goal." },
   { id: "rules", title: "Repricing rules", note: "How recommended prices are rounded and judged." },
@@ -28,6 +29,7 @@ export interface FieldUiDef {
   type?: string;
   flag?: string;
   opts?: [string, string][];
+  commercialOnly?: boolean;
 }
 
 export const FIELDS_UI: FieldUiDef[] = [
@@ -46,6 +48,12 @@ export const FIELDS_UI: FieldUiDef[] = [
   { sec: "royalty", key: "roy", label: "Default royalty", hint: "(of the post-coupon sale)", unit: "%" },
   { sec: "royalty", key: "royaltySource", label: "When both exist, prefer", type: "select", opts: [["sheet", "Royalty column"], ["brand", "Brand table"]] },
   { sec: "returns", key: "returns", label: "Returns and warranty allocation", unit: "%" },
+  { sec: "commercial", key: "netTerms", label: "Net Terms", unit: "%", commercialOnly: true },
+  { sec: "commercial", key: "alloc1", label: "Add. Allocation 1", unit: "%", commercialOnly: true },
+  { sec: "commercial", key: "alloc2", label: "Add. Allocation 2", unit: "%", commercialOnly: true },
+  { sec: "commercial", key: "alloc3", label: "Add. Allocation 3", unit: "%", commercialOnly: true },
+  { sec: "commercial", key: "alloc4", label: "Add. Allocation 4", unit: "%", commercialOnly: true },
+  { sec: "commercial", key: "alloc5", label: "Add. Allocation 5", unit: "%", commercialOnly: true },
   { sec: "life", key: "hideDisc", label: "Hide discontinued SKUs from this analysis", type: "check" },
   { sec: "life", key: "sellGoal", label: "Sell-down goal net GM%", hint: "(discontinued)", unit: "%" },
   { sec: "life", key: "excludeDisc", label: "Keep discontinued out of the change report", type: "check" },

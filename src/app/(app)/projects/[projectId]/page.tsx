@@ -84,6 +84,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     shippingMode: ch.shippingMode,
     priceField: ch.priceField,
     fallbackPriceField: ch.fallbackPriceField,
+    channelType: ch.channelType,
     hasCoupon: ch.hasCoupon,
     hasTax: ch.hasTax,
     hasCommission: ch.hasCommission,

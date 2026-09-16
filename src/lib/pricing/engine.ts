@@ -24,6 +24,8 @@ export function computeRates(cfg: ChannelConfig, s: ChannelDefaults): RateTuple 
     ccFlat: f.cc ? (s.ccFlat ?? 0) : 0,
     ad: f.ad ? (s.advertising ?? 0) / 100 : 0,
     ret: (s.returns ?? 0) / 100,
+    netTerms: (s.netTerms ?? 0) / 100,
+    otherAlloc: ((s.alloc1 ?? 0) + (s.alloc2 ?? 0) + (s.alloc3 ?? 0) + (s.alloc4 ?? 0) + (s.alloc5 ?? 0)) / 100,
     goal: (s.goal ?? 25) / 100,
     round: s.round ?? "99",
     target: (s.target ?? 20) / 100,
@@ -54,8 +56,10 @@ export function forwardPass(
   const ccFlat = r.ccFlat;
   const ret = saleBase * r.ret;
   const ad = saleBase * r.ad;
+  const netTerms = saleBase * r.netTerms;
+  const otherAlloc = saleBase * r.otherAlloc;
   const roy = royRate * saleBase + royFlat;
-  const fees = (coupon + fvfRate + fvfFixed + promo + roy + ccVar + ret + ad) * units + ccFlat;
+  const fees = (coupon + fvfRate + fvfFixed + promo + roy + ccVar + ret + ad + netTerms + otherAlloc) * units + ccFlat;
   const alloc = fees + ppc;
   const allocPct = P > 0 ? alloc / (P * units) : 0;
   const revenue = P * units;
@@ -78,6 +82,8 @@ export function forwardPass(
     ccFlat,
     ret,
     ad,
+    netTerms,
+    otherAlloc,
     roy,
     fees,
     ppc,
@@ -100,7 +106,9 @@ export function computeFeeRate(r: RateTuple, commR: number, royRate: number): nu
     saleRate * royRate +
     saleRate * r.ccPct +
     saleRate * r.ret +
-    saleRate * r.ad
+    saleRate * r.ad +
+    saleRate * r.netTerms +
+    saleRate * r.otherAlloc
   );
 }
 
@@ -233,7 +241,7 @@ export function analyzeProduct(
   const channelOwnPrice = row.channelPrices?.[cfg.id];
   let basePrice = channelOwnPrice != null
     ? channelOwnPrice
-    : row[priceField] != null ? parseNum(row[priceField]) : null;
+    : cfg.priceField !== "__none__" && row[priceField] != null ? parseNum(row[priceField]) : null;
   let fellBack = false;
   if ((basePrice == null || basePrice === 0) && fallbackField && settings.priceFallback) {
     basePrice = row[fallbackField] != null ? parseNum(row[fallbackField]) : null;
@@ -345,6 +353,7 @@ export function analyzeProduct(
 }
 
 function computeShipping(row: ProductRow, cfg: ChannelConfig): number {
+  if (cfg.channelType === "commercial") return 0;
   const units = Math.max(parseNum(row.units), 1);
   if (cfg.shippingMode === "fba") {
     return parseNum(row.fbaFee) * units;

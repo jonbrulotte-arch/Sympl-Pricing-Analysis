@@ -72,6 +72,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
     shippingMode: ch.shippingMode,
     priceField: ch.priceField,
     fallbackPriceField: ch.fallbackPriceField,
+    channelType: ch.channelType,
     hasCoupon: ch.hasCoupon,
     hasTax: ch.hasTax,
     hasCommission: ch.hasCommission,

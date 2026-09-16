@@ -53,6 +53,7 @@ export const CHANNEL_TEMPLATES: ChannelTemplate[] = [
 ];
 
 export const PRICE_FIELDS = [
+  { value: "__none__", label: "No Column" },
   { value: "priceJSP", label: "eBay List Price" },
   { value: "priceMCF", label: "eBay MCF Price" },
   { value: "priceWM", label: "Walmart Price" },
@@ -74,7 +75,7 @@ export const COMMERCIAL_SUBTYPES = [
     tabLabel: "B2B",
     description: "Bulk wholesale and retail distribution to domestic business customers",
     hasCC: false,
-    defaults: { goal: 20, roymode: "pct", roy: 6.9, returns: 1, round: "99", target: 15 },
+    defaults: { goal: 20, roymode: "pct", roy: 6.9, returns: 1, round: "99", target: 15, netTerms: 0 },
   },
   {
     id: "dropship_dsv",
@@ -82,7 +83,7 @@ export const COMMERCIAL_SUBTYPES = [
     tabLabel: "DSV",
     description: "Drop-ship vendor programs shipping direct to consumer on behalf of retailers",
     hasCC: false,
-    defaults: { goal: 20, roymode: "pct", roy: 6.9, returns: 2, round: "99", target: 15 },
+    defaults: { goal: 20, roymode: "pct", roy: 6.9, returns: 2, round: "99", target: 15, netTerms: 0 },
   },
   {
     id: "direct_import",
@@ -90,6 +91,6 @@ export const COMMERCIAL_SUBTYPES = [
     tabLabel: "Import",
     description: "International shipments under FOB or FCA incoterms for direct import buyers",
     hasCC: false,
-    defaults: { goal: 15, roymode: "pct", roy: 6.9, returns: 0, round: "99", target: 10 },
+    defaults: { goal: 15, roymode: "pct", roy: 6.9, returns: 0, round: "99", target: 10, netTerms: 0 },
   },
 ] as const;
