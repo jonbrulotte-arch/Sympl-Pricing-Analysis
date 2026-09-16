@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { SECTIONS, FIELDS_UI, ROUND_OPTS } from "@/lib/pricing/constants";
 import type { ChannelFlags, ChannelDefaults } from "@/lib/pricing/types";
 import { ChannelDeleteButton } from "@/components/channels/channel-delete-button";
+import { brandKey } from "@/lib/pricing/helpers";
 
 interface ChannelData {
   id: string;
@@ -59,15 +60,24 @@ export default function ChannelSettingsPage() {
   const router = useRouter();
   const [channel, setChannel] = useState<ChannelData | null>(null);
   const [defaults, setDefaults] = useState<Record<string, unknown>>({});
+  const [blockedBrands, setBlockedBrands] = useState<string[]>([]);
+  const [allBrands, setAllBrands] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/customers/${customerId}/channels/${channelId}`);
-    if (res.ok) {
-      const data = await res.json();
+    const [channelRes, brandsRes] = await Promise.all([
+      fetch(`/api/customers/${customerId}/channels/${channelId}`),
+      fetch(`/api/customers/${customerId}/brands`),
+    ]);
+    if (channelRes.ok) {
+      const data = await channelRes.json();
       setChannel(data);
       setDefaults(data.defaults ?? {});
+      setBlockedBrands(data.blockedBrands ?? []);
+    }
+    if (brandsRes.ok) {
+      setAllBrands(await brandsRes.json());
     }
   }, [customerId, channelId]);
 
@@ -82,7 +92,7 @@ export default function ChannelSettingsPage() {
     const res = await fetch(`/api/customers/${customerId}/channels/${channelId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ defaults }),
+      body: JSON.stringify({ defaults, blockedBrands }),
     });
     setSaving(false);
     if (res.ok) {
@@ -93,6 +103,14 @@ export default function ChannelSettingsPage() {
 
   function setVal(key: string, value: unknown) {
     setDefaults((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function toggleBrand(brand: string, available: boolean) {
+    setBlockedBrands((prev) => {
+      if (available) return prev.filter((b) => brandKey(b) !== brandKey(brand));
+      if (prev.some((b) => brandKey(b) === brandKey(brand))) return prev;
+      return [...prev, brand];
+    });
   }
 
   return (
@@ -140,14 +158,35 @@ export default function ChannelSettingsPage() {
               {sec.note && <p className="text-xs text-gray-500">{sec.note}</p>}
             </CardHeader>
             <CardContent className="space-y-3">
-              {fields.map((field) => (
-                <FieldRow
-                  key={field.key}
-                  field={field}
-                  value={defaults[field.key]}
-                  onChange={(v) => setVal(field.key, v)}
-                />
-              ))}
+              {sec.id === "brands" ? (
+                allBrands.length === 0 ? (
+                  <p className="text-sm text-gray-500">No brands found for this customer yet.</p>
+                ) : (
+                  allBrands.map((brand) => {
+                    const blocked = blockedBrands.some((b) => brandKey(b) === brandKey(brand));
+                    return (
+                      <label key={brand} className="flex items-center gap-3 cursor-pointer py-1">
+                        <input
+                          type="checkbox"
+                          checked={!blocked}
+                          onChange={(e) => toggleBrand(brand, e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-900">{brand}</span>
+                      </label>
+                    );
+                  })
+                )
+              ) : (
+                fields.map((field) => (
+                  <FieldRow
+                    key={field.key}
+                    field={field}
+                    value={defaults[field.key]}
+                    onChange={(v) => setVal(field.key, v)}
+                  />
+                ))
+              )}
             </CardContent>
           </Card>
         );
