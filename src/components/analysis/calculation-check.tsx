@@ -12,11 +12,13 @@ interface Props {
   results: Record<string, AnalysisResult[]>;
   configs: ChannelConfig[];
   settingsMap: Record<string, Record<string, unknown>>;
+  initialChannelId?: string;
+  initialSku?: string;
 }
 
-export function CalculationCheck({ results, configs, settingsMap }: Props) {
-  const [selectedChannel, setSelectedChannel] = useState(configs[0]?.id ?? "");
-  const [selectedSku, setSelectedSku] = useState("");
+export function CalculationCheck({ results, configs, settingsMap, initialChannelId, initialSku }: Props) {
+  const [selectedChannel, setSelectedChannel] = useState(initialChannelId ?? configs[0]?.id ?? "");
+  const [selectedSku, setSelectedSku] = useState(initialSku ?? "");
 
   const channelResults = results[selectedChannel] ?? [];
   const skus = channelResults.filter((r) => !r.invalid && r.price > 0);

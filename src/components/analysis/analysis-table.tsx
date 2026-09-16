@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import type { AnalysisResult } from "@/lib/pricing/types";
-import { ChevronDown, ChevronUp, ArrowUpDown, Check } from "lucide-react";
+import type { AnalysisResult, ChannelConfig, ChannelDefaults } from "@/lib/pricing/types";
+import { ChevronDown, ChevronUp, ArrowUpDown, Check, BarChart3 } from "lucide-react";
+import { SkuDetailPanel } from "./sku-detail-panel";
 
 interface Props {
   results: AnalysisResult[];
@@ -14,6 +15,9 @@ interface Props {
   onOverride: (sku: string, field: "price" | "ship", value: number | undefined) => void;
   channelId: string;
   onCommit?: (sku: string) => Promise<void>;
+  cfg?: ChannelConfig;
+  settings?: ChannelDefaults;
+  onShowMath?: (sku: string) => void;
 }
 
 const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -24,9 +28,10 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "second
   invalid: { label: "Invalid", variant: "outline" },
 };
 
-export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, channelId, onCommit }: Props) {
+export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, channelId, onCommit, cfg, settings, onShowMath }: Props) {
   const [expandedSku, setExpandedSku] = useState<string | null>(null);
   const [committingSkus, setCommittingSkus] = useState<Set<string>>(new Set());
+  const colCount = 11 + (onCommit ? 1 : 0) + (cfg ? 1 : 0);
 
   function SortHeader({ label, field }: { label: string; field: string }) {
     return (
@@ -63,6 +68,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
             <SortHeader label="+/-%" field="delta" />
             <th className="text-center py-2 px-2 text-gray-600 font-medium text-xs">Status</th>
             {onCommit && <th className="text-center py-2 px-2 text-gray-600 font-medium text-xs w-16"></th>}
+            {cfg && <th className="text-center py-2 px-2 text-gray-600 font-medium text-xs w-16"></th>}
           </tr>
         </thead>
         <tbody>
@@ -71,7 +77,8 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
             const expanded = expandedSku === r.sku;
 
             return (
-              <tr key={r.sku} className="border-b border-gray-50 hover:bg-gray-50/50">
+              <Fragment key={r.sku}>
+              <tr className="border-b border-gray-50 hover:bg-gray-50/50">
                 <td className="py-1.5 px-2">
                   <button
                     onClick={() => setExpandedSku(expanded ? null : r.sku)}
@@ -125,7 +132,35 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
                     )}
                   </td>
                 )}
+                {cfg && (
+                  <td className="py-1.5 px-2 text-center">
+                    <button
+                      onClick={() => setExpandedSku(expanded ? null : r.sku)}
+                      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border ${
+                        expanded
+                          ? "border-blue-600 text-blue-600 bg-blue-50"
+                          : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      <BarChart3 className="h-3 w-3" />
+                      Detail
+                    </button>
+                  </td>
+                )}
               </tr>
+              {expanded && cfg && settings && (
+                <tr className="border-b border-gray-100">
+                  <td colSpan={colCount} className="p-3 bg-white">
+                    <SkuDetailPanel
+                      result={r}
+                      cfg={cfg}
+                      settings={settings}
+                      onShowMath={() => onShowMath?.(r.sku)}
+                    />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             );
           })}
         </tbody>

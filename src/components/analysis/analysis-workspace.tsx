@@ -82,6 +82,15 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
 
   const isCalcCheck = activeTab === "__calc_check__";
   const [exportOpen, setExportOpen] = useState(false);
+  const [calcCheckTarget, setCalcCheckTarget] = useState<{ channelId: string; sku: string } | null>(null);
+
+  const activeCfg = configs.find((c) => c.id === activeTab);
+  const activeSettings = settingsMap[activeTab] as unknown as ChannelDefaults | undefined;
+
+  function handleShowMath(sku: string) {
+    setCalcCheckTarget({ channelId: activeTab, sku });
+    setActiveTab("__calc_check__");
+  }
 
   function handleExport(type: "change" | "full") {
     setExportOpen(false);
@@ -141,7 +150,13 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
       </div>
 
       {isCalcCheck ? (
-        <CalculationCheck results={results} configs={configs} settingsMap={settingsMap} />
+        <CalculationCheck
+          results={results}
+          configs={configs}
+          settingsMap={settingsMap}
+          initialChannelId={calcCheckTarget?.channelId}
+          initialSku={calcCheckTarget?.sku}
+        />
       ) : (
         <>
           {/* KPIs */}
@@ -217,6 +232,9 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             onOverride={(sku, field, value) => setOverride(activeTab, sku, field, value)}
             channelId={activeTab}
             onCommit={commitPrice}
+            cfg={activeCfg}
+            settings={activeSettings}
+            onShowMath={handleShowMath}
           />
 
           {/* Pagination */}
