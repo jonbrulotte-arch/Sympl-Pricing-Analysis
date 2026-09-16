@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type {
   ChannelConfig,
   ChannelDefaults,
@@ -72,6 +73,7 @@ export function useAnalysis(
   customerId: string,
   royaltyRules: RoyaltyRuleEntry[] = [],
 ) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>(channels[0]?.id ?? "");
   const [overrides, setOverrides] = useState<Overrides>({});
   const [committedPrices, setCommittedPrices] = useState<Record<string, Record<string, number>>>({});
@@ -215,7 +217,8 @@ export function useAnalysis(
       [channelId]: { ...prev[channelId], [sku]: priceToCommit },
     }));
     setOverride(channelId, sku, "price", undefined);
-  }, [activeTab, results, overrides, customerId, setOverride]);
+    router.refresh();
+  }, [activeTab, results, overrides, customerId, setOverride, router]);
 
   function handleSort(key: string) {
     if (sortKey === key) {

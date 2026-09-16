@@ -205,4 +205,5 @@ export interface RoyaltyRuleEntry {
   skus: string[];
   value: number;
   mode: "pct" | "usd";
+  customerId?: string | null;
 }

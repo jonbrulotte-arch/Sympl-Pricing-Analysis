@@ -261,20 +261,21 @@ model ProjectProduct {
 }
 
 model RoyaltyRule {
-  id         String   @id @default(uuid())
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  scope      String   // "brand" or "sku"
+  id         String    @id @default(uuid())
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  scope      String    // "brand" or "sku"
   brandKey   String?
   brandName  String?
   skus       String[]
-  value      Decimal  @db.Decimal(10, 4)
-  mode       String   // "pct" or "usd"
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  value      Decimal   @db.Decimal(10, 4)
+  mode       String    // "pct" or "usd"
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([customerId, scope])
   @@index([customerId, brandKey])
+  @@index([scope, brandKey])
 }
 
 model SavedMapping {

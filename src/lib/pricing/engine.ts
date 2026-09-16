@@ -127,16 +127,24 @@ function resolveRoyalty(
   royaltyRules?: RoyaltyRuleEntry[],
 ): { royRate: number; royFlat: number; royFrom: "sku" | "brand" | "sheet" | "default" } {
   if (royaltyRules && royaltyRules.length > 0) {
-    const skuRule = royaltyRules.find((r) => r.scope === "sku" && r.skus.includes(row.sku));
-    if (skuRule) {
-      return applyRuleValue(skuRule.value, skuRule.mode, "sku");
-    }
+    const customerRules = royaltyRules.filter((r) => r.customerId != null);
+    const globalRules = royaltyRules.filter((r) => r.customerId == null);
+
+    const custSkuRule = customerRules.find((r) => r.scope === "sku" && r.skus.includes(row.sku));
+    if (custSkuRule) return applyRuleValue(custSkuRule.value, custSkuRule.mode, "sku");
+
     const bk = brandKey(row.brand);
     if (bk) {
-      const brandRule = royaltyRules.find((r) => r.scope === "brand" && r.brandKey === bk);
-      if (brandRule) {
-        return applyRuleValue(brandRule.value, brandRule.mode, "brand");
-      }
+      const custBrandRule = customerRules.find((r) => r.scope === "brand" && r.brandKey === bk);
+      if (custBrandRule) return applyRuleValue(custBrandRule.value, custBrandRule.mode, "brand");
+    }
+
+    const globalSkuRule = globalRules.find((r) => r.scope === "sku" && r.skus.includes(row.sku));
+    if (globalSkuRule) return applyRuleValue(globalSkuRule.value, globalSkuRule.mode, "sku");
+
+    if (bk) {
+      const globalBrandRule = globalRules.find((r) => r.scope === "brand" && r.brandKey === bk);
+      if (globalBrandRule) return applyRuleValue(globalBrandRule.value, globalBrandRule.mode, "brand");
     }
   }
 

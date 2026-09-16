@@ -50,15 +50,32 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     brandRoyalties[br.brandKey] = Number(br.value);
   }
 
-  const royaltyRules: RoyaltyRuleEntry[] = (customer.royaltyRules ?? []).map((r) => ({
-    id: r.id,
-    scope: r.scope as "brand" | "sku",
-    brandKey: r.brandKey ?? undefined,
-    brandName: r.brandName ?? undefined,
-    skus: r.skus,
-    value: Number(r.value),
-    mode: r.mode as "pct" | "usd",
-  }));
+  const globalRulesDb = await prisma.royaltyRule.findMany({
+    where: { customerId: null },
+  });
+
+  const royaltyRules: RoyaltyRuleEntry[] = [
+    ...globalRulesDb.map((r) => ({
+      id: r.id,
+      scope: r.scope as "brand" | "sku",
+      brandKey: r.brandKey ?? undefined,
+      brandName: r.brandName ?? undefined,
+      skus: r.skus,
+      value: Number(r.value),
+      mode: r.mode as "pct" | "usd",
+      customerId: null as string | null,
+    })),
+    ...(customer.royaltyRules ?? []).map((r) => ({
+      id: r.id,
+      scope: r.scope as "brand" | "sku",
+      brandKey: r.brandKey ?? undefined,
+      brandName: r.brandName ?? undefined,
+      skus: r.skus,
+      value: Number(r.value),
+      mode: r.mode as "pct" | "usd",
+      customerId: r.customerId,
+    })),
+  ];
 
   const channelsData = customer.channels.map((ch) => ({
     id: ch.id,
