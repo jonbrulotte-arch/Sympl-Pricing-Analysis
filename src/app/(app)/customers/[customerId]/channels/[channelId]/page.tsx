@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SECTIONS, FIELDS_UI, ROUND_OPTS } from "@/lib/pricing/constants";
 import type { ChannelFlags, ChannelDefaults } from "@/lib/pricing/types";
+import { ChannelDeleteButton } from "@/components/channels/channel-delete-button";
 
 interface ChannelData {
   id: string;
@@ -110,6 +111,14 @@ export default function ChannelSettingsPage() {
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-sm text-green-600">Saved</span>}
+          {!channel.isDefault && (
+            <ChannelDeleteButton
+              customerId={customerId}
+              channelId={channelId}
+              channelName={channel.name}
+              redirectTo={`/customers/${customerId}`}
+            />
+          )}
           <Button onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save Changes"}
           </Button>

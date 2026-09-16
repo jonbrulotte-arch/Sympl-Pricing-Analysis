@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { CustomerActions } from "@/components/customers/customer-actions";
+import { ChannelDeleteButton } from "@/components/channels/channel-delete-button";
 
 export default async function CustomerPage({ params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -81,30 +82,45 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
               ) : (
                 <div className="divide-y divide-gray-100">
                   {customer.channels.map((ch) => (
-                    <Link
+                    <div
                       key={ch.id}
-                      href={`/customers/${customerId}/channels/${ch.id}`}
                       className="flex items-center justify-between py-3 hover:bg-gray-50 -mx-4 px-4 rounded transition-colors"
                     >
-                      <div className="flex items-center gap-3">
-                        <Store className="h-4 w-4 text-gray-400" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{ch.name}</p>
+                      <Link
+                        href={`/customers/${customerId}/channels/${ch.id}`}
+                        className="flex items-center gap-3 flex-1 min-w-0"
+                      >
+                        <Store className="h-4 w-4 text-gray-400 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{ch.name}</p>
                           <p className="text-xs text-gray-500">
                             {ch.channelType === "commercial" ? "Commercial" : "Online"}{" · "}
                             {ch.freightMode === "collect" ? "Collect" : "Prepaid"}
                           </p>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
+                      </Link>
+                      <div className="flex items-center gap-2 shrink-0">
                         {ch.isDefault && (
                           <Badge variant="secondary" className="text-xs">
                             Default
                           </Badge>
                         )}
-                        <Settings className="h-3.5 w-3.5 text-gray-400" />
+                        <Link
+                          href={`/customers/${customerId}/channels/${ch.id}`}
+                          className="p-1 rounded hover:bg-gray-100"
+                        >
+                          <Settings className="h-3.5 w-3.5 text-gray-400" />
+                        </Link>
+                        {!ch.isDefault && (
+                          <ChannelDeleteButton
+                            customerId={customerId}
+                            channelId={ch.id}
+                            channelName={ch.name}
+                            iconOnly
+                          />
+                        )}
                       </div>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               )}
