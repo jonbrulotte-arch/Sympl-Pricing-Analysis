@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ProductRow, BrandRoyaltyTable, ChannelDefaults, RoyaltyRuleEntry } from "@/lib/pricing/types";
 import { exportChangeReport, exportFullAnalysis } from "@/lib/export/change-report";
-import { Search, Download, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Download, ChevronDown, ChevronLeft, ChevronRight, Tag } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
@@ -72,6 +72,9 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     setStatusFilter,
     search,
     setSearch,
+    brandFilter,
+    setBrandFilter,
+    allBrands,
     sortKey,
     sortDir,
     handleSort,
@@ -82,7 +85,19 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
 
   const isCalcCheck = activeTab === "__calc_check__";
   const [exportOpen, setExportOpen] = useState(false);
+  const [brandPanelOpen, setBrandPanelOpen] = useState(false);
+  const [brandSearch, setBrandSearch] = useState("");
   const [calcCheckTarget, setCalcCheckTarget] = useState<{ channelId: string; sku: string } | null>(null);
+
+  function toggleBrand(brand: string) {
+    setBrandFilter((prev) =>
+      prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]
+    );
+  }
+
+  const visibleBrands = brandSearch
+    ? allBrands.filter((b) => b.toLowerCase().includes(brandSearch.toLowerCase()))
+    : allBrands;
 
   const activeCfg = configs.find((c) => c.id === activeTab);
   const activeSettings = settingsMap[activeTab] as unknown as ChannelDefaults | undefined;
@@ -187,6 +202,63 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
                 placeholder="Search SKU, name, or brand..."
                 className="pl-8 h-8 text-sm"
               />
+            </div>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBrandPanelOpen((o) => !o)}
+                className="h-8 text-xs"
+              >
+                <Tag className="h-3.5 w-3.5 mr-1" />
+                {brandFilter.length > 0 ? `Brands (${brandFilter.length})` : "Brands"}
+                <ChevronDown className="h-3 w-3 ml-1" />
+              </Button>
+              {brandPanelOpen && (
+                <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 w-64">
+                  <div className="p-2 border-b border-gray-100">
+                    <Input
+                      value={brandSearch}
+                      onChange={(e) => setBrandSearch(e.target.value)}
+                      placeholder="Filter brands..."
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-100 text-xs">
+                    <button
+                      onClick={() => setBrandFilter(allBrands)}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      onClick={() => setBrandFilter([])}
+                      className="text-gray-500 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto py-1">
+                    {visibleBrands.length === 0 && (
+                      <p className="px-3 py-2 text-xs text-gray-500">No brands found.</p>
+                    )}
+                    {visibleBrands.map((brand) => (
+                      <label
+                        key={brand}
+                        className="flex items-center gap-2 px-3 py-1 cursor-pointer hover:bg-gray-50 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={brandFilter.includes(brand)}
+                          onChange={() => toggleBrand(brand)}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
+                        />
+                        {brand}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="ml-auto flex items-center gap-3">
               <span className="text-xs text-gray-500">

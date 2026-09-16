@@ -86,6 +86,7 @@ export function useAnalysis(
   });
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
+  const [brandFilter, setBrandFilter] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<string>("sku");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [pageSize, setPageSize] = useState<number | "all">(25);
@@ -124,10 +125,19 @@ export function useAnalysis(
     return all;
   }, [configs, products, settingsMap, overrides, brandRoyalties, blockedBrands, committedPrices, royaltyRules]);
 
+  const allBrands = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of results[activeTab] ?? []) {
+      if (r.brand) set.add(r.brand);
+    }
+    return Array.from(set).sort();
+  }, [results, activeTab]);
+
   const filteredResults = useMemo(() => {
     const channelResults = results[activeTab] ?? [];
     return channelResults.filter((r) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (brandFilter.length > 0 && !brandFilter.includes(r.brand ?? "")) return false;
       if (search) {
         const q = search.toLowerCase();
         if (
@@ -139,7 +149,7 @@ export function useAnalysis(
       }
       return true;
     });
-  }, [results, activeTab, statusFilter, search]);
+  }, [results, activeTab, statusFilter, search, brandFilter]);
 
   const sortedResults = useMemo(() => {
     const sorted = [...filteredResults];
@@ -167,7 +177,7 @@ export function useAnalysis(
 
   useEffect(() => {
     setPage(1);
-  }, [activeTab, statusFilter, search, sortKey, sortDir, pageSize]);
+  }, [activeTab, statusFilter, search, brandFilter, sortKey, sortDir, pageSize]);
 
   const totalPages = pageSize === "all" ? 1 : Math.max(1, Math.ceil(sortedResults.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -267,6 +277,9 @@ export function useAnalysis(
     setStatusFilter,
     search,
     setSearch,
+    brandFilter,
+    setBrandFilter,
+    allBrands,
     sortKey,
     sortDir,
     handleSort,
