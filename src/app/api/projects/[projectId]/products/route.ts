@@ -39,10 +39,7 @@ export async function POST(
 
   if (skus.length > 0) {
     const products = await prisma.product.findMany({
-      where: {
-        sku: { in: skus },
-        customers: { some: { customerId: project.customerId } },
-      },
+      where: { sku: { in: skus } },
       select: { id: true, sku: true },
     });
     resolvedIds.push(...products.map((p) => p.id));
@@ -61,6 +58,11 @@ export async function POST(
 
   let added = 0;
   for (const productId of unique) {
+    await prisma.customerProduct.upsert({
+      where: { customerId_productId: { customerId: project.customerId, productId } },
+      update: {},
+      create: { customerId: project.customerId, productId },
+    });
     try {
       await prisma.projectProduct.create({
         data: { projectId, productId },
