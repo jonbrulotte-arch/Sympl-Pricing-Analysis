@@ -136,7 +136,7 @@ export function useAnalysis(
   const filteredResults = useMemo(() => {
     const channelResults = results[activeTab] ?? [];
     return channelResults.filter((r) => {
-      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (statusFilter !== "all" && r.baseStatus !== statusFilter) return false;
       if (brandFilter.length > 0 && !brandFilter.includes(r.brand ?? "")) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -191,10 +191,10 @@ export function useAnalysis(
   const kpis = useMemo(() => {
     const channelResults = results[activeTab] ?? [];
     const valid = channelResults.filter((r) => !r.invalid);
-    const atGoal = valid.filter((r) => r.status === "pass").length;
-    const below = valid.filter((r) => r.status === "below").length;
-    const loss = valid.filter((r) => r.status === "loss").length;
-    const unpriced = valid.filter((r) => r.status === "unpriced").length;
+    const atGoal = valid.filter((r) => r.baseStatus === "pass").length;
+    const below = valid.filter((r) => r.baseStatus === "below").length;
+    const loss = valid.filter((r) => r.baseStatus === "loss").length;
+    const unpriced = valid.filter((r) => r.baseStatus === "unpriced").length;
     const priced = valid.filter((r) => r.price > 0);
     const avgGm = priced.length > 0 ? priced.reduce((s, r) => s + r.gm, 0) / priced.length : 0;
     const totalMargin = priced.reduce((s, r) => s + r.net, 0);

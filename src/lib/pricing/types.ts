@@ -172,6 +172,7 @@ export interface AnalysisResult {
   ch: string;
   cur: ForwardPassResult;
   status: AnalysisStatus;
+  baseStatus: AnalysisStatus;
   rec: number | null;
   recCalc: ForwardPassResult | null;
   achievable: boolean;

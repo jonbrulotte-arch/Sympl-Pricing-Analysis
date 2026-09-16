@@ -111,7 +111,14 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
                   {r.deltaPct != null ? `${(r.deltaPct * 100).toFixed(1)}%` : "-"}
                 </td>
                 <td className="py-1.5 px-2 text-center">
-                  <Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>
+                  <div className="flex items-center justify-center gap-1">
+                    <Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>
+                    {r.edited && (
+                      <Badge variant="warning" className="text-[10px]" title="Price edited but not yet committed">
+                        Edited
+                      </Badge>
+                    )}
+                  </div>
                 </td>
                 {onCommit && (
                   <td className="py-1.5 px-2 text-center">

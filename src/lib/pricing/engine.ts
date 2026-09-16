@@ -274,6 +274,20 @@ export function analyzeProduct(
   else if (cur.net >= 0) status = "below";
   else status = "loss";
 
+  let baseStatus: AnalysisStatus = status;
+  if (edited) {
+    const basePriceUsed = basePrice ?? 0;
+    const baseUnpriced = basePriceUsed <= 0 && !invalid;
+    if (invalid) baseStatus = "invalid";
+    else if (baseUnpriced) baseStatus = "unpriced";
+    else {
+      const baseCur = forwardPass(basePriceUsed, r, commR, royRate, royFlat, fvfFixedUsed, ppcUsed, units, baseShip, cost);
+      if (baseCur.gm >= goalUsed) baseStatus = "pass";
+      else if (baseCur.net >= 0) baseStatus = "below";
+      else baseStatus = "loss";
+    }
+  }
+
   const flatUnit = fvfFixedUsed + royFlat;
   const flatOrder = r.ccFlat + ppcUsed;
   const { price: rawRec, achievable } = solveGoalPrice(cost, units, ship, k, goalUsed, flatUnit, flatOrder);
@@ -337,6 +351,7 @@ export function analyzeProduct(
     ch: cfg.id,
     cur,
     status,
+    baseStatus,
     rec,
     recCalc,
     achievable,
