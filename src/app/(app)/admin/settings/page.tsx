@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getPermissions } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SalsifySettings } from "@/components/admin/salsify-settings";
 
 export default async function AdminSettingsPage() {
   const session = await auth();
@@ -94,6 +95,18 @@ export default async function AdminSettingsPage() {
               <span className="text-sm text-gray-600">Trust Host</span>
               <Badge variant="default" className="text-xs bg-green-600">Enabled</Badge>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <h2 className="text-xs font-semibold text-gray-500 tracking-wide uppercase mb-2">Integrations</h2>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Salsify Integration</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SalsifySettings />
           </CardContent>
         </Card>
       </div>

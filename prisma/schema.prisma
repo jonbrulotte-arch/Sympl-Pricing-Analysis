@@ -13,13 +13,14 @@ enum Role {
 }
 
 model User {
-  id           String         @id @default(uuid())
-  email        String         @unique
-  name         String
-  passwordHash String
-  role         Role           @default(ANALYST)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id                     String         @id @default(uuid())
+  email                  String         @unique
+  name                   String
+  passwordHash           String
+  role                   Role           @default(ANALYST)
+  salsifyApiKeyEncrypted String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
   customers    CustomerUser[]
   analyses     Analysis[]
   imports      Import[]
@@ -40,6 +41,7 @@ model Customer {
   analyses       Analysis[]
   imports        Import[]
   projects       Project[]
+  salsifyFieldMappings SalsifyFieldMapping[]
 }
 
 model CustomerUser {
@@ -225,6 +227,7 @@ model Import {
   columnMap    Json     @default("{}")
   headerSig    String?
   status       String   @default("pending")
+  source       String   @default("spreadsheet") // "spreadsheet" | "salsify"
   errors       Json?
   createdAt    DateTime @default(now())
 
@@ -287,4 +290,24 @@ model SavedMapping {
   updatedAt       DateTime @updatedAt
 
   @@unique([customerId, headerSignature])
+}
+
+model AppSettings {
+  id                  String   @id @default("singleton")
+  salsifyOrgId        String?
+  salsifySyncEnabled  Boolean  @default(false)
+  salsifyDebugEnabled Boolean  @default(false)
+  updatedAt           DateTime @updatedAt
+}
+
+model SalsifyFieldMapping {
+  id               String   @id @default(uuid())
+  customerId       String
+  customer         Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  importFieldKey   String   // an IMPORT_FIELDS key, or a customer's SalesChannel.priceField
+  salsifyPropertyId String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([customerId, importFieldKey])
 }

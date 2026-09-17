@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Upload, FileSpreadsheet, Check, AlertCircle } from "lucide-react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Upload, FileSpreadsheet, Check, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,12 @@ type Step = "upload" | "map" | "preview" | "importing" | "done";
 export default function ImportPage() {
   const { customerId } = useParams<{ customerId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const supplementalMode = searchParams.get("mode") === "supplemental";
+  const SUPPLEMENTAL_FIELDS = new Set(["sku", "cost", "mcfFreight", "royalty", "amzCommission"]);
+  const visibleImportFields = supplementalMode
+    ? IMPORT_FIELDS.filter((f) => SUPPLEMENTAL_FIELDS.has(f.key))
+    : IMPORT_FIELDS;
 
   const [step, setStep] = useState<Step>("upload");
   const [fileName, setFileName] = useState("");
@@ -28,6 +34,8 @@ export default function ImportPage() {
   const [result, setResult] = useState<{ created: number; updated: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const processFile = useCallback((file: File) => {
     setFileName(file.name);
@@ -125,32 +133,79 @@ export default function ImportPage() {
   }
 
   const sheet = sheets[selectedSheet];
-  const missingRequired = IMPORT_FIELDS.filter((f) => f.req && columnMap[f.key] === undefined);
+  const missingRequired = visibleImportFields.filter((f) => f.req && columnMap[f.key] === undefined);
+
+  async function handleSalsifySync() {
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      const res = await fetch(`/api/customers/${customerId}/salsify-sync`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setSyncError(data.error || "Salsify sync failed");
+      } else {
+        setResult(data);
+        setStep("done");
+      }
+    } catch {
+      setSyncError("Network error during Salsify sync");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Import Product Data</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+        {supplementalMode ? "Supplemental Data Import" : "Import Product Data"}
+      </h1>
+      {supplementalMode && (
+        <p className="text-sm text-gray-500 -mt-4 mb-6">
+          Bring in the fields Salsify doesn&apos;t carry (SKU cost, MCF freight, royalty, category commission) via a small spreadsheet.
+        </p>
+      )}
 
       {/* Upload */}
       {step === "upload" && (
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-xl p-16 text-center transition-colors ${
-            dragOver ? "border-blue-400 bg-blue-50" : "border-gray-300"
-          }`}
-        >
-          <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 mb-2">Drag and drop a spreadsheet file here</p>
-          <p className="text-sm text-gray-500 mb-4">.xlsx, .xls, or .csv</p>
-          <label>
-            <Button variant="outline" asChild>
-              <span>Browse Files</span>
-            </Button>
-            <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileInput} className="hidden" />
-          </label>
-        </div>
+        <>
+          {!supplementalMode && (
+            <Card className="mb-4">
+              <CardContent className="py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Sync from Salsify</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Pull product data directly using this customer&apos;s field mapping and your personal Salsify API key.
+                  </p>
+                </div>
+                <Button onClick={handleSalsifySync} disabled={syncing} variant="outline">
+                  <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
+                  {syncing ? "Syncing..." : "Sync from Salsify"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          {syncError && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 mb-4">{syncError}</div>
+          )}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-xl p-16 text-center transition-colors ${
+              dragOver ? "border-blue-400 bg-blue-50" : "border-gray-300"
+            }`}
+          >
+            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600 mb-2">Drag and drop a spreadsheet file here</p>
+            <p className="text-sm text-gray-500 mb-4">.xlsx, .xls, or .csv</p>
+            <label>
+              <Button variant="outline" asChild>
+                <span>Browse Files</span>
+              </Button>
+              <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileInput} className="hidden" />
+            </label>
+          </div>
+        </>
       )}
 
       {/* Column mapping */}
@@ -186,7 +241,7 @@ export default function ImportPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {IMPORT_FIELDS.map((field) => (
+                {visibleImportFields.map((field) => (
                   <div key={field.key} className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
                     <div className="w-56 shrink-0 flex items-center gap-2">
                       <span className="text-sm text-gray-900">{field.label}</span>

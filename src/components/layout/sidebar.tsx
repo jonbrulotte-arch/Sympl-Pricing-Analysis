@@ -16,6 +16,7 @@ import {
   BarChart3,
   Package,
   FolderKanban,
+  ScrollText,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useState } from "react";
@@ -37,9 +38,10 @@ const adminNavItems: { href: string; label: string; icon: React.ElementType; per
 interface SidebarProps {
   user: SafeUser;
   grantedPermissions: Set<Permission>;
+  salsifyDebugEnabled?: boolean;
 }
 
-export function Sidebar({ user, grantedPermissions }: SidebarProps) {
+export function Sidebar({ user, grantedPermissions, salsifyDebugEnabled = false }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -86,6 +88,9 @@ export function Sidebar({ user, grantedPermissions }: SidebarProps) {
               ? user.role === "ADMIN"
               : grantedPermissions.has(permission)
           );
+          if (salsifyDebugEnabled && grantedPermissions.has("admin:settings")) {
+            visibleAdminItems.push({ href: "/admin/salsify-log", label: "Salsify Log", icon: ScrollText, permission: "admin:settings" });
+          }
           if (visibleAdminItems.length === 0) return null;
           return (
             <>
@@ -117,15 +122,17 @@ export function Sidebar({ user, grantedPermissions }: SidebarProps) {
       {/* User section */}
       <div className="border-t border-gray-700 p-3">
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-          <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold text-white">
-            {getInitials(user.name)}
-          </div>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user.name}</p>
-              <p className="text-xs text-gray-400 truncate">{user.role}</p>
+          <Link href="/profile" className="flex items-center gap-3 min-w-0 flex-1 group">
+            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold text-white">
+              {getInitials(user.name)}
             </div>
-          )}
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate group-hover:underline">{user.name}</p>
+                <p className="text-xs text-gray-400 truncate">{user.role}</p>
+              </div>
+            )}
+          </Link>
         </div>
         {!collapsed && (
           <div className="mt-3 flex items-center gap-2">

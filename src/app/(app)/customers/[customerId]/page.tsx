@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { BarChart3, Upload, Settings, Plus, Store, Package } from "lucide-react";
+import { BarChart3, Upload, Settings, Plus, Store, Package, Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +51,12 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
             <Button>
               <Upload className="h-4 w-4 mr-2" />
               Import Data
+            </Button>
+          </Link>
+          <Link href={`/customers/${customerId}/salsify-mapping`}>
+            <Button variant="outline">
+              <Plug className="h-4 w-4 mr-2" />
+              Salsify Mapping
             </Button>
           </Link>
           <Link href="/products">
