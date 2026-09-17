@@ -17,6 +17,7 @@ import {
   Package,
   FolderKanban,
   ScrollText,
+  Bug,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useState } from "react";
@@ -89,6 +90,7 @@ export function Sidebar({ user, grantedPermissions, salsifyDebugEnabled = false 
               : grantedPermissions.has(permission)
           );
           if (salsifyDebugEnabled && grantedPermissions.has("admin:settings")) {
+            visibleAdminItems.push({ href: "/admin/salsify-debug", label: "Salsify Debug", icon: Bug, permission: "admin:settings" });
             visibleAdminItems.push({ href: "/admin/salsify-log", label: "Salsify Log", icon: ScrollText, permission: "admin:settings" });
           }
           if (visibleAdminItems.length === 0) return null;

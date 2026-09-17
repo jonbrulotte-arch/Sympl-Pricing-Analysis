@@ -9,6 +9,16 @@ import type { ProductRow } from "@/lib/pricing/types";
 
 const STRING_FIELDS = new Set(["sku", "name", "brand", "asin", "fbaClass", "amzCategory", "amzItemType", "invStatus"]);
 const UNITS_CONSTANT_FIELD = "units";
+const FETCH_WATCHDOG_MS = 2 * 60 * 1000;
+
+function withWatchdog<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms);
+    }),
+  ]);
+}
 
 async function verifyAccess(customerId: string, userId: string) {
   const link = await prisma.customerUser.findUnique({
@@ -44,9 +54,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
 
   let salsifyProducts;
   try {
-    salsifyProducts = await fetchAllSalsifyProducts(organizationId, apiKey);
+    salsifyProducts = await withWatchdog(fetchAllSalsifyProducts(organizationId, apiKey), FETCH_WATCHDOG_MS, "Fetching Salsify products");
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error contacting Salsify";
+    console.error(`[salsify-sync] customer ${customerId} fetch failed: ${message}`);
     return NextResponse.json({ error: `Salsify sync failed: ${message}` }, { status: 502 });
   }
 

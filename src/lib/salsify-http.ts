@@ -60,34 +60,55 @@ function networkErrorCode(err: unknown): string | undefined {
  * Non-retryable responses (404, 422, etc.) are returned as-is for the caller to handle.
  * Throws only when every attempt is exhausted or a non-retryable network error occurs.
  */
+function shortUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.pathname + u.search;
+  } catch {
+    return url;
+  }
+}
+
 export async function salsifyFetch(url: string, options: SalsifyFetchOptions = {}): Promise<Response> {
   const { attempts = 3, timeoutMs = 20_000, signal: externalSignal, ...init } = options;
+  const method = init.method ?? "GET";
+  const label = `${method} ${shortUrl(url)}`;
 
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     const timeoutSignal = AbortSignal.timeout(timeoutMs);
     const signal = externalSignal ? AbortSignal.any([externalSignal, timeoutSignal]) : timeoutSignal;
+    const startedAt = Date.now();
 
     try {
       const res = await fetch(url, { ...init, signal });
+      const durationMs = Date.now() - startedAt;
 
       if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt === attempts) {
+        console.log(`[salsify] ${label} → ${res.status} in ${durationMs}ms (attempt ${attempt}/${attempts})`);
         return res;
       }
 
       const wait = retryAfterMs(res) ?? backoffDelay(attempt);
+      console.warn(`[salsify] ${label} → ${res.status} in ${durationMs}ms (attempt ${attempt}/${attempts}), retrying in ${Math.round(wait)}ms`);
       await sleep(wait);
       continue;
     } catch (err) {
+      const durationMs = Date.now() - startedAt;
       lastError = err;
       const code = networkErrorCode(err);
       const isTimeout = err instanceof Error && err.name === "TimeoutError";
       const retryable = isTimeout || (code != null && RETRYABLE_NETWORK_CODES.has(code));
+      const description = isTimeout ? `timed out after ${timeoutMs / 1000}s` : describeFetchError(err);
 
       if (!retryable || attempt === attempts) {
-        throw new Error(isTimeout ? `Timed out after ${timeoutMs / 1000}s` : describeFetchError(err));
+        console.error(`[salsify] ${label} failed after ${durationMs}ms (attempt ${attempt}/${attempts}): ${description} — giving up`);
+        throw new Error(isTimeout ? `Timed out after ${timeoutMs / 1000}s` : description);
       }
-      await sleep(backoffDelay(attempt));
+
+      const wait = backoffDelay(attempt);
+      console.warn(`[salsify] ${label} failed after ${durationMs}ms (attempt ${attempt}/${attempts}): ${description}, retrying in ${Math.round(wait)}ms`);
+      await sleep(wait);
     }
   }
 

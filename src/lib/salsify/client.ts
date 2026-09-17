@@ -14,26 +14,39 @@ const MAX_PAGES = 500; // safety cap against a runaway/misbehaving API
 
 export type SalsifyProduct = Record<string, unknown>;
 
+/** One page fetch, exposed on its own for the Test Connection debug tool. */
+export async function fetchProductsPage(orgId: string, apiKey: string, page: number, perPage: number): Promise<{ batch: SalsifyProduct[]; status: number }> {
+  const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/products?page=${page}&per_page=${perPage}`;
+  const res = await salsifyFetch(url, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Salsify API error (${res.status}): ${text || res.statusText}`);
+  }
+
+  const data = await res.json();
+  const batch: SalsifyProduct[] = Array.isArray(data) ? data : (data.data ?? data.products ?? []);
+  return { batch, status: res.status };
+}
+
 export async function fetchAllSalsifyProducts(orgId: string, apiKey: string): Promise<SalsifyProduct[]> {
   const products: SalsifyProduct[] = [];
   let page = 1;
 
   while (page <= MAX_PAGES) {
-    const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/products?page=${page}&per_page=${PAGE_SIZE}`;
-    const res = await salsifyFetch(url, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`Salsify API error (${res.status}): ${text || res.statusText}`);
+    let batch: SalsifyProduct[];
+    try {
+      ({ batch } = await fetchProductsPage(orgId, apiKey, page, PAGE_SIZE));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`${message} (on page ${page}, ${products.length} product(s) fetched so far)`);
     }
 
-    const data = await res.json();
-    const batch: SalsifyProduct[] = Array.isArray(data) ? data : (data.data ?? data.products ?? []);
     products.push(...batch);
 
     if (batch.length < PAGE_SIZE) break;
