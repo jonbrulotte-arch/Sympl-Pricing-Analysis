@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
 
   let salsifyProducts;
   try {
-    salsifyProducts = await fetchAllSalsifyProducts(organizationId, apiKey, [...propertyIdByField.values()]);
+    salsifyProducts = await fetchAllSalsifyProducts(organizationId, apiKey);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error contacting Salsify";
     return NextResponse.json({ error: `Salsify sync failed: ${message}` }, { status: 502 });
