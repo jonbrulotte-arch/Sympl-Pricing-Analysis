@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { CustomerActions } from "@/components/customers/customer-actions";
 import { ChannelDeleteButton } from "@/components/channels/channel-delete-button";
+import { CustomerCollaborators } from "@/components/customers/customer-collaborators";
 
 export default async function CustomerPage({ params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -22,10 +23,13 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
       channels: { orderBy: { sortOrder: "asc" } },
       _count: { select: { customerProducts: true } },
       analyses: { orderBy: { createdAt: "desc" }, take: 5, select: { id: true, name: true, createdAt: true } },
+      users: { where: { userId }, select: { role: true } },
     },
   });
 
   if (!customer) notFound();
+
+  const isOwner = customer.users[0]?.role === "OWNER";
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -41,6 +45,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
             customerId={customerId}
             customerName={customer.name}
             channelCount={customer.channels.length}
+            isOwner={isOwner}
           />
           <Link href={`/customers/${customerId}/import`}>
             <Button>
@@ -129,7 +134,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
         </div>
 
         {/* Recent Analyses */}
-        <div>
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Recent Analyses</CardTitle>
@@ -153,6 +158,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
               )}
             </CardContent>
           </Card>
+
+          <CustomerCollaborators customerId={customerId} isOwner={isOwner} />
         </div>
       </div>
     </div>

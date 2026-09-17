@@ -18,9 +18,10 @@ interface Props {
   customerId: string;
   customerName: string;
   channelCount: number;
+  isOwner?: boolean;
 }
 
-export function CustomerActions({ customerId, customerName, channelCount }: Props) {
+export function CustomerActions({ customerId, customerName, channelCount, isOwner = true }: Props) {
   const router = useRouter();
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -77,10 +78,12 @@ export function CustomerActions({ customerId, customerName, channelCount }: Prop
         <Pencil className="h-3.5 w-3.5 mr-1.5" />
         Rename
       </Button>
-      <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => { setConfirmText(""); setError(null); setDeleteOpen(true); }}>
-        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-        Delete
-      </Button>
+      {isOwner && (
+        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => { setConfirmText(""); setError(null); setDeleteOpen(true); }}>
+          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+          Delete
+        </Button>
+      )}
 
       {/* Rename Dialog */}
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>

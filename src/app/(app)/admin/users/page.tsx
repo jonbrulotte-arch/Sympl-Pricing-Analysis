@@ -5,6 +5,7 @@ import { getPermissions } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { AddUserButton, DeleteUserButton } from "@/components/admin/user-actions";
 
 export default async function AdminUsersPage() {
   const session = await auth();
@@ -34,6 +35,7 @@ export default async function AdminUsersPage() {
           <h1 className="text-2xl font-bold text-gray-900">Users</h1>
           <p className="text-sm text-gray-500 mt-1">{users.length} registered users</p>
         </div>
+        <AddUserButton />
       </div>
 
       <Card>
@@ -47,6 +49,7 @@ export default async function AdminUsersPage() {
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Role</th>
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Customers</th>
                   <th className="text-right py-3 px-2 text-gray-600 font-medium">Created</th>
+                  <th className="text-right py-3 px-2 text-gray-600 font-medium w-12"></th>
                 </tr>
               </thead>
               <tbody>
@@ -65,6 +68,9 @@ export default async function AdminUsersPage() {
                         : u.customers.map((c) => c.customer.name).join(", ")}
                     </td>
                     <td className="py-2 px-2 text-right text-gray-500">{formatDate(u.createdAt)}</td>
+                    <td className="py-2 px-2 text-right">
+                      {u.id !== session.user.id && <DeleteUserButton userId={u.id} userName={u.name} />}
+                    </td>
                   </tr>
                 ))}
               </tbody>

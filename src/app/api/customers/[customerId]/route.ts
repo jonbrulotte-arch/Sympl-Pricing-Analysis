@@ -49,6 +49,7 @@ export async function DELETE(
   const { customerId } = await params;
   const link = await verifyAccess(customerId, session.user.id);
   if (!link) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (link.role !== "OWNER") return NextResponse.json({ error: "Only the customer owner can delete this customer" }, { status: 403 });
 
   await prisma.customer.delete({ where: { id: customerId } });
 
