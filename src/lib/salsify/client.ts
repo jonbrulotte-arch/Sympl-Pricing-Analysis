@@ -34,7 +34,11 @@ export async function fetchProductsPage(orgId: string, apiKey: string, page: num
   return { batch, status: res.status };
 }
 
-export async function fetchAllSalsifyProducts(orgId: string, apiKey: string): Promise<SalsifyProduct[]> {
+export async function fetchAllSalsifyProducts(
+  orgId: string,
+  apiKey: string,
+  onPage?: (pagesFetched: number, productsFetched: number) => void | Promise<void>
+): Promise<SalsifyProduct[]> {
   const products: SalsifyProduct[] = [];
   let page = 1;
 
@@ -48,6 +52,7 @@ export async function fetchAllSalsifyProducts(orgId: string, apiKey: string): Pr
     }
 
     products.push(...batch);
+    if (onPage) await onPage(page, products.length);
 
     if (batch.length < PAGE_SIZE) break;
     page += 1;

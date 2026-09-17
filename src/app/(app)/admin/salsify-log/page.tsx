@@ -52,7 +52,7 @@ export default async function SalsifyLogPage() {
                       <Badge variant={imp.status === "complete" ? "success" : imp.status === "processing" ? "secondary" : "destructive"} className="text-xs">
                         {imp.status}
                       </Badge>
-                      {imp.errors != null && (
+                      {imp.errors != null && imp.status !== "complete" && (
                         <p className="text-xs text-red-600 mt-1 max-w-md truncate">{JSON.stringify(imp.errors)}</p>
                       )}
                     </td>

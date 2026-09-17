@@ -12,7 +12,11 @@ import { buildRows } from "@/lib/import/build-rows";
 import { IMPORT_FIELDS } from "@/lib/pricing/constants";
 import type { ProductRow } from "@/lib/pricing/types";
 
-type Step = "upload" | "map" | "preview" | "importing" | "done";
+type Step = "upload" | "map" | "preview" | "importing" | "syncing" | "done";
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export default function ImportPage() {
   const { customerId } = useParams<{ customerId: string }>();
@@ -36,6 +40,7 @@ export default function ImportPage() {
   const [dragOver, setDragOver] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncProgress, setSyncProgress] = useState(0);
 
   const processFile = useCallback((file: File) => {
     setFileName(file.name);
@@ -138,17 +143,46 @@ export default function ImportPage() {
   async function handleSalsifySync() {
     setSyncing(true);
     setSyncError(null);
+    setSyncProgress(0);
     try {
       const res = await fetch(`/api/customers/${customerId}/salsify-sync`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         setSyncError(data.error || "Salsify sync failed");
-      } else {
-        setResult(data);
-        setStep("done");
+        setSyncing(false);
+        return;
+      }
+
+      const { importId } = data;
+      setStep("syncing");
+
+      while (true) {
+        await sleep(2000);
+        const statusRes = await fetch(`/api/customers/${customerId}/imports/${importId}`);
+        const statusData = await statusRes.json();
+        if (!statusRes.ok) {
+          setSyncError(statusData.error || "Lost track of the sync status");
+          setStep("upload");
+          break;
+        }
+
+        setSyncProgress(statusData.rowCount ?? 0);
+
+        if (statusData.status === "complete") {
+          const { created, updated } = statusData.errors ?? {};
+          setResult({ created: created ?? 0, updated: updated ?? 0 });
+          setStep("done");
+          break;
+        }
+        if (statusData.status === "failed") {
+          setSyncError(statusData.errors?.message || "Salsify sync failed");
+          setStep("upload");
+          break;
+        }
       }
     } catch {
       setSyncError("Network error during Salsify sync");
+      setStep("upload");
     } finally {
       setSyncing(false);
     }
@@ -348,6 +382,20 @@ export default function ImportPage() {
         <div className="text-center py-16">
           <div className="animate-spin h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
           <p className="text-gray-600">Importing {rows.length} products...</p>
+        </div>
+      )}
+
+      {/* Syncing from Salsify */}
+      {step === "syncing" && (
+        <div className="text-center py-16">
+          <div className="animate-spin h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-gray-600">Syncing from Salsify...</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {syncProgress > 0 ? `${syncProgress} products found so far` : "Starting..."}
+          </p>
+          <p className="text-xs text-gray-400 mt-2">
+            This can take several minutes for a large catalog. Feel free to leave this page — the sync continues in the background.
+          </p>
         </div>
       )}
 
