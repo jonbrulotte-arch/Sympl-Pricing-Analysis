@@ -7,6 +7,7 @@
 
 const SALSIFY_API_BASE = "https://app.salsify.com/api/v1";
 const PAGE_SIZE = 100;
+const REQUEST_TIMEOUT_MS = 20_000;
 
 export type SalsifyProduct = Record<string, unknown>;
 
@@ -16,12 +17,21 @@ export async function fetchAllSalsifyProducts(orgId: string, apiKey: string): Pr
 
   while (true) {
     const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/products?page=${page}&per_page=${PAGE_SIZE}`;
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === "TimeoutError") {
+        throw new Error(`Timed out reaching Salsify after ${REQUEST_TIMEOUT_MS / 1000}s. Check the Org ID and that this server can reach app.salsify.com.`);
+      }
+      throw err;
+    }
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
