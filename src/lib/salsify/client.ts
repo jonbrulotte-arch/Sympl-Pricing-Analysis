@@ -1,53 +1,107 @@
-// Thin wrapper around Salsify's REST product-export API.
-// NOTE: verify this endpoint/pagination/property-key shape against Salsify's live API
-// reference for the target org before relying on it in production — Salsify's public
-// docs describe a "products" listing endpoint scoped by org id, paginated, returning
-// each product as a flat object keyed by Salsify property id (plus "salsify:id" etc.
-// system properties). Adjust here if the real org's API differs.
+// Bulk product retrieval via Salsify's asynchronous Export API.
+//
+// Salsify does not expose a simple paginated "list every product" endpoint for bulk
+// retrieval — GET /products?page=&per_page= is only documented/used as a one-item
+// connection test. Real org-wide export is a three-step async job:
+//   1. POST /orgs/{orgId}/exports          — start an export job
+//   2. GET  /orgs/{orgId}/exports/{id}     — poll until it completes or fails
+//   3. GET  <the file URL the job returns> — download the resulting JSON
+//
+// NOTE: the exact request/response field names below (export target, format, status
+// enum values, result-file field) should be confirmed against Salsify's live API
+// reference/Postman collection for the target org — the start/poll/download mechanism
+// is the documented approach, but exact JSON keys can vary by API version.
+
+import { salsifyFetch } from "@/lib/salsify-http";
 
 const SALSIFY_API_BASE = "https://app.salsify.com/api/v1";
-const PAGE_SIZE = 100;
-const REQUEST_TIMEOUT_MS = 20_000;
+const POLL_INTERVAL_MS = 3_000;
+const MAX_POLL_MS = 5 * 60 * 1000; // 5 minutes
 
 export type SalsifyProduct = Record<string, unknown>;
 
-export async function fetchAllSalsifyProducts(orgId: string, apiKey: string): Promise<SalsifyProduct[]> {
-  const products: SalsifyProduct[] = [];
-  let page = 1;
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  while (true) {
-    const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/products?page=${page}&per_page=${PAGE_SIZE}`;
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: "application/json",
-        },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-    } catch (err) {
-      if (err instanceof Error && err.name === "TimeoutError") {
-        throw new Error(`Timed out reaching Salsify after ${REQUEST_TIMEOUT_MS / 1000}s. Check the Org ID and that this server can reach app.salsify.com.`);
-      }
-      throw err;
-    }
+async function startExport(orgId: string, apiKey: string, propertyIds: string[]): Promise<string> {
+  const res = await salsifyFetch(`${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/exports`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      target: "products",
+      format: "json",
+      property_ids: propertyIds,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Failed to start Salsify export (${res.status}): ${text || res.statusText}`);
+  }
+
+  const data = await res.json();
+  const exportId = data.id ?? data.export_id;
+  if (!exportId) throw new Error("Salsify export response did not include an export id.");
+  return String(exportId);
+}
+
+async function pollExport(orgId: string, apiKey: string, exportId: string): Promise<string> {
+  const deadline = Date.now() + MAX_POLL_MS;
+
+  while (Date.now() < deadline) {
+    const res = await salsifyFetch(`${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/exports/${encodeURIComponent(exportId)}`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+    });
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(`Salsify API error (${res.status}): ${text || res.statusText}`);
+      throw new Error(`Failed to check Salsify export status (${res.status}): ${text || res.statusText}`);
     }
 
     const data = await res.json();
-    const batch: SalsifyProduct[] = Array.isArray(data) ? data : (data.data ?? data.products ?? []);
-    products.push(...batch);
+    const status = String(data.status ?? "").toLowerCase();
 
-    if (batch.length < PAGE_SIZE) break;
-    page += 1;
-    if (page > 500) break; // safety cap against a runaway/misbehaving API
+    if (status === "complete" || status === "completed" || status === "success") {
+      const url = data.url ?? data.generated_url ?? data.download_url;
+      if (!url) throw new Error("Salsify export completed but returned no download URL.");
+      return String(url);
+    }
+    if (status === "failed" || status === "error" || status === "cancelled") {
+      throw new Error(`Salsify export failed (status: ${status}).`);
+    }
+
+    await sleep(POLL_INTERVAL_MS);
   }
 
-  return products;
+  throw new Error(`Salsify export did not complete within ${MAX_POLL_MS / 1000}s.`);
+}
+
+async function downloadExport(fileUrl: string, apiKey: string): Promise<SalsifyProduct[]> {
+  const res = await salsifyFetch(fileUrl, {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Failed to download Salsify export (${res.status}): ${text || res.statusText}`);
+  }
+
+  const data = await res.json();
+  return Array.isArray(data) ? data : (data.data ?? data.products ?? []);
+}
+
+export async function fetchAllSalsifyProducts(orgId: string, apiKey: string, propertyIds: string[]): Promise<SalsifyProduct[]> {
+  const exportId = await startExport(orgId, apiKey, propertyIds);
+  const fileUrl = await pollExport(orgId, apiKey, exportId);
+  return downloadExport(fileUrl, apiKey);
 }
 
 /** Pulls the first element out of a Salsify " | "-delimited array-style string value. */

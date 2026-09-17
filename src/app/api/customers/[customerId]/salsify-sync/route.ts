@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
-import { decrypt } from "@/lib/crypto";
+import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
 import { fetchAllSalsifyProducts, firstDelimited } from "@/lib/salsify/client";
 import { upsertImportRows } from "@/lib/db/upsert-import-rows";
 import type { ProductRow } from "@/lib/pricing/types";
@@ -25,19 +25,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   if (!(await verifyAccess(customerId, session.user.id)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const appSettings = await prisma.appSettings.findUnique({ where: { id: "singleton" } });
-  if (!appSettings?.salsifySyncEnabled) {
-    return NextResponse.json({ error: "Salsify sync is not enabled. Ask an admin to enable it in Admin Settings." }, { status: 400 });
+  const credentials = await resolveSalsifyCredentials(session.user.id);
+  if (!credentials.ok) {
+    return NextResponse.json({ error: credentials.error }, { status: credentials.status });
   }
-  if (!appSettings.salsifyOrgId) {
-    return NextResponse.json({ error: "No Salsify Org ID is configured. Ask an admin to set it in Admin Settings." }, { status: 400 });
-  }
-
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  if (!user?.salsifyApiKeyEncrypted) {
-    return NextResponse.json({ error: "Add your Salsify API Key in My Profile before running a sync." }, { status: 400 });
-  }
-  const apiKey = decrypt(user.salsifyApiKeyEncrypted);
+  const { apiKey, organizationId } = credentials.credentials;
 
   const [mappings, channels] = await Promise.all([
     prisma.salsifyFieldMapping.findMany({ where: { customerId } }),
@@ -52,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
 
   let salsifyProducts;
   try {
-    salsifyProducts = await fetchAllSalsifyProducts(appSettings.salsifyOrgId, apiKey);
+    salsifyProducts = await fetchAllSalsifyProducts(organizationId, apiKey, [...propertyIdByField.values()]);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error contacting Salsify";
     return NextResponse.json({ error: `Salsify sync failed: ${message}` }, { status: 502 });
