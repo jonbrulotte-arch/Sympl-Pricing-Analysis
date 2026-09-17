@@ -57,12 +57,13 @@ export default function SalsifyMappingPage({ params }: { params: Promise<{ custo
       const data = await channelsRes.json();
       setChannels(Array.isArray(data) ? data : (data.channels ?? []));
     }
+    let saved: { importFieldKey: string; salsifyPropertyId: string }[] = [];
     if (mappingRes.ok) {
-      const data = await mappingRes.json() as { importFieldKey: string; salsifyPropertyId: string }[];
-      const m: Record<string, string> = {};
-      for (const row of data) m[row.importFieldKey] = row.salsifyPropertyId;
-      setMapping(m);
+      saved = await mappingRes.json();
     }
+    const m: Record<string, string> = { ...SALSIFY_PLACEHOLDERS };
+    for (const row of saved) m[row.importFieldKey] = row.salsifyPropertyId;
+    setMapping(m);
     setLoading(false);
   }, [customerId]);
 
@@ -98,6 +99,9 @@ export default function SalsifyMappingPage({ params }: { params: Promise<{ custo
           <h1 className="text-2xl font-bold text-gray-900">Salsify Field Mapping</h1>
           <p className="text-sm text-gray-500 mt-1">
             Map each field this app uses to the corresponding Salsify Property ID for this customer.
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Suggested Salsify Property IDs are pre-filled below — edit or clear any that don&apos;t match your org&apos;s schema before saving.
           </p>
         </div>
         <Button onClick={handleSave} disabled={saving}>
