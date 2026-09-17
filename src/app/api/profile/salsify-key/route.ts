@@ -33,9 +33,17 @@ export async function POST(req: NextRequest) {
   const apiKey = (body.apiKey ?? "").trim();
   if (!apiKey) return NextResponse.json({ error: "API key is required" }, { status: 400 });
 
+  let encrypted: string;
+  try {
+    encrypted = encrypt(apiKey);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Encryption failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
   await prisma.user.update({
     where: { id: session.user.id },
-    data: { salsifyApiKeyEncrypted: encrypt(apiKey) },
+    data: { salsifyApiKeyEncrypted: encrypted },
   });
 
   return NextResponse.json({ hasKey: true, last4: apiKey.slice(-4) });
