@@ -25,8 +25,8 @@ import type { SafeUser, Permission } from "@/types";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/customers", label: "Customers", icon: Building2 },
   { href: "/products", label: "Products", icon: Package },
+  { href: "/customers", label: "Customers", icon: Building2 },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/royalty-rules", label: "Royalty Rules", icon: DollarSign },
 ];

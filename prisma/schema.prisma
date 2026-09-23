@@ -216,11 +216,11 @@ model AnalysisResult {
 }
 
 model Import {
-  id           String   @id @default(uuid())
-  customerId   String
-  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id           String    @id @default(uuid())
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
   uploadedById String
-  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id])
   fileName     String
   sheetName    String?
   rowCount     Int      @default(0)

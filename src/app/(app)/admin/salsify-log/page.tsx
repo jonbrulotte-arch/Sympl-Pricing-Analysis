@@ -46,7 +46,7 @@ export default async function SalsifyLogPage() {
               <tbody>
                 {imports.map((imp) => (
                   <tr key={imp.id} className="border-b border-gray-50">
-                    <td className="py-2 px-2 text-gray-900 font-medium">{imp.customer.name}</td>
+                    <td className="py-2 px-2 text-gray-900 font-medium">{imp.customer?.name ?? "—"}</td>
                     <td className="py-2 px-2 text-gray-600">{imp.uploadedBy.name}</td>
                     <td className="py-2 px-2">
                       <Badge variant={imp.status === "complete" ? "success" : imp.status === "processing" ? "secondary" : "destructive"} className="text-xs">

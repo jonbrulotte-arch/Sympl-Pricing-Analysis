@@ -153,7 +153,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       ) : products.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           <p className="text-sm">No products in this project yet.</p>
-          <p className="text-xs mt-1">Add products above to begin analysis.</p>
+          <p className="text-xs mt-1">
+            Add products from the Product Database. Products must be{" "}
+            <a href="/products/import" className="text-blue-600 hover:underline">imported first</a> via Salsify sync or spreadsheet upload.
+          </p>
         </div>
       ) : (
         <AnalysisWorkspace

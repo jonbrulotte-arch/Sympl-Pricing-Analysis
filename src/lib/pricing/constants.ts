@@ -92,6 +92,10 @@ export const IMPORT_FIELDS = [
   { key: "available", label: "Available inventory", req: false, cand: ["availableinventory", "availableunits", "available", "onhandpickableunits", "pickableunits", "onhandunits", "onhand", "qtyavailable", "quantityavailable", "availableqty"] },
 ];
 
+export const SUPPLEMENTAL_IMPORT_FIELDS = IMPORT_FIELDS.filter((f) =>
+  ["sku", "cost", "mcfFreight"].includes(f.key),
+);
+
 export const DEFAULT_CHANNELS: Omit<ChannelConfig, "id">[] = [
   {
     name: "eBay (JSP)", tabLabel: "eBay (JSP)", shippingMode: "std", priceField: "priceJSP",

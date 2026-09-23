@@ -166,7 +166,13 @@ export function ProjectActions({
           )}
 
           {products.length === 0 ? (
-            <p className="text-sm text-gray-500 py-4 text-center">No products added yet. Add products by SKU.</p>
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-500">No products added yet.</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Add products from the Product Database. Products must be{" "}
+                <a href="/products/import" className="text-blue-600 hover:underline">imported first</a> via Salsify sync or spreadsheet upload.
+              </p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -232,7 +238,17 @@ export function ProjectActions({
             <p className="text-xs text-gray-500 mt-1">
               {skuInput.split(/[\n,]+/).filter((s) => s.trim()).length} SKUs entered
             </p>
-            {addError && <p className="text-sm text-red-600 mt-2">{addError}</p>}
+            {addError && (
+              <div className="mt-2">
+                <p className="text-sm text-red-600">{addError}</p>
+                {addError.toLowerCase().includes("not found") && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    These SKUs are not in the product database.{" "}
+                    <a href="/products/import" className="text-blue-600 hover:underline">Import them first</a> via Products &rarr; Import.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
