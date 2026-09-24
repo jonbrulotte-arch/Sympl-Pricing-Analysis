@@ -45,7 +45,6 @@ export async function POST() {
 
   runSalsifySync(
     importId,
-    creds.credentials.organizationId,
     creds.credentials.apiKey,
     appSettings.salsifyChannelId,
   ).catch((err) => {
@@ -57,17 +56,16 @@ export async function POST() {
 
 async function runSalsifySync(
   importId: string,
-  orgId: string,
   apiKey: string,
   channelId: string,
 ) {
   try {
-    const { runId } = await triggerChannelExport(orgId, apiKey, channelId);
+    await triggerChannelExport(apiKey, channelId);
 
     let downloadUrl: string | undefined;
     for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-      const result = await pollExportStatus(orgId, apiKey, channelId, runId);
+      const result = await pollExportStatus(apiKey, channelId);
 
       if (result.status === "completed" && result.url) {
         downloadUrl = result.url;

@@ -65,11 +65,10 @@ export function firstDelimited(value: unknown): string | null {
 
 /** Trigger a pre-configured Salsify channel export. Returns the run ID for polling. */
 export async function triggerChannelExport(
-  orgId: string,
   apiKey: string,
   channelId: string,
 ): Promise<{ runId: string }> {
-  const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/exports/${encodeURIComponent(channelId)}/runs`;
+  const url = `https://app.salsify.com/api/channels/${encodeURIComponent(channelId)}/runs`;
   const res = await salsifyFetch(url, {
     method: "POST",
     headers: {
@@ -91,14 +90,12 @@ export async function triggerChannelExport(
   return { runId: String(runId) };
 }
 
-/** Poll a channel export run for completion. Returns status and download URL when done. */
+/** Poll the latest channel export run for completion. Returns status and download URL when done. */
 export async function pollExportStatus(
-  orgId: string,
   apiKey: string,
   channelId: string,
-  runId: string,
 ): Promise<{ status: string; url?: string }> {
-  const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/exports/${encodeURIComponent(channelId)}/runs/${encodeURIComponent(runId)}`;
+  const url = `https://app.salsify.com/api/channels/${encodeURIComponent(channelId)}/runs/latest`;
   const res = await salsifyFetch(url, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
