@@ -94,8 +94,9 @@ export async function triggerChannelExport(
 export async function pollExportStatus(
   apiKey: string,
   channelId: string,
+  runId: string,
 ): Promise<{ status: string; url?: string }> {
-  const url = `https://app.salsify.com/api/channels/${encodeURIComponent(channelId)}/runs/latest`;
+  const url = `https://app.salsify.com/api/channels/${encodeURIComponent(channelId)}/runs/${encodeURIComponent(runId)}`;
   const res = await salsifyFetch(url, {
     headers: {
       Authorization: `Bearer ${apiKey}`,

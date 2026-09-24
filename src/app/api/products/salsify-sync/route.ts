@@ -60,12 +60,12 @@ async function runSalsifySync(
   channelId: string,
 ) {
   try {
-    await triggerChannelExport(apiKey, channelId);
+    const { runId } = await triggerChannelExport(apiKey, channelId);
 
     let downloadUrl: string | undefined;
     for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-      const result = await pollExportStatus(apiKey, channelId);
+      const result = await pollExportStatus(apiKey, channelId, runId);
 
       if (result.status === "completed" && result.url) {
         downloadUrl = result.url;
