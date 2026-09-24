@@ -242,9 +242,9 @@ export function useAnalysis(
         sku,
         channelId,
         price: priceToCommit,
-        oldPrice: row.price > 0 ? row.price : undefined,
-        oldNetMargin: row.net !== 0 ? row.net : undefined,
-        newNetMargin: row.recCalc?.net ?? undefined,
+        oldPrice: (row.basePrice ?? 0) > 0 ? row.basePrice! : undefined,
+        oldNetMargin: !override && row.price > 0 ? row.gm : undefined,
+        newNetMargin: override != null ? row.gm : (row.recCalc?.gm ?? undefined),
       }),
     });
 

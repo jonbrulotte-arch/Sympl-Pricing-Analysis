@@ -105,19 +105,23 @@ export function PublishToSalsify({ customerId }: Props) {
 
       const msg = [`Published ${data.published} SKU(s) to Salsify.`];
       if (data.failed?.length > 0) {
-        msg.push(`${data.failed.length} failed.`);
+        const errors = data.failed.map((f: { sku: string; error: string }) => `${f.sku}: ${f.error}`);
+        msg.push(`${data.failed.length} failed — ${errors.join("; ")}`);
       }
       if (data.unmappedFields?.length > 0) {
-        msg.push(`Unmapped fields: ${data.unmappedFields.join(", ")}`);
+        msg.push(`Unmapped fields: ${data.unmappedFields.join(", ")}. Configure in Admin > Salsify Field Mapping.`);
       }
       setFeedback({ type: data.failed?.length > 0 ? "error" : "success", message: msg.join(" ") });
 
-      setStaged((prev) => prev.filter((e) => !ids.includes(e.id)));
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        for (const id of ids) next.delete(id);
-        return next;
-      });
+      const removedIds: string[] = data.removedIds ?? [];
+      if (removedIds.length > 0) {
+        setStaged((prev) => prev.filter((e) => !removedIds.includes(e.id)));
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          for (const id of removedIds) next.delete(id);
+          return next;
+        });
+      }
     } finally {
       setPublishing((prev) => {
         const next = new Set(prev);
@@ -161,7 +165,8 @@ export function PublishToSalsify({ customerId }: Props) {
   function fmtPct(val: string | null | undefined): string {
     if (val == null) return "-";
     const n = Number(val);
-    return isNaN(n) ? "-" : `$${n.toFixed(2)}`;
+    if (isNaN(n)) return "-";
+    return `${(n * 100).toFixed(1)}%`;
   }
 
   function deltaColor(oldVal: string | null, newVal: string): string {
@@ -257,8 +262,8 @@ export function PublishToSalsify({ customerId }: Props) {
               <th className="py-2 px-3 text-left text-gray-600 font-medium text-xs">Channel</th>
               <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">Old Price</th>
               <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">New Price</th>
-              <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">Old Net $</th>
-              <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">New Net $</th>
+              <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">Old GM%</th>
+              <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">New GM%</th>
               <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs w-24"></th>
             </tr>
           </thead>

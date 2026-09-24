@@ -91,6 +91,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
     published: result.succeeded.length,
     failed: result.failed,
     unmappedFields: [...new Set(unmapped)],
-    removedCount: publishedIds.length,
+    removedIds: publishedIds,
   });
 }
