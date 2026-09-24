@@ -4,6 +4,7 @@ import { decrypt } from "@/lib/crypto";
 export interface SalsifyCredentials {
   apiKey: string;
   organizationId: string;
+  channelId?: string;
 }
 
 type SalsifyCredentialsResult =
@@ -31,6 +32,7 @@ export async function resolveSalsifyCredentials(userId: string): Promise<Salsify
     credentials: {
       apiKey: decrypt(user.salsifyApiKeyEncrypted),
       organizationId: appSettings.salsifyOrgId,
+      channelId: appSettings.salsifyChannelId ?? undefined,
     },
   };
 }

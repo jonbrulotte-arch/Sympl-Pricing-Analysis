@@ -125,6 +125,7 @@ model Product {
   costHistories         CostHistory[]
   priceHistories        PriceHistory[]
   shippingCostHistories ShippingCostHistory[]
+  productPrices         ProductPrice[]
   analysisResults       AnalysisResult[]
   projects              ProjectProduct[]
 }
@@ -292,9 +293,22 @@ model SavedMapping {
   @@unique([customerId, headerSignature])
 }
 
+model ProductPrice {
+  id         String   @id @default(uuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  priceField String
+  price      Decimal  @db.Decimal(10, 4)
+  recordedAt DateTime @default(now())
+  importId   String?
+
+  @@index([productId, priceField, recordedAt])
+}
+
 model AppSettings {
   id                  String   @id @default("singleton")
   salsifyOrgId        String?
+  salsifyChannelId    String?
   salsifySyncEnabled  Boolean  @default(false)
   salsifyDebugEnabled Boolean  @default(false)
   updatedAt           DateTime @updatedAt

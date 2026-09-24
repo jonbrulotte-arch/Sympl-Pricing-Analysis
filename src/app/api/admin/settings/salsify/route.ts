@@ -15,6 +15,7 @@ export async function GET() {
 
   return NextResponse.json({
     salsifyOrgId: settings?.salsifyOrgId ?? "",
+    salsifyChannelId: settings?.salsifyChannelId ?? "",
     salsifySyncEnabled: settings?.salsifySyncEnabled ?? false,
     salsifyDebugEnabled: settings?.salsifyDebugEnabled ?? false,
   });
@@ -32,12 +33,14 @@ export async function PATCH(req: NextRequest) {
     where: { id: SINGLETON_ID },
     update: {
       ...(body.salsifyOrgId !== undefined && { salsifyOrgId: body.salsifyOrgId || null }),
+      ...(body.salsifyChannelId !== undefined && { salsifyChannelId: body.salsifyChannelId || null }),
       ...(body.salsifySyncEnabled !== undefined && { salsifySyncEnabled: !!body.salsifySyncEnabled }),
       ...(body.salsifyDebugEnabled !== undefined && { salsifyDebugEnabled: !!body.salsifyDebugEnabled }),
     },
     create: {
       id: SINGLETON_ID,
       salsifyOrgId: body.salsifyOrgId || null,
+      salsifyChannelId: body.salsifyChannelId || null,
       salsifySyncEnabled: !!body.salsifySyncEnabled,
       salsifyDebugEnabled: !!body.salsifyDebugEnabled,
     },
@@ -45,6 +48,7 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json({
     salsifyOrgId: settings.salsifyOrgId ?? "",
+    salsifyChannelId: settings.salsifyChannelId ?? "",
     salsifySyncEnabled: settings.salsifySyncEnabled,
     salsifyDebugEnabled: settings.salsifyDebugEnabled,
   });

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface Settings {
   salsifyOrgId: string;
+  salsifyChannelId: string;
   salsifySyncEnabled: boolean;
   salsifyDebugEnabled: boolean;
 }
@@ -76,6 +77,18 @@ export function SalsifySettings() {
           placeholder="s-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
         />
         <p className="text-xs text-gray-500 mt-1">Your Salsify organization identifier (slug)</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Channel Export ID</label>
+        <Input
+          value={settings.salsifyChannelId}
+          onChange={(e) => setSettings({ ...settings, salsifyChannelId: e.target.value })}
+          placeholder="e.g. abc123-def456"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          The ID of the pre-configured Salsify channel export. Found in Salsify under Channel &gt; Settings.
+        </p>
       </div>
 
       <div className="flex items-center gap-2">

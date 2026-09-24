@@ -69,6 +69,16 @@ export async function loadProductRows(
           (row as Record<string, unknown>)[ch.priceField] = price;
         }
         row.channelPrices![ch.id] = price;
+      } else if (ch.priceField && ch.priceField !== "__none__") {
+        const productPrice = await prisma.productPrice.findFirst({
+          where: { productId: p.id, priceField: ch.priceField },
+          orderBy: { recordedAt: "desc" },
+        });
+        if (productPrice) {
+          const price = Number(productPrice.price);
+          (row as Record<string, unknown>)[ch.priceField] = price;
+          row.channelPrices![ch.id] = price;
+        }
       }
     }
 

@@ -18,6 +18,8 @@ import {
   FolderKanban,
   ScrollText,
   Bug,
+  Bell,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useState } from "react";
@@ -138,6 +140,19 @@ export function Sidebar({ user, grantedPermissions, salsifyDebugEnabled = false 
         </div>
         {!collapsed && (
           <div className="mt-3 flex items-center gap-2">
+            <button
+              className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800"
+              title="Notifications"
+            >
+              <Bell className="h-4 w-4" />
+            </button>
+            <Link
+              href="/profile"
+              className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800"
+              title="Settings"
+            >
+              <SettingsIcon className="h-4 w-4" />
+            </Link>
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800"

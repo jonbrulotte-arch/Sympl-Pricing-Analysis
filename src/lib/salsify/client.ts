@@ -1,10 +1,4 @@
-// Bulk product retrieval via Salsify's paginated product listing.
-//
-// GET /orgs/{orgId}/products?page=&per_page=&filter= is the real, documented way to
-// list every product in an org (omit `filter` to list all). Salsify's Export API is a
-// different mechanism — it only triggers pre-configured exports/channels created ahead
-// of time in the Salsify UI, referenced by an existing export id; there is no endpoint
-// to create an ad-hoc export from arbitrary property ids, so it isn't usable here.
+// Salsify API client: product listing (paginated) and channel export triggering.
 
 import { salsifyFetch } from "@/lib/salsify-http";
 
@@ -67,4 +61,78 @@ export function firstDelimited(value: unknown): string | null {
   const str = String(value);
   const first = str.split(" | ")[0]?.trim();
   return first || null;
+}
+
+/** Trigger a pre-configured Salsify channel export. Returns the run ID for polling. */
+export async function triggerChannelExport(
+  orgId: string,
+  apiKey: string,
+  channelId: string,
+): Promise<{ runId: string }> {
+  const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/exports/${encodeURIComponent(channelId)}/runs`;
+  const res = await salsifyFetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({}),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Failed to trigger Salsify export (${res.status}): ${text || res.statusText}`);
+  }
+
+  const data = await res.json();
+  const runId = data.id ?? data.run_id;
+  if (!runId) throw new Error("Salsify export response missing run ID");
+  return { runId: String(runId) };
+}
+
+/** Poll a channel export run for completion. Returns status and download URL when done. */
+export async function pollExportStatus(
+  orgId: string,
+  apiKey: string,
+  channelId: string,
+  runId: string,
+): Promise<{ status: string; url?: string }> {
+  const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/exports/${encodeURIComponent(channelId)}/runs/${encodeURIComponent(runId)}`;
+  const res = await salsifyFetch(url, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Failed to poll export status (${res.status}): ${text || res.statusText}`);
+  }
+
+  const data = await res.json();
+  return {
+    status: String(data.status ?? "unknown"),
+    url: data.url ?? data.download_url ?? undefined,
+  };
+}
+
+/** Download a completed export file from the URL returned by pollExportStatus. */
+export async function downloadExportFile(
+  downloadUrl: string,
+  apiKey: string,
+): Promise<ArrayBuffer> {
+  const res = await salsifyFetch(downloadUrl, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    timeoutMs: 120_000,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to download export file (${res.status}): ${res.statusText}`);
+  }
+
+  return res.arrayBuffer();
 }
