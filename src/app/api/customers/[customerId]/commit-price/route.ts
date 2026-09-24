@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   if (!(await verifyAccess(customerId, session.user.id)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { sku, channelId, price } = await req.json();
+  const { sku, channelId, price, oldPrice, oldNetMargin, newNetMargin } = await req.json();
 
   if (!sku || !channelId || typeof price !== "number" || price <= 0) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
@@ -40,6 +40,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
       productId: product.id,
       channelId,
       price,
+    },
+  });
+
+  await prisma.salsifyStaged.upsert({
+    where: { customerId_sku_channelId: { customerId, sku, channelId } },
+    create: {
+      id: randomUUID(),
+      customerId,
+      sku,
+      channelId,
+      newPrice: price,
+      oldPrice: typeof oldPrice === "number" ? oldPrice : null,
+      oldNetMargin: typeof oldNetMargin === "number" ? oldNetMargin : null,
+      newNetMargin: typeof newNetMargin === "number" ? newNetMargin : null,
+      stagedById: session.user.id,
+    },
+    update: {
+      newPrice: price,
+      oldPrice: typeof oldPrice === "number" ? oldPrice : null,
+      oldNetMargin: typeof oldNetMargin === "number" ? oldNetMargin : null,
+      newNetMargin: typeof newNetMargin === "number" ? newNetMargin : null,
+      stagedAt: new Date(),
     },
   });
 

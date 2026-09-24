@@ -238,7 +238,14 @@ export function useAnalysis(
     const res = await fetch(`/api/customers/${customerId}/commit-price`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sku, channelId, price: priceToCommit }),
+      body: JSON.stringify({
+        sku,
+        channelId,
+        price: priceToCommit,
+        oldPrice: row.price > 0 ? row.price : undefined,
+        oldNetMargin: row.net !== 0 ? row.net : undefined,
+        newNetMargin: row.recCalc?.net ?? undefined,
+      }),
     });
 
     if (!res.ok) return;

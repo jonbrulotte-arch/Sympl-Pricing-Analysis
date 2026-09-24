@@ -5,6 +5,7 @@ import { useAnalysis, type StatusFilter } from "@/hooks/use-analysis";
 import { KpiCards } from "./kpi-cards";
 import { AnalysisTable } from "./analysis-table";
 import { CalculationCheck } from "./calculation-check";
+import { PublishToSalsify } from "./publish-to-salsify";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -84,6 +85,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
   } = useAnalysis(channels, products, brandRoyalties, customerId, royaltyRules);
 
   const isCalcCheck = activeTab === "__calc_check__";
+  const isPublishSalsify = activeTab === "__publish_salsify__";
   const [exportOpen, setExportOpen] = useState(false);
   const [brandPanelOpen, setBrandPanelOpen] = useState(false);
   const [brandSearch, setBrandSearch] = useState("");
@@ -162,6 +164,16 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
         >
           Calculation Check
         </button>
+        <button
+          onClick={() => setActiveTab("__publish_salsify__")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+            isPublishSalsify
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Publish to Salsify
+        </button>
       </div>
 
       {isCalcCheck ? (
@@ -172,6 +184,8 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
           initialChannelId={calcCheckTarget?.channelId}
           initialSku={calcCheckTarget?.sku}
         />
+      ) : isPublishSalsify ? (
+        <PublishToSalsify customerId={customerId} />
       ) : (
         <>
           {/* KPIs */}

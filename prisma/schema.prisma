@@ -25,6 +25,7 @@ model User {
   analyses     Analysis[]
   imports      Import[]
   projects     Project[]
+  salsifyStaged SalsifyStaged[]
 }
 
 model Customer {
@@ -42,6 +43,7 @@ model Customer {
   imports        Import[]
   projects       Project[]
   salsifyFieldMappings SalsifyFieldMapping[]
+  salsifyStaged        SalsifyStaged[]
 }
 
 model CustomerUser {
@@ -94,6 +96,7 @@ model SalesChannel {
 
   priceHistories  PriceHistory[]
   analysisResults AnalysisResult[]
+  salsifyStaged   SalsifyStaged[]
 
   @@unique([customerId, slug])
 }
@@ -324,4 +327,23 @@ model SalsifyFieldMapping {
   updatedAt        DateTime @updatedAt
 
   @@unique([customerId, importFieldKey])
+}
+
+model SalsifyStaged {
+  id           String       @id @default(uuid())
+  customerId   String
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  sku          String
+  channelId    String
+  channel      SalesChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  newPrice     Decimal      @db.Decimal(10, 4)
+  oldPrice     Decimal?     @db.Decimal(10, 4)
+  oldNetMargin Decimal?     @db.Decimal(10, 4)
+  newNetMargin Decimal?     @db.Decimal(10, 4)
+  stagedAt     DateTime     @default(now())
+  stagedById   String
+  stagedBy     User         @relation(fields: [stagedById], references: [id])
+
+  @@unique([customerId, sku, channelId])
+  @@index([customerId])
 }

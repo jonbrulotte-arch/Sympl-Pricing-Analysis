@@ -1,4 +1,4 @@
-// Salsify API client: product listing (paginated) and channel export triggering.
+// Salsify API client: product listing, channel export, and bulk product updates.
 
 import { salsifyFetch } from "@/lib/salsify-http";
 
@@ -129,4 +129,53 @@ export async function downloadExportFile(
   }
 
   return res.arrayBuffer();
+}
+
+export interface SalsifyProductUpdate {
+  sku: string;
+  properties: Record<string, unknown>;
+}
+
+const BULK_CHUNK_SIZE = 100;
+
+export async function updateSalsifyProducts(
+  orgId: string,
+  apiKey: string,
+  updates: SalsifyProductUpdate[],
+): Promise<{ succeeded: string[]; failed: { sku: string; error: string }[] }> {
+  const succeeded: string[] = [];
+  const failed: { sku: string; error: string }[] = [];
+
+  for (let i = 0; i < updates.length; i += BULK_CHUNK_SIZE) {
+    const chunk = updates.slice(i, i + BULK_CHUNK_SIZE);
+    const payload = chunk.map((u) => ({
+      "salsify:id": u.sku,
+      ...u.properties,
+    }));
+
+    const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/products`;
+    const res = await salsifyFetch(url, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+      timeoutMs: 60_000,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      for (const u of chunk) {
+        failed.push({ sku: u.sku, error: `Salsify API error (${res.status}): ${text || res.statusText}` });
+      }
+    } else {
+      for (const u of chunk) {
+        succeeded.push(u.sku);
+      }
+    }
+  }
+
+  return { succeeded, failed };
 }
