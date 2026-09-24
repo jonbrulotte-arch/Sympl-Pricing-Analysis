@@ -111,7 +111,7 @@ export async function pollExportStatus(
   const data = await res.json();
   return {
     status: String(data.status ?? "unknown"),
-    url: data.url ?? data.download_url ?? undefined,
+    url: data.product_export_url ?? data.url ?? data.download_url ?? undefined,
   };
 }
 
