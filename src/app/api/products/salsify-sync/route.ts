@@ -80,7 +80,7 @@ async function runSalsifySync(
       throw new Error("Salsify export timed out waiting for completion");
     }
 
-    const fileBuffer = await downloadExportFile(downloadUrl, apiKey);
+    const fileBuffer = await downloadExportFile(downloadUrl);
     const sheets = parseWorkbook(fileBuffer);
     if (sheets.length === 0) throw new Error("Export file contains no data");
 

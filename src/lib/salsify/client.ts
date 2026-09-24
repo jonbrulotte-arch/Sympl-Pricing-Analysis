@@ -115,15 +115,11 @@ export async function pollExportStatus(
   };
 }
 
-/** Download a completed export file from the URL returned by pollExportStatus. */
+/** Download a completed export file from the pre-signed S3 URL. No auth header — the URL carries its own signature. */
 export async function downloadExportFile(
   downloadUrl: string,
-  apiKey: string,
 ): Promise<ArrayBuffer> {
   const res = await salsifyFetch(downloadUrl, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
     timeoutMs: 120_000,
   });
 
