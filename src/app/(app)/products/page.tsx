@@ -51,7 +51,7 @@ export default async function ProductsPage({
       orderBy: { sku: "asc" },
       include: {
         _count: {
-          select: { costHistories: true, priceHistories: true, shippingCostHistories: true },
+          select: { costHistories: true, priceHistories: true, shippingCostHistories: true, productPrices: true },
         },
       },
       skip: (page - 1) * pageSize,
@@ -249,7 +249,7 @@ export default async function ProductsPage({
                         {costEntry ? costEntry.at.toLocaleDateString() : "-"}
                       </td>
                       <td className="py-2 px-2 text-right text-gray-600">
-                        {p._count.costHistories + p._count.priceHistories + p._count.shippingCostHistories}
+                        {p._count.costHistories + p._count.priceHistories + p._count.productPrices + p._count.shippingCostHistories}
                       </td>
                     </tr>
                   );

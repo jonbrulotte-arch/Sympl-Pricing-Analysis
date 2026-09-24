@@ -61,6 +61,12 @@ export default async function ProductDetailPage({
     include: { channel: { select: { name: true } } },
   });
 
+  const productPrices = await prisma.productPrice.findMany({
+    where: { productId },
+    orderBy: { recordedAt: "desc" },
+    take: 100,
+  });
+
   const shippingHistory = await prisma.shippingCostHistory.findMany({
     where: { productId },
     orderBy: { recordedAt: "desc" },
@@ -185,6 +191,39 @@ export default async function ProductDetailPage({
                       <Badge variant="secondary" className="text-xs">{ph.channel.name}</Badge>
                     </td>
                     <td className="py-1.5 text-right font-mono">${Number(ph.price).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Product Prices (from Salsify sync) */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">Product Prices ({productPrices.length} records)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {productPrices.length === 0 ? (
+            <p className="text-sm text-gray-500">No product-level prices yet. Run a Salsify Sync to populate.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-2 text-gray-600 font-medium">Date</th>
+                  <th className="text-left py-2 text-gray-600 font-medium">Price Field</th>
+                  <th className="text-right py-2 text-gray-600 font-medium">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productPrices.map((pp) => (
+                  <tr key={pp.id} className="border-b border-gray-50">
+                    <td className="py-1.5 text-gray-700">{formatDateTime(pp.recordedAt)}</td>
+                    <td className="py-1.5">
+                      <Badge variant="secondary" className="text-xs">{pp.priceField}</Badge>
+                    </td>
+                    <td className="py-1.5 text-right font-mono">${Number(pp.price).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
