@@ -69,7 +69,7 @@ export async function upsertSalsifyProducts(
         orderBy: { recordedAt: "desc" },
       });
       const costVal = typeof row.cost === "number" ? row.cost : 0;
-      if (!lastCost || Number(lastCost.cost) !== costVal) {
+      if (!lastCost || Number(lastCost.cost).toFixed(4) !== costVal.toFixed(4)) {
         await prisma.costHistory.create({
           data: { id: randomUUID(), productId, cost: costVal, importId },
         });
@@ -83,7 +83,7 @@ export async function upsertSalsifyProducts(
           where: { productId, priceField: pf },
           orderBy: { recordedAt: "desc" },
         });
-        if (!last || Number(last.price) !== val) {
+        if (!last || Number(last.price).toFixed(4) !== val.toFixed(4)) {
           await prisma.productPrice.create({
             data: { id: randomUUID(), productId, priceField: pf, price: val, importId },
           });
@@ -98,7 +98,7 @@ export async function upsertSalsifyProducts(
           where: { productId, shippingType },
           orderBy: { recordedAt: "desc" },
         });
-        if (!last || Number(last.amount) !== val) {
+        if (!last || Number(last.amount).toFixed(4) !== Number(val).toFixed(4)) {
           await prisma.shippingCostHistory.create({
             data: { id: randomUUID(), productId, shippingType, amount: val, importId },
           });

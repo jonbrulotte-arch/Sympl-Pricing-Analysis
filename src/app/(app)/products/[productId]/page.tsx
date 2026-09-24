@@ -54,18 +54,45 @@ export default async function ProductDetailPage({
     take: 50,
   });
 
-  const priceHistory = await prisma.priceHistory.findMany({
-    where: { productId },
-    orderBy: { recordedAt: "desc" },
-    take: 100,
-    include: { channel: { select: { name: true } } },
-  });
+  const [channelPriceRows, productPriceRows] = await Promise.all([
+    prisma.priceHistory.findMany({
+      where: { productId },
+      orderBy: { recordedAt: "desc" },
+      take: 100,
+      include: { channel: { select: { name: true } } },
+    }),
+    prisma.productPrice.findMany({
+      where: { productId },
+      orderBy: { recordedAt: "desc" },
+      take: 100,
+    }),
+  ]);
 
-  const productPrices = await prisma.productPrice.findMany({
-    where: { productId },
-    orderBy: { recordedAt: "desc" },
-    take: 100,
-  });
+  const priceFieldLabels: Record<string, string> = {
+    priceJSP: "eBay (JSP)",
+    priceMCF: "eBay (MCF)",
+    priceWM: "Walmart",
+    priceShopify: "Shopify",
+    priceFBM: "Amazon FBM",
+    priceFBA: "Amazon FBA",
+  };
+
+  const allPriceRecords = [
+    ...channelPriceRows.map((ph) => ({
+      id: ph.id,
+      label: ph.channel.name,
+      price: Number(ph.price),
+      recordedAt: ph.recordedAt,
+      source: "channel" as const,
+    })),
+    ...productPriceRows.map((pp) => ({
+      id: pp.id,
+      label: priceFieldLabels[pp.priceField] ?? pp.priceField,
+      price: Number(pp.price),
+      recordedAt: pp.recordedAt,
+      source: "product" as const,
+    })),
+  ].sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime());
 
   const shippingHistory = await prisma.shippingCostHistory.findMany({
     where: { productId },
@@ -81,7 +108,7 @@ export default async function ProductDetailPage({
           productId={productId}
           sku={product.sku}
           costRecords={costHistory.length}
-          priceRecords={priceHistory.length}
+          priceRecords={allPriceRecords.length}
           shippingRecords={shippingHistory.length}
         />
       </div>
@@ -169,11 +196,11 @@ export default async function ProductDetailPage({
       {/* Price History */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-base">Price History ({priceHistory.length} records)</CardTitle>
+          <CardTitle className="text-base">Price History ({allPriceRecords.length} records)</CardTitle>
         </CardHeader>
         <CardContent>
-          {priceHistory.length === 0 ? (
-            <p className="text-sm text-gray-500">No price records yet.</p>
+          {allPriceRecords.length === 0 ? (
+            <p className="text-sm text-gray-500">No price records yet. Run a Salsify Sync to populate.</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
@@ -184,46 +211,13 @@ export default async function ProductDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {priceHistory.map((ph) => (
-                  <tr key={ph.id} className="border-b border-gray-50">
-                    <td className="py-1.5 text-gray-700">{formatDateTime(ph.recordedAt)}</td>
+                {allPriceRecords.map((pr) => (
+                  <tr key={pr.id} className="border-b border-gray-50">
+                    <td className="py-1.5 text-gray-700">{formatDateTime(pr.recordedAt)}</td>
                     <td className="py-1.5">
-                      <Badge variant="secondary" className="text-xs">{ph.channel.name}</Badge>
+                      <Badge variant="secondary" className="text-xs">{pr.label}</Badge>
                     </td>
-                    <td className="py-1.5 text-right font-mono">${Number(ph.price).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Product Prices (from Salsify sync) */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-base">Product Prices ({productPrices.length} records)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {productPrices.length === 0 ? (
-            <p className="text-sm text-gray-500">No product-level prices yet. Run a Salsify Sync to populate.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 text-gray-600 font-medium">Date</th>
-                  <th className="text-left py-2 text-gray-600 font-medium">Price Field</th>
-                  <th className="text-right py-2 text-gray-600 font-medium">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {productPrices.map((pp) => (
-                  <tr key={pp.id} className="border-b border-gray-50">
-                    <td className="py-1.5 text-gray-700">{formatDateTime(pp.recordedAt)}</td>
-                    <td className="py-1.5">
-                      <Badge variant="secondary" className="text-xs">{pp.priceField}</Badge>
-                    </td>
-                    <td className="py-1.5 text-right font-mono">${Number(pp.price).toFixed(2)}</td>
+                    <td className="py-1.5 text-right font-mono">${pr.price.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
