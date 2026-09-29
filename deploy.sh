@@ -23,7 +23,7 @@ echo "  Updated to $(git log --oneline -1)"
 
 # 3. Install dependencies
 echo "[3/5] Installing dependencies..."
-npm ci --prefer-offline
+npm install
 echo "  Done."
 
 # 4. Generate Prisma client and run migrations
