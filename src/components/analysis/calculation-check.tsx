@@ -127,7 +127,9 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
               <Step n={13} label="Returns allocation" per={cur.ret} units={selected.units} neg />
               {cur.ad > 0 && <Step n={14} label="Advertising" per={cur.ad} units={selected.units} neg />}
               <Step n={15} label="Royalty" per={cur.roy} units={selected.units} neg />
-              <Step n={16} label="PPC" per={selected.ppcUsed} units={1} neg />
+              {cur.netTerms > 0 && <Step n={16} label={`Net terms (${(rates.netTerms * 100).toFixed(1)}%)`} per={cur.netTerms} units={selected.units} neg />}
+              {cur.otherAlloc > 0 && <Step n={17} label="Other allocations" per={cur.otherAlloc} units={selected.units} neg />}
+              <Step n={18} label="PPC" per={selected.ppcUsed} units={1} neg />
               <tr className="border-t font-medium">
                 <td className="py-1">17</td>
                 <td>Total fees + allocations</td>
@@ -182,6 +184,8 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
               {rates.ccPct > 0 && <KRow label="CC processing" value={(1 - rates.c) * rates.ccPct} />}
               <KRow label="Returns" value={(1 - rates.c) * rates.ret} />
               {rates.ad > 0 && <KRow label="Advertising" value={(1 - rates.c) * rates.ad} />}
+              {rates.netTerms > 0 && <KRow label="Net terms" value={(1 - rates.c) * rates.netTerms} />}
+              {rates.otherAlloc > 0 && <KRow label="Other allocations" value={(1 - rates.c) * rates.otherAlloc} />}
               <tr className="border-t font-medium">
                 <td className="py-1">Total k</td>
                 <td className="text-right">{(k * 100).toFixed(4)}%</td>

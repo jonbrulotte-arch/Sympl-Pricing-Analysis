@@ -94,7 +94,7 @@ export function verifyAnalysis(
   // 5. Net revenue after fees
   const independentNet =
     saleBase * units -
-    (cur.coupon + cur.fvfRate + fvfFixed + cur.promo + cur.roy + cur.ccVar + cur.ret + cur.ad) * units -
+    (cur.coupon + cur.fvfRate + fvfFixed + cur.promo + cur.roy + cur.ccVar + cur.ret + cur.ad + cur.netTerms + cur.otherAlloc) * units -
     r.ccFlat -
     ppc;
   checks.push(
@@ -109,7 +109,7 @@ export function verifyAnalysis(
 
   // 6. Total allocations
   const kP =
-    (cur.coupon + cur.fvfRate + fvfFixed + cur.promo + cur.roy + cur.ccVar + cur.ret + cur.ad) * units + r.ccFlat;
+    (cur.coupon + cur.fvfRate + fvfFixed + cur.promo + cur.roy + cur.ccVar + cur.ret + cur.ad + cur.netTerms + cur.otherAlloc) * units + r.ccFlat;
   checks.push(check("Total allocations", "sum of fees", cur.fees, "component sum", kP));
 
   // 7. Net margin
@@ -131,7 +131,9 @@ export function verifyAnalysis(
     saleRate * royRate +
     saleRate * r.ccPct +
     saleRate * r.ret +
-    saleRate * r.ad;
+    saleRate * r.ad +
+    saleRate * r.netTerms +
+    saleRate * r.otherAlloc;
   checks.push(check("Fee rate k composition", "computeFeeRate()", k, "component sum", kSum));
 
   // 10. Goal price solves exactly
