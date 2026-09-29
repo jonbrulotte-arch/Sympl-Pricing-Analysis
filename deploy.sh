@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="sympl-pricing"
-BRANCH="main"
+BRANCH="claude/pensive-wright-9lmc66"
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "=== Deploying $APP_NAME ==="
