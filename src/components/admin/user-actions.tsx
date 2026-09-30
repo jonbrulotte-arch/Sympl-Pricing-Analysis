@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -302,6 +302,103 @@ export function DeleteUserButton({ userId, userName }: { userId: string; userNam
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={loading}>
               {loading ? "Removing..." : "Remove User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+export function InviteUserButton() {
+  const router = useRouter();
+  const roles = useRoles();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("ANALYST");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  function openDialog() {
+    setEmail("");
+    setRole("ANALYST");
+    setError(null);
+    setSuccess(null);
+    setOpen(true);
+  }
+
+  async function handleInvite() {
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    const res = await fetch("/api/admin/users/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, role }),
+    });
+    setLoading(false);
+    if (res.ok) {
+      setSuccess(`Invitation sent to ${email}`);
+      setTimeout(() => {
+        setOpen(false);
+        router.refresh();
+      }, 1500);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Failed to send invitation");
+    }
+  }
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={openDialog}>
+        <Mail className="h-3.5 w-3.5 mr-1.5" />
+        Invite User
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite User</DialogTitle>
+            <DialogDescription>
+              Send an email invitation with a link to set their password.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="user@example.com"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+              <div className="flex flex-wrap gap-2">
+                {roles.map((r) => (
+                  <button
+                    key={r.name}
+                    onClick={() => setRole(r.name)}
+                    className={`px-3 py-1.5 text-sm rounded-md border ${
+                      role === r.name ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {r.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            {success && <p className="text-sm text-green-600">{success}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={handleInvite} disabled={loading || !email.trim()}>
+              {loading ? "Sending..." : "Send Invitation"}
             </Button>
           </DialogFooter>
         </DialogContent>

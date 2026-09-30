@@ -5,7 +5,7 @@ import { getPermissions } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
-import { AddUserButton, EditUserButton, DeleteUserButton } from "@/components/admin/user-actions";
+import { AddUserButton, EditUserButton, DeleteUserButton, InviteUserButton } from "@/components/admin/user-actions";
 
 export default async function AdminUsersPage() {
   const session = await auth();
@@ -35,7 +35,10 @@ export default async function AdminUsersPage() {
           <h1 className="text-2xl font-bold text-gray-900">Users</h1>
           <p className="text-sm text-gray-500 mt-1">{users.length} registered users</p>
         </div>
-        <AddUserButton />
+        <div className="flex items-center gap-2">
+          <InviteUserButton />
+          <AddUserButton />
+        </div>
       </div>
 
       <Card>
