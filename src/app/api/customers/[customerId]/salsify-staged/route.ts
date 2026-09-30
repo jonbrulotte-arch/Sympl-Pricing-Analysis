@@ -17,13 +17,27 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cus
   if (!(await verifyAccess(customerId, session.user.id)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const staged = await prisma.salsifyStaged.findMany({
+  const raw = await prisma.salsifyStaged.findMany({
     where: { customerId },
     include: {
       channel: { select: { name: true, tabLabel: true, priceField: true } },
     },
     orderBy: { stagedAt: "desc" },
   });
+
+  const skus = [...new Set(raw.map((s) => s.sku))];
+  const products = skus.length > 0
+    ? await prisma.product.findMany({
+        where: { sku: { in: skus } },
+        select: { sku: true, brand: true },
+      })
+    : [];
+  const brandBySku = new Map(products.map((p) => [p.sku, p.brand]));
+
+  const staged = raw.map((s) => ({
+    ...s,
+    brand: brandBySku.get(s.sku) ?? null,
+  }));
 
   return NextResponse.json({ staged });
 }

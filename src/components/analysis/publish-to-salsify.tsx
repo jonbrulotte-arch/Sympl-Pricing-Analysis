@@ -14,6 +14,7 @@ interface StagedEntry {
   oldNetMargin: string | null;
   newNetMargin: string | null;
   stagedAt: string;
+  brand: string | null;
   channel: {
     name: string;
     tabLabel: string;
@@ -37,6 +38,7 @@ export function PublishToSalsify({ customerId }: Props) {
   const [publishing, setPublishing] = useState<Set<string>>(new Set());
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [channelFilter, setChannelFilter] = useState<string>("all");
+  const [brandFilter, setBrandFilter] = useState<string>("all");
 
   const fetchStaged = useCallback(async () => {
     const res = await fetch(`/api/customers/${customerId}/salsify-staged`);
@@ -57,10 +59,21 @@ export function PublishToSalsify({ customerId }: Props) {
     return Array.from(map, ([id, label]) => ({ id, label }));
   }, [staged]);
 
+  const brands = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of staged) {
+      if (e.brand) set.add(e.brand);
+    }
+    return Array.from(set).sort();
+  }, [staged]);
+
   const filtered = useMemo(() => {
-    if (channelFilter === "all") return staged;
-    return staged.filter((e) => e.channelId === channelFilter);
-  }, [staged, channelFilter]);
+    return staged.filter((e) => {
+      if (channelFilter !== "all" && e.channelId !== channelFilter) return false;
+      if (brandFilter !== "all" && (e.brand ?? "") !== brandFilter) return false;
+      return true;
+    });
+  }, [staged, channelFilter, brandFilter]);
 
   const groups: SkuGroup[] = [];
   const seen = new Map<string, SkuGroup>();
@@ -250,6 +263,18 @@ export function PublishToSalsify({ customerId }: Props) {
               <option value="all">All channels</option>
               {channels.map((ch) => (
                 <option key={ch.id} value={ch.id}>{ch.label}</option>
+              ))}
+            </select>
+          )}
+          {brands.length > 1 && (
+            <select
+              value={brandFilter}
+              onChange={(e) => { setBrandFilter(e.target.value); setSelectedIds(new Set()); }}
+              className="border rounded px-2 py-1 text-sm text-gray-700"
+            >
+              <option value="all">All brands</option>
+              {brands.map((b) => (
+                <option key={b} value={b}>{b}</option>
               ))}
             </select>
           )}

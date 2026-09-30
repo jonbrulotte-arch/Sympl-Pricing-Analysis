@@ -242,38 +242,37 @@ export function ProjectActions({
 
       {/* Product list card — collapsible */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between py-3">
-          <div className="flex items-center gap-2">
-            <Package className="h-4 w-4 text-gray-500 shrink-0" />
-            <CardTitle className="text-sm">Products ({products.length})</CardTitle>
+        <button
+          type="button"
+          className="flex w-full items-center justify-between px-4 py-3 text-left"
+          onClick={() => { if (products.length > 0) { setExpanded((v) => !v); setSearch(""); } }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Package className="h-4 w-4 text-gray-400 shrink-0" />
+            <span className="text-sm font-semibold text-gray-900">Products ({products.length})</span>
             {!expanded && products.length > 0 && (
-              <span className="text-xs text-gray-500 hidden sm:inline">
+              <span className="text-xs text-gray-400 truncate hidden sm:inline">
                 {products.slice(0, 3).map((pp) => pp.product.sku).join(", ")}
-                {products.length > 3 && `, +${products.length - 3} more`}
+                {products.length > 3 ? ` +${products.length - 3} more` : ""}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0 ml-3" onClick={(e) => e.stopPropagation()}>
             <Button size="sm" onClick={() => { setSkuInput(""); setAddError(null); setAddOpen(true); }}>
               <Plus className="h-3.5 w-3.5 mr-1.5" />
               Add
             </Button>
             {products.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setExpanded((v) => !v); setSearch(""); }}
-                className="text-gray-500"
-              >
+              <span className="text-gray-400">
                 {expanded ? (
                   <ChevronUp className="h-4 w-4" />
                 ) : (
                   <ChevronDown className="h-4 w-4" />
                 )}
-              </Button>
+              </span>
             )}
           </div>
-        </CardHeader>
+        </button>
         {expanded && (
           <CardContent className="pt-0">
             {products.length > PREVIEW_COUNT && (
