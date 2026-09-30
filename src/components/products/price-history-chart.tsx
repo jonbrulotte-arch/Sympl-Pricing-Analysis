@@ -93,6 +93,7 @@ export function PriceHistoryChart({ data }: { data: PriceRecord[] }) {
         <Tooltip
           formatter={(value, name) => [`$${Number(value).toFixed(2)}`, name]}
           contentStyle={{ fontSize: 12 }}
+          wrapperStyle={{ zIndex: 10 }}
         />
         <Legend wrapperStyle={{ fontSize: 11 }} />
         {visibleChannels.map((ch) => (
@@ -161,6 +162,7 @@ export function PriceHistoryChart({ data }: { data: PriceRecord[] }) {
                   <Tooltip
                     formatter={(value, name) => [`$${Number(value).toFixed(2)}`, name]}
                     contentStyle={{ fontSize: 13 }}
+                    wrapperStyle={{ zIndex: 10 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {visibleChannels.map((ch) => (
