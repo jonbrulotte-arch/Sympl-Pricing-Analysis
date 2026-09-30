@@ -234,6 +234,7 @@ export function useAnalysis(
     const override = overrides[channelId]?.[sku]?.price;
     const priceToCommit = override ?? row.rec;
     if (priceToCommit == null || priceToCommit <= 0) return;
+    if (row.price > 0 && Math.abs(priceToCommit - row.price) < 0.005) return;
 
     const res = await fetch(`/api/customers/${customerId}/commit-price`, {
       method: "POST",

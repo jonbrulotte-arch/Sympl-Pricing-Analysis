@@ -24,6 +24,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
+  if (typeof oldPrice === "number" && Math.abs(price - oldPrice) < 0.005) {
+    return NextResponse.json({ error: "Price unchanged" }, { status: 400 });
+  }
+
   const channel = await prisma.salesChannel.findFirst({
     where: { id: channelId, customerId },
   });
