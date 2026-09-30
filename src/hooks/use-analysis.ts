@@ -260,8 +260,11 @@ export function useAnalysis(
     router.refresh();
   }, [activeTab, results, overrides, customerId, setOverride, router]);
 
-  const clearCommittedPrice = useCallback((channelId: string, sku: string) => {
+  const revertCommittedPrice = useCallback((channelId: string, sku: string, oldPrice: number | null) => {
     setCommittedPrices((prev) => {
+      if (oldPrice != null && oldPrice > 0) {
+        return { ...prev, [channelId]: { ...prev[channelId], [sku]: oldPrice } };
+      }
       const ch = prev[channelId];
       if (!ch || !(sku in ch)) return prev;
       const next = { ...prev, [channelId]: { ...ch } };
@@ -307,6 +310,6 @@ export function useAnalysis(
     settingsMap,
     updateSetting,
     commitPrice,
-    clearCommittedPrice,
+    revertCommittedPrice,
   };
 }

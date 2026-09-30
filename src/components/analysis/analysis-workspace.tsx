@@ -82,7 +82,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     setOverride,
     settingsMap,
     commitPrice,
-    clearCommittedPrice,
+    revertCommittedPrice,
   } = useAnalysis(channels, products, brandRoyalties, customerId, royaltyRules);
 
   const isCalcCheck = activeTab === "__calc_check__";
@@ -215,7 +215,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
           initialSku={calcCheckTarget?.sku}
         />
       ) : isPublishSalsify ? (
-        <PublishToSalsify customerId={customerId} onRevert={clearCommittedPrice} />
+        <PublishToSalsify customerId={customerId} onRevert={revertCommittedPrice} />
       ) : (
         <>
           {/* KPIs */}
