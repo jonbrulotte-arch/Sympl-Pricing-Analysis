@@ -54,6 +54,7 @@ export async function loadProductRows(
       fbaClass: p.fbaClass ?? undefined,
       amzCategory: p.amzCategory ?? undefined,
       amzItemType: p.amzItemType ?? undefined,
+      invStatus: p.inventoryStatus ?? undefined,
       channelPrices: {},
       ...shippingValues,
     };
