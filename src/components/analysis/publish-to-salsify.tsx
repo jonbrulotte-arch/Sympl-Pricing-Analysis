@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
@@ -36,6 +36,7 @@ export function PublishToSalsify({ customerId }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [publishing, setPublishing] = useState<Set<string>>(new Set());
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [channelFilter, setChannelFilter] = useState<string>("all");
 
   const fetchStaged = useCallback(async () => {
     const res = await fetch(`/api/customers/${customerId}/salsify-staged`);
@@ -50,9 +51,20 @@ export function PublishToSalsify({ customerId }: Props) {
     fetchStaged();
   }, [fetchStaged]);
 
+  const channels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of staged) map.set(e.channelId, e.channel.tabLabel);
+    return Array.from(map, ([id, label]) => ({ id, label }));
+  }, [staged]);
+
+  const filtered = useMemo(() => {
+    if (channelFilter === "all") return staged;
+    return staged.filter((e) => e.channelId === channelFilter);
+  }, [staged, channelFilter]);
+
   const groups: SkuGroup[] = [];
   const seen = new Map<string, SkuGroup>();
-  for (const entry of staged) {
+  for (const entry of filtered) {
     let group = seen.get(entry.sku);
     if (!group) {
       group = { sku: entry.sku, entries: [] };
@@ -62,19 +74,23 @@ export function PublishToSalsify({ customerId }: Props) {
     group.entries.push(entry);
   }
 
-  const allIds = staged.map((e) => e.id);
-  const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
+  const filteredIds = filtered.map((e) => e.id);
+  const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
 
   function toggleAll() {
     if (allSelected) {
-      setSelectedIds(new Set());
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of filteredIds) next.delete(id);
+        return next;
+      });
     } else {
-      setSelectedIds(new Set(allIds));
+      setSelectedIds((prev) => new Set([...prev, ...filteredIds]));
     }
   }
 
   function toggleSku(sku: string) {
-    const skuIds = staged.filter((e) => e.sku === sku).map((e) => e.id);
+    const skuIds = filtered.filter((e) => e.sku === sku).map((e) => e.id);
     setSelectedIds((prev) => {
       const next = new Set(prev);
       const allIn = skuIds.every((id) => next.has(id));
@@ -132,12 +148,13 @@ export function PublishToSalsify({ customerId }: Props) {
   }
 
   async function publishSku(sku: string) {
-    const ids = staged.filter((e) => e.sku === sku).map((e) => e.id);
+    const ids = filtered.filter((e) => e.sku === sku).map((e) => e.id);
     await publishEntries(ids);
   }
 
   async function publishSelected() {
-    await publishEntries([...selectedIds]);
+    const visibleSelected = filteredIds.filter((id) => selectedIds.has(id));
+    await publishEntries(visibleSelected);
   }
 
   async function removeEntries(ids: string[]) {
@@ -166,16 +183,22 @@ export function PublishToSalsify({ customerId }: Props) {
     if (val == null) return "-";
     const n = Number(val);
     if (isNaN(n)) return "-";
+    if (Math.abs(n) > 1) return "-";
     return `${(n * 100).toFixed(1)}%`;
   }
 
   function deltaColor(oldVal: string | null, newVal: string): string {
     if (oldVal == null) return "text-gray-700";
-    const diff = Number(newVal) - Number(oldVal);
+    const o = Number(oldVal);
+    const n = Number(newVal);
+    if (isNaN(o) || isNaN(n) || Math.abs(o) > 1 || Math.abs(n) > 1) return "text-gray-700";
+    const diff = n - o;
     if (diff > 0) return "text-green-600";
     if (diff < 0) return "text-red-600";
     return "text-gray-500";
   }
+
+  const visibleSelectedCount = filteredIds.filter((id) => selectedIds.has(id)).length;
 
   if (loading) {
     return (
@@ -214,19 +237,33 @@ export function PublishToSalsify({ customerId }: Props) {
       )}
 
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-gray-600">
-          {staged.length} price change{staged.length !== 1 ? "s" : ""} across {groups.length} SKU{groups.length !== 1 ? "s" : ""} staged
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-gray-600">
+            {filtered.length} price change{filtered.length !== 1 ? "s" : ""} across {groups.length} SKU{groups.length !== 1 ? "s" : ""} staged
+          </p>
+          {channels.length > 1 && (
+            <select
+              value={channelFilter}
+              onChange={(e) => { setChannelFilter(e.target.value); setSelectedIds(new Set()); }}
+              className="border rounded px-2 py-1 text-sm text-gray-700"
+            >
+              <option value="all">All channels</option>
+              {channels.map((ch) => (
+                <option key={ch.id} value={ch.id}>{ch.label}</option>
+              ))}
+            </select>
+          )}
+        </div>
         <div className="flex items-center gap-2">
-          {selectedIds.size > 0 && (
+          {visibleSelectedCount > 0 && (
             <>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => removeEntries([...selectedIds])}
+                onClick={() => removeEntries(filteredIds.filter((id) => selectedIds.has(id)))}
                 className="text-xs"
               >
-                Remove ({selectedIds.size})
+                Remove ({visibleSelectedCount})
               </Button>
               <Button
                 size="sm"
@@ -239,7 +276,7 @@ export function PublishToSalsify({ customerId }: Props) {
                 ) : (
                   <Upload className="h-3.5 w-3.5 mr-1" />
                 )}
-                Publish Selected ({selectedIds.size})
+                Publish Selected ({visibleSelectedCount})
               </Button>
             </>
           )}
@@ -261,9 +298,9 @@ export function PublishToSalsify({ customerId }: Props) {
               <th className="py-2 px-3 text-left text-gray-600 font-medium text-xs">SKU</th>
               <th className="py-2 px-3 text-left text-gray-600 font-medium text-xs">Channel</th>
               <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">Old Price</th>
+              <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">Old Net Margin%</th>
               <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">New Price</th>
-              <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">Old GM%</th>
-              <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">New GM%</th>
+              <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">New Net Margin%</th>
               <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs w-24"></th>
             </tr>
           </thead>
@@ -301,11 +338,11 @@ export function PublishToSalsify({ customerId }: Props) {
                   <td className="py-2 px-3 text-right font-mono text-gray-500">
                     {fmt(entry.oldPrice)}
                   </td>
-                  <td className={`py-2 px-3 text-right font-mono font-medium ${deltaColor(entry.oldPrice, entry.newPrice)}`}>
-                    {fmt(entry.newPrice)}
-                  </td>
                   <td className="py-2 px-3 text-right font-mono text-gray-500">
                     {fmtPct(entry.oldNetMargin)}
+                  </td>
+                  <td className={`py-2 px-3 text-right font-mono font-medium ${deltaColor(entry.oldPrice, entry.newPrice)}`}>
+                    {fmt(entry.newPrice)}
                   </td>
                   <td className={`py-2 px-3 text-right font-mono font-medium ${deltaColor(entry.oldNetMargin, entry.newNetMargin ?? "")}`}>
                     {fmtPct(entry.newNetMargin)}
