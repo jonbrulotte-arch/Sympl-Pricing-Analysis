@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { logActivity } from "@/lib/activity-log";
+import { getPermissions } from "@/lib/permissions";
 
 export async function DELETE(
   _req: NextRequest,
@@ -10,6 +11,10 @@ export async function DELETE(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const permissions = await getPermissions(session.user.role);
+  if (!permissions.has("products:delete"))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { productId } = await params;
 
@@ -48,6 +53,10 @@ export async function PATCH(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const permissions = await getPermissions(session.user.role);
+  if (!permissions.has("products:update"))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { productId } = await params;
 

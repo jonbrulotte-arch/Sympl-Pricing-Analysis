@@ -11,6 +11,14 @@ import { CostHistoryChart, ShippingHistoryChart } from "@/components/products/co
 import { PriceHistorySection } from "@/components/products/price-history-section";
 import { AlertTriangle } from "lucide-react";
 
+function shippingTypesForMode(mode: string): string[] {
+  switch (mode) {
+    case "fba": return ["fba_fee"];
+    case "mcf": return ["mcf_ship", "mcf_freight"];
+    default:    return ["std"];
+  }
+}
+
 export default async function ProductDetailPage({
   params,
 }: {
@@ -23,6 +31,10 @@ export default async function ProductDetailPage({
 
   const permissions = await getPermissions(session.user.role);
   const canViewCost = permissions.has("data:viewCost");
+  const canUpdate = permissions.has("products:update");
+  const canDelete = permissions.has("products:delete");
+  const canViewAllPriceHistory = permissions.has("data:viewAllPriceHistory");
+  const canViewShippingHistory = permissions.has("data:viewShippingHistory");
 
   const customerIds = (
     await prisma.customerUser.findMany({
@@ -39,19 +51,31 @@ export default async function ProductDetailPage({
   });
   if (!product) notFound();
 
+  const userChannels = await prisma.salesChannel.findMany({
+    where: { customerId: { in: customerIds } },
+    select: { id: true, name: true, shippingMode: true, channelType: true },
+  });
+
+  const userChannelIds = new Set(userChannels.map((ch) => ch.id));
+  const relevantShippingTypes = new Set(
+    userChannels.flatMap((ch) => shippingTypesForMode(ch.shippingMode)),
+  );
+  const hasShippingChannels = relevantShippingTypes.size > 0;
+
   const latestCost = await prisma.costHistory.findFirst({
     where: { productId },
     orderBy: { recordedAt: "desc" },
   });
 
-  const shippingTypes = ["std", "mcf_ship", "mcf_freight", "fba_fee"] as const;
   const latestShipping: Record<string, number> = {};
-  for (const st of shippingTypes) {
-    const latest = await prisma.shippingCostHistory.findFirst({
-      where: { productId, shippingType: st },
-      orderBy: { recordedAt: "desc" },
-    });
-    if (latest) latestShipping[st] = Number(latest.amount);
+  if (canViewShippingHistory && hasShippingChannels) {
+    for (const st of relevantShippingTypes) {
+      const latest = await prisma.shippingCostHistory.findFirst({
+        where: { productId, shippingType: st },
+        orderBy: { recordedAt: "desc" },
+      });
+      if (latest) latestShipping[st] = Number(latest.amount);
+    }
   }
 
   const costHistory = await prisma.costHistory.findMany({
@@ -62,7 +86,10 @@ export default async function ProductDetailPage({
 
   const [channelPriceRows, productPriceRows] = await Promise.all([
     prisma.priceHistory.findMany({
-      where: { productId },
+      where: {
+        productId,
+        ...(!canViewAllPriceHistory ? { channelId: { in: [...userChannelIds] } } : {}),
+      },
       orderBy: { recordedAt: "desc" },
       take: 100,
       include: { channel: { select: { name: true } } },
@@ -100,11 +127,20 @@ export default async function ProductDetailPage({
     })),
   ].sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime());
 
-  const shippingHistory = await prisma.shippingCostHistory.findMany({
-    where: { productId },
-    orderBy: { recordedAt: "desc" },
-    take: 50,
-  });
+  const shippingHistory = canViewShippingHistory && hasShippingChannels
+    ? await prisma.shippingCostHistory.findMany({
+        where: { productId, shippingType: { in: [...relevantShippingTypes] } },
+        orderBy: { recordedAt: "desc" },
+        take: 50,
+      })
+    : [];
+
+  const shippingTypeLabels: Record<string, string> = {
+    std: "Standard",
+    mcf_ship: "MCF Ship",
+    mcf_freight: "MCF Freight",
+    fba_fee: "FBA Fee",
+  };
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -126,13 +162,15 @@ export default async function ProductDetailPage({
             </Badge>
           )}
         </div>
-        <ProductDelete
-          productId={productId}
-          sku={product.sku}
-          costRecords={costHistory.length}
-          priceRecords={allPriceRecords.length}
-          shippingRecords={shippingHistory.length}
-        />
+        {canDelete && (
+          <ProductDelete
+            productId={productId}
+            sku={product.sku}
+            costRecords={costHistory.length}
+            priceRecords={allPriceRecords.length}
+            shippingRecords={shippingHistory.length}
+          />
+        )}
       </div>
       <p className="text-sm text-gray-600 mb-6">{product.name || "Unnamed product"}</p>
 
@@ -190,12 +228,15 @@ export default async function ProductDetailPage({
       </div>
 
       {/* Editable Cost & Shipping */}
-      <ProductEditor
-        productId={productId}
-        currentCost={canViewCost ? (latestCost ? Number(latestCost.cost) : null) : null}
-        currentShipping={latestShipping}
-        hideCost={!canViewCost}
-      />
+      {canUpdate && (
+        <ProductEditor
+          productId={productId}
+          currentCost={canViewCost ? (latestCost ? Number(latestCost.cost) : null) : null}
+          currentShipping={latestShipping}
+          hideCost={!canViewCost}
+          shippingTypes={hasShippingChannels ? [...relevantShippingTypes] : []}
+        />
+      )}
 
       {/* Cost History */}
       {canViewCost && (
@@ -270,6 +311,7 @@ export default async function ProductDetailPage({
       </Card>
 
       {/* Shipping Cost History */}
+      {canViewShippingHistory && hasShippingChannels && (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Shipping Cost History ({shippingHistory.length} records)</CardTitle>
@@ -299,18 +341,12 @@ export default async function ProductDetailPage({
                     const sameType = shippingHistory.slice(i + 1).find((s) => s.shippingType === sh.shippingType);
                     const change = sameType ? Number(sh.amount) - Number(sameType.amount) : 0;
                     const hasComparison = !!sameType;
-                    const typeLabels: Record<string, string> = {
-                      std: "Standard",
-                      mcf_ship: "MCF Ship",
-                      mcf_freight: "MCF Freight",
-                      fba_fee: "FBA Fee",
-                    };
                     return (
                       <tr key={sh.id} className="border-b border-gray-50">
                         <td className="py-1.5 text-gray-700">{formatDateTime(sh.recordedAt)}</td>
                         <td className="py-1.5">
                           <Badge variant="secondary" className="text-xs">
-                            {typeLabels[sh.shippingType] || sh.shippingType}
+                            {shippingTypeLabels[sh.shippingType] || sh.shippingType}
                           </Badge>
                         </td>
                         <td className="py-1.5 text-right font-mono">${Number(sh.amount).toFixed(2)}</td>
@@ -328,6 +364,7 @@ export default async function ProductDetailPage({
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

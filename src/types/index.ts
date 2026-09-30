@@ -12,6 +12,8 @@ export type Permission =
   | "channels:create"
   | "channels:edit"
   | "channels:delete"
+  | "products:update"
+  | "products:delete"
   | "analysis:create"
   | "analysis:export"
   | "import:upload"
@@ -24,7 +26,9 @@ export type Permission =
   | "module:projects"
   | "module:royalties"
   | "module:activityLog"
-  | "data:viewCost";
+  | "data:viewCost"
+  | "data:viewAllPriceHistory"
+  | "data:viewShippingHistory";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "module:products",
@@ -38,6 +42,8 @@ export const ALL_PERMISSIONS: Permission[] = [
   "channels:create",
   "channels:edit",
   "channels:delete",
+  "products:update",
+  "products:delete",
   "analysis:create",
   "analysis:export",
   "import:upload",
@@ -46,6 +52,8 @@ export const ALL_PERMISSIONS: Permission[] = [
   "admin:settings",
   "admin:roles",
   "data:viewCost",
+  "data:viewAllPriceHistory",
+  "data:viewShippingHistory",
 ];
 
 export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission; label: string }[] }[] = [
@@ -76,6 +84,13 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission;
     ],
   },
   {
+    label: "Products",
+    permissions: [
+      { key: "products:update", label: "Update" },
+      { key: "products:delete", label: "Delete" },
+    ],
+  },
+  {
     label: "Analysis",
     permissions: [
       { key: "analysis:create", label: "Create" },
@@ -88,6 +103,8 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission;
       { key: "import:upload", label: "Import Products" },
       { key: "royalties:edit", label: "Edit Royalties" },
       { key: "data:viewCost", label: "View Unit Cost" },
+      { key: "data:viewAllPriceHistory", label: "View All Channel Price History" },
+      { key: "data:viewShippingHistory", label: "View Shipping Cost History" },
     ],
   },
   {
@@ -110,9 +127,12 @@ export const DEFAULT_ANALYST_PERMISSIONS: Permission[] = [
   "module:activityLog",
   "customers:edit",
   "channels:edit",
+  "products:update",
   "analysis:create",
   "analysis:export",
   "import:upload",
   "royalties:edit",
   "data:viewCost",
+  "data:viewAllPriceHistory",
+  "data:viewShippingHistory",
 ];
