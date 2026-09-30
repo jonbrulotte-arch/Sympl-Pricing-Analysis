@@ -46,6 +46,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   });
   const fieldMap = new Map(fieldMappings.map((m) => [m.importFieldKey, m.salsifyPropertyId]));
 
+  const skuPropertyId = fieldMap.get("sku");
+  if (!skuPropertyId) {
+    return NextResponse.json({
+      error: "No Salsify field mapping found for 'sku'. Configure the SKU mapping in Admin > Salsify Field Mapping.",
+    }, { status: 400 });
+  }
+
   const updatesBySku = new Map<string, Record<string, unknown>>();
   const unmapped: string[] = [];
 
@@ -71,7 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
 
   const updates: SalsifyProductUpdate[] = [];
   for (const [sku, properties] of updatesBySku) {
-    updates.push({ sku, properties });
+    updates.push({ sku, skuPropertyId, properties });
   }
 
   const result = await updateSalsifyProducts(organizationId, apiKey, updates);

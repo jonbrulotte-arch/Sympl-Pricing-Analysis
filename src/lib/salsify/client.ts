@@ -133,6 +133,7 @@ export async function downloadExportFile(
 
 export interface SalsifyProductUpdate {
   sku: string;
+  skuPropertyId: string;
   properties: Record<string, unknown>;
 }
 
@@ -150,6 +151,7 @@ export async function updateSalsifyProducts(
     const chunk = updates.slice(i, i + BULK_CHUNK_SIZE);
     const payload = chunk.map((u) => ({
       "salsify:id": u.sku,
+      [u.skuPropertyId]: u.sku,
       ...u.properties,
     }));
 
