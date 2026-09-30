@@ -52,10 +52,11 @@ export default async function ProductDetailPage({
 
   const userChannels = await prisma.salesChannel.findMany({
     where: { customerId: { in: customerIds } },
-    select: { id: true, name: true, shippingMode: true, freightMode: true },
+    select: { id: true, name: true, shippingMode: true, freightMode: true, priceField: true },
   });
 
   const userChannelIds = new Set(userChannels.map((ch) => ch.id));
+  const userPriceFields = new Set(userChannels.map((ch) => ch.priceField));
   const prepaidChannels = userChannels.filter((ch) => ch.freightMode === "prepaid");
   const relevantShippingTypes = new Set(
     prepaidChannels.flatMap((ch) => shippingTypesForMode(ch.shippingMode)),
@@ -95,7 +96,10 @@ export default async function ProductDetailPage({
       include: { channel: { select: { name: true } } },
     }),
     prisma.productPrice.findMany({
-      where: { productId },
+      where: {
+        productId,
+        ...(!canViewAllPriceHistory ? { priceField: { in: [...userPriceFields] } } : {}),
+      },
       orderBy: { recordedAt: "desc" },
       take: 100,
     }),
