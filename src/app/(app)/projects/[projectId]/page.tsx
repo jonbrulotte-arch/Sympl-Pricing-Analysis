@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { loadProductRows } from "@/lib/db/load-product-rows";
+import { getPermissions } from "@/lib/permissions";
 import type { BrandRoyaltyTable, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
@@ -39,6 +40,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     where: { customerId_userId: { customerId: project.customerId, userId } },
   });
   if (!hasAccess) notFound();
+
+  const permissions = await getPermissions(session.user.role);
+  const canViewCost = permissions.has("data:viewCost");
 
   const customer = project.customer;
   const productIds = project.products.map((pp) => pp.productId);
@@ -165,6 +169,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           brandRoyalties={brandRoyalties}
           customerId={project.customerId}
           royaltyRules={royaltyRules}
+          canViewCost={canViewCost}
         />
       )}
     </div>
