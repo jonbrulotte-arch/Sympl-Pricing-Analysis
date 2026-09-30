@@ -254,7 +254,7 @@ export function PublishToSalsify({ customerId }: Props) {
           <p className="text-sm text-gray-600">
             {filtered.length} price change{filtered.length !== 1 ? "s" : ""} across {groups.length} SKU{groups.length !== 1 ? "s" : ""} staged
           </p>
-          {channels.length > 1 && (
+          {channels.length > 0 && (
             <select
               value={channelFilter}
               onChange={(e) => { setChannelFilter(e.target.value); setSelectedIds(new Set()); }}
@@ -266,7 +266,7 @@ export function PublishToSalsify({ customerId }: Props) {
               ))}
             </select>
           )}
-          {brands.length > 1 && (
+          {brands.length > 0 && (
             <select
               value={brandFilter}
               onChange={(e) => { setBrandFilter(e.target.value); setSelectedIds(new Set()); }}
