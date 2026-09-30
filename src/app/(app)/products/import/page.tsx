@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { RefreshCw, FileSpreadsheet, Upload } from "lucide-react";
+import { RefreshCw, FileSpreadsheet, Upload, Truck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { McfFreightImport } from "@/components/products/mcf-freight-import";
 
 export default function ProductImportPage() {
   return (
@@ -13,7 +14,7 @@ export default function ProductImportPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="hover:border-blue-200 transition-colors">
           <CardHeader>
             <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center mb-2">
@@ -62,6 +63,21 @@ export default function ProductImportPage() {
             <Link href="/products/import/supplemental">
               <Button variant="outline" className="w-full">Import Supplemental</Button>
             </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:border-blue-200 transition-colors">
+          <CardHeader>
+            <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center mb-2">
+              <Truck className="h-5 w-5 text-amber-600" />
+            </div>
+            <CardTitle className="text-base">MCF Freight Costs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-500 mb-4">
+              Pull FBA landed cost data from the warehouse system and update MCF freight costs automatically.
+            </p>
+            <McfFreightImport />
           </CardContent>
         </Card>
       </div>

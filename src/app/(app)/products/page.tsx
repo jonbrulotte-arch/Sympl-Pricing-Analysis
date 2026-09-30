@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronLeft, ChevronRight, Upload, FileSpreadsheet, RefreshCw, Package, DollarSign, AlertTriangle, Truck } from "lucide-react";
 import { PageSizeSelect } from "@/components/products/page-size-select";
+import { McfFreightImport } from "@/components/products/mcf-freight-import";
 
 const PAGE_SIZES = [25, 50, 100];
 
@@ -127,6 +128,7 @@ export default async function ProductsPage({
               Supplemental Data
             </Button>
           </Link>
+          <McfFreightImport />
         </div>
       </div>
 
