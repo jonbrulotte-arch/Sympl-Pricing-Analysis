@@ -27,8 +27,7 @@ export type Permission =
   | "module:royalties"
   | "module:activityLog"
   | "data:viewCost"
-  | "data:viewAllPriceHistory"
-  | "data:viewShippingHistory";
+  | "data:viewAllPriceHistory";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "module:products",
@@ -53,7 +52,6 @@ export const ALL_PERMISSIONS: Permission[] = [
   "admin:roles",
   "data:viewCost",
   "data:viewAllPriceHistory",
-  "data:viewShippingHistory",
 ];
 
 export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission; label: string }[] }[] = [
@@ -104,7 +102,6 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission;
       { key: "royalties:edit", label: "Edit Royalties" },
       { key: "data:viewCost", label: "View Unit Cost" },
       { key: "data:viewAllPriceHistory", label: "View All Channel Price History" },
-      { key: "data:viewShippingHistory", label: "View Shipping Cost History" },
     ],
   },
   {
@@ -134,5 +131,4 @@ export const DEFAULT_ANALYST_PERMISSIONS: Permission[] = [
   "royalties:edit",
   "data:viewCost",
   "data:viewAllPriceHistory",
-  "data:viewShippingHistory",
 ];

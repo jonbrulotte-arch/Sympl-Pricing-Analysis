@@ -34,7 +34,6 @@ export default async function ProductDetailPage({
   const canUpdate = permissions.has("products:update");
   const canDelete = permissions.has("products:delete");
   const canViewAllPriceHistory = permissions.has("data:viewAllPriceHistory");
-  const canViewShippingHistory = permissions.has("data:viewShippingHistory");
 
   const customerIds = (
     await prisma.customerUser.findMany({
@@ -53,12 +52,13 @@ export default async function ProductDetailPage({
 
   const userChannels = await prisma.salesChannel.findMany({
     where: { customerId: { in: customerIds } },
-    select: { id: true, name: true, shippingMode: true, channelType: true },
+    select: { id: true, name: true, shippingMode: true, freightMode: true },
   });
 
   const userChannelIds = new Set(userChannels.map((ch) => ch.id));
+  const prepaidChannels = userChannels.filter((ch) => ch.freightMode === "prepaid");
   const relevantShippingTypes = new Set(
-    userChannels.flatMap((ch) => shippingTypesForMode(ch.shippingMode)),
+    prepaidChannels.flatMap((ch) => shippingTypesForMode(ch.shippingMode)),
   );
   const hasShippingChannels = relevantShippingTypes.size > 0;
 
@@ -68,7 +68,7 @@ export default async function ProductDetailPage({
   });
 
   const latestShipping: Record<string, number> = {};
-  if (canViewShippingHistory && hasShippingChannels) {
+  if (hasShippingChannels) {
     for (const st of relevantShippingTypes) {
       const latest = await prisma.shippingCostHistory.findFirst({
         where: { productId, shippingType: st },
@@ -127,7 +127,7 @@ export default async function ProductDetailPage({
     })),
   ].sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime());
 
-  const shippingHistory = canViewShippingHistory && hasShippingChannels
+  const shippingHistory = hasShippingChannels
     ? await prisma.shippingCostHistory.findMany({
         where: { productId, shippingType: { in: [...relevantShippingTypes] } },
         orderBy: { recordedAt: "desc" },
@@ -311,7 +311,7 @@ export default async function ProductDetailPage({
       </Card>
 
       {/* Shipping Cost History */}
-      {canViewShippingHistory && hasShippingChannels && (
+      {hasShippingChannels && (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Shipping Cost History ({shippingHistory.length} records)</CardTitle>
