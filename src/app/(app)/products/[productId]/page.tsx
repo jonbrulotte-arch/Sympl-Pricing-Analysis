@@ -254,12 +254,17 @@ export default async function ProductDetailPage({
           {allPriceRecords.length === 0 ? (
             <p className="text-sm text-gray-500">No price records yet. Run a Salsify Sync to populate.</p>
           ) : (
-            <PriceHistorySection data={allPriceRecords.map((pr) => ({
+            <PriceHistorySection
+              data={allPriceRecords.map((pr) => ({
                 id: pr.id,
                 label: pr.label,
                 price: pr.price,
                 recordedAt: pr.recordedAt.toISOString(),
-              }))} />
+                source: pr.source,
+              }))}
+              canDelete={permissions.has("admin:settings")}
+              productId={productId}
+            />
           )}
         </CardContent>
       </Card>

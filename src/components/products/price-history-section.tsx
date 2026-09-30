@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { Trash2, Loader2 } from "lucide-react";
 import { PriceHistoryChart } from "./price-history-chart";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,10 +13,19 @@ interface PriceRecord {
   label: string;
   price: number;
   recordedAt: string;
+  source: "channel" | "product";
 }
 
-export function PriceHistorySection({ data }: { data: PriceRecord[] }) {
+interface Props {
+  data: PriceRecord[];
+  canDelete?: boolean;
+  productId?: string;
+}
+
+export function PriceHistorySection({ data, canDelete = false, productId }: Props) {
+  const router = useRouter();
   const [channelFilter, setChannelFilter] = useState("all");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const channels = useMemo(
     () => [...new Set(data.map((d) => d.label))].sort(),
@@ -25,6 +36,28 @@ export function PriceHistorySection({ data }: { data: PriceRecord[] }) {
     () => channelFilter === "all" ? data : data.filter((d) => d.label === channelFilter),
     [data, channelFilter],
   );
+
+  async function handleDelete(record: PriceRecord) {
+    if (!productId) return;
+    if (!confirm(`Delete this price record?\n$${record.price.toFixed(2)} on ${record.label}`)) return;
+
+    setDeletingId(record.id);
+    try {
+      const res = await fetch(`/api/products/${productId}/price-history`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: record.id, source: record.source }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(body.error || "Failed to delete record");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <>
@@ -49,6 +82,7 @@ export function PriceHistorySection({ data }: { data: PriceRecord[] }) {
             <th className="text-left py-2 text-gray-600 font-medium">Date</th>
             <th className="text-left py-2 text-gray-600 font-medium">Channel</th>
             <th className="text-right py-2 text-gray-600 font-medium">Price</th>
+            {canDelete && <th className="w-10" />}
           </tr>
         </thead>
         <tbody>
@@ -59,6 +93,21 @@ export function PriceHistorySection({ data }: { data: PriceRecord[] }) {
                 <Badge variant="secondary" className="text-xs">{pr.label}</Badge>
               </td>
               <td className="py-1.5 text-right font-mono">${pr.price.toFixed(2)}</td>
+              {canDelete && (
+                <td className="py-1.5 text-center">
+                  <button
+                    onClick={() => handleDelete(pr)}
+                    disabled={deletingId === pr.id}
+                    className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                  >
+                    {deletingId === pr.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
