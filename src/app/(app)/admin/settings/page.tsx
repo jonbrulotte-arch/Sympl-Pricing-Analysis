@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SalsifySettings } from "@/components/admin/salsify-settings";
 import { EmailSettings } from "@/components/admin/email-settings";
+import { PurgeProductsButton } from "@/components/admin/purge-products";
 
 export default async function AdminSettingsPage() {
   const session = await auth();
@@ -120,6 +121,22 @@ export default async function AdminSettingsPage() {
           </CardHeader>
           <CardContent>
             <EmailSettings />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-6 space-y-6">
+        <h2 className="text-xs font-semibold text-red-500 tracking-wide uppercase mb-2">Danger Zone</h2>
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="text-base">Purge Products Database</CardTitle>
+            <p className="text-xs text-gray-500">
+              Remove all products and associated data (cost history, price history, shipping costs,
+              analysis results, customer–product links). A full data resync will be required to rebuild.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <PurgeProductsButton />
           </CardContent>
         </Card>
       </div>
