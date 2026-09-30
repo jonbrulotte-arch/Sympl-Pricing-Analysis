@@ -91,7 +91,7 @@ export function PriceHistoryChart({ data }: { data: PriceRecord[] }) {
         <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#6b7280" }} />
         <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} tickFormatter={(v) => `$${v}`} />
         <Tooltip
-          formatter={(value) => [`$${Number(value).toFixed(2)}`, "Price"]}
+          formatter={(value, name) => [`$${Number(value).toFixed(2)}`, name]}
           contentStyle={{ fontSize: 12 }}
         />
         <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -159,7 +159,7 @@ export function PriceHistoryChart({ data }: { data: PriceRecord[] }) {
                   <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#6b7280" }} />
                   <YAxis tick={{ fontSize: 12, fill: "#6b7280" }} tickFormatter={(v) => `$${v}`} />
                   <Tooltip
-                    formatter={(value) => [`$${Number(value).toFixed(2)}`, "Price"]}
+                    formatter={(value, name) => [`$${Number(value).toFixed(2)}`, name]}
                     contentStyle={{ fontSize: 13 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
