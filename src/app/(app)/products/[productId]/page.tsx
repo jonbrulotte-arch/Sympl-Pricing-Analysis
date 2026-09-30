@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/utils";
 import { ProductEditor } from "@/components/products/product-editor";
 import { ProductDelete } from "@/components/products/product-delete";
 import { CostHistoryChart, ShippingHistoryChart } from "@/components/products/cost-chart";
+import { PriceHistoryChart } from "@/components/products/price-history-chart";
 import { AlertTriangle } from "lucide-react";
 
 export default async function ProductDetailPage({
@@ -246,7 +247,14 @@ export default async function ProductDetailPage({
           {allPriceRecords.length === 0 ? (
             <p className="text-sm text-gray-500">No price records yet. Run a Salsify Sync to populate.</p>
           ) : (
-            <table className="w-full text-sm">
+            <>
+              <PriceHistoryChart data={allPriceRecords.map((pr) => ({
+                id: pr.id,
+                label: pr.label,
+                price: pr.price,
+                recordedAt: pr.recordedAt.toISOString(),
+              }))} />
+              <table className="w-full text-sm mt-4">
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-2 text-gray-600 font-medium">Date</th>
@@ -266,6 +274,7 @@ export default async function ProductDetailPage({
                 ))}
               </tbody>
             </table>
+            </>
           )}
         </CardContent>
       </Card>
