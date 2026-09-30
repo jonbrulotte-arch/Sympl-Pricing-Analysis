@@ -152,8 +152,30 @@ export function PriceHistoryChart({ data }: { data: PriceRecord[] }) {
             <div className="px-4 pt-3">
               {filterBar}
             </div>
-            <div className="flex-1 min-h-0 px-4 pb-4" style={{ height: "60vh" }}>
-              {chart}
+            <div className="px-4 pb-4" style={{ height: "60vh" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#6b7280" }} />
+                  <YAxis tick={{ fontSize: 12, fill: "#6b7280" }} tickFormatter={(v) => `$${v}`} />
+                  <Tooltip
+                    formatter={(value) => [`$${Number(value).toFixed(2)}`, "Price"]}
+                    contentStyle={{ fontSize: 13 }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {visibleChannels.map((ch) => (
+                    <Line
+                      key={ch}
+                      type="monotone"
+                      dataKey={ch}
+                      stroke={colorMap[ch]}
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>
