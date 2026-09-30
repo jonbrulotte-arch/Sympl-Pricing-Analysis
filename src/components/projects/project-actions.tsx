@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Plus, Search, Archive, RotateCcw } from "lucide-react";
+import { Trash2, Plus, Search, Archive, RotateCcw, ChevronDown, ChevronUp, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +34,100 @@ interface ProjectActionsProps {
   products: ProjectProduct[];
 }
 
+function ProductTable({
+  products,
+  search,
+  pageSize,
+  onRemove,
+}: {
+  products: ProjectProduct[];
+  search: string;
+  pageSize: number;
+  onRemove: (productId: string) => void;
+}) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(products.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paged = useMemo(
+    () => products.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [products, safePage, pageSize],
+  );
+
+  return (
+    <>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-2 px-2 text-gray-600 font-medium text-xs">SKU</th>
+              <th className="text-left py-2 px-2 text-gray-600 font-medium text-xs">Name</th>
+              <th className="text-left py-2 px-2 text-gray-600 font-medium text-xs">Brand</th>
+              <th className="py-2 px-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {paged.map((pp) => (
+              <tr key={pp.productId} className="border-b border-gray-50 hover:bg-gray-50/50">
+                <td className="py-1.5 px-2 font-mono text-xs text-blue-600">
+                  <a href={`/products/${pp.product.id}`} className="hover:underline">
+                    {pp.product.sku}
+                  </a>
+                </td>
+                <td className="py-1.5 px-2 text-gray-700 max-w-[200px] truncate text-xs">
+                  {pp.product.name || "-"}
+                </td>
+                <td className="py-1.5 px-2 text-gray-600 text-xs">{pp.product.brand || "-"}</td>
+                <td className="py-1.5 px-2 text-right">
+                  <button
+                    onClick={() => onRemove(pp.productId)}
+                    className="text-gray-400 hover:text-red-600 transition-colors"
+                    title="Remove from project"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {products.length === 0 && search && (
+          <p className="text-sm text-gray-500 text-center py-4">No products match &ldquo;{search}&rdquo;</p>
+        )}
+      </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-3 text-xs text-gray-500">
+          <span>
+            Showing {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, products.length)} of {products.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs px-2"
+              disabled={safePage <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              Prev
+            </Button>
+            <span className="px-2">
+              {safePage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs px-2"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function ProjectActions({
   projectId,
   projectName,
@@ -49,6 +143,9 @@ export function ProjectActions({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const PREVIEW_COUNT = 5;
+  const PAGE_SIZE = 25;
 
   async function handleAddSkus() {
     const skus = skuInput
@@ -143,78 +240,72 @@ export function ProjectActions({
         </Button>
       </div>
 
-      {/* Product list card */}
+      {/* Product list card — collapsible */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Products ({products.length})</CardTitle>
-          <Button size="sm" onClick={() => { setSkuInput(""); setAddError(null); setAddOpen(true); }}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Add Products
-          </Button>
+        <CardHeader className="flex flex-row items-center justify-between py-3">
+          <div className="flex items-center gap-2">
+            <Package className="h-4 w-4 text-gray-500 shrink-0" />
+            <CardTitle className="text-sm">Products ({products.length})</CardTitle>
+            {!expanded && products.length > 0 && (
+              <span className="text-xs text-gray-500 hidden sm:inline">
+                {products.slice(0, 3).map((pp) => pp.product.sku).join(", ")}
+                {products.length > 3 && `, +${products.length - 3} more`}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => { setSkuInput(""); setAddError(null); setAddOpen(true); }}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Add
+            </Button>
+            {products.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setExpanded((v) => !v); setSearch(""); }}
+                className="text-gray-500"
+              >
+                {expanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
-          {products.length > 5 && (
-            <div className="relative mb-4">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by SKU, name, or brand..."
-                className="pl-9"
-              />
-            </div>
-          )}
+        {expanded && (
+          <CardContent className="pt-0">
+            {products.length > PREVIEW_COUNT && (
+              <div className="relative mb-3">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by SKU, name, or brand..."
+                  className="pl-9"
+                />
+              </div>
+            )}
 
-          {products.length === 0 ? (
-            <div className="text-center py-4">
-              <p className="text-sm text-gray-500">No products added yet.</p>
-              <p className="text-xs text-gray-400 mt-1">
-                Add products from the Product Database. Products must be{" "}
-                <a href="/products/import" className="text-blue-600 hover:underline">imported first</a> via Salsify sync or spreadsheet upload.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-2 px-2 text-gray-600 font-medium">SKU</th>
-                    <th className="text-left py-2 px-2 text-gray-600 font-medium">Name</th>
-                    <th className="text-left py-2 px-2 text-gray-600 font-medium">Brand</th>
-                    <th className="py-2 px-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((pp) => (
-                    <tr key={pp.productId} className="border-b border-gray-50 hover:bg-gray-50/50">
-                      <td className="py-1.5 px-2 font-mono text-xs text-blue-600">
-                        <a href={`/products/${pp.product.id}`} className="hover:underline">
-                          {pp.product.sku}
-                        </a>
-                      </td>
-                      <td className="py-1.5 px-2 text-gray-700 max-w-[200px] truncate text-xs">
-                        {pp.product.name || "-"}
-                      </td>
-                      <td className="py-1.5 px-2 text-gray-600 text-xs">{pp.product.brand || "-"}</td>
-                      <td className="py-1.5 px-2 text-right">
-                        <button
-                          onClick={() => handleRemoveProduct(pp.productId)}
-                          className="text-gray-400 hover:text-red-600 transition-colors"
-                          title="Remove from project"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filtered.length === 0 && search && (
-                <p className="text-sm text-gray-500 text-center py-4">No products match &ldquo;{search}&rdquo;</p>
-              )}
-            </div>
-          )}
-        </CardContent>
+            {products.length === 0 ? (
+              <div className="text-center py-4">
+                <p className="text-sm text-gray-500">No products added yet.</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Add products from the Product Database. Products must be{" "}
+                  <a href="/products/import" className="text-blue-600 hover:underline">imported first</a> via Salsify sync or spreadsheet upload.
+                </p>
+              </div>
+            ) : (
+              <ProductTable
+                products={filtered}
+                search={search}
+                pageSize={PAGE_SIZE}
+                onRemove={handleRemoveProduct}
+              />
+            )}
+          </CardContent>
+        )}
       </Card>
 
       {/* Add Products Dialog */}
