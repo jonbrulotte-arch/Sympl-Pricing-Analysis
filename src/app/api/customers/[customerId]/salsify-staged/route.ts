@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity-log";
 
 async function verifyAccess(customerId: string, userId: string) {
   const link = await prisma.customerUser.findUnique({
@@ -64,6 +65,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
       where: { id: { in: ids }, customerId },
     });
   }
+
+  logActivity({
+    action: "salsify.staged.remove",
+    category: "publish",
+    summary: `Removed ${ids.length} staged price(s)`,
+    detail: { customerId, removedCount: ids.length },
+    customerId,
+    userId: session.user.id,
+  });
 
   return NextResponse.json({ ok: true, removed: ids.length });
 }

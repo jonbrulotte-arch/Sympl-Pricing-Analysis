@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
+import { logActivity } from "@/lib/activity-log";
 
 export async function DELETE(
   _req: NextRequest,
@@ -29,6 +30,14 @@ export async function DELETE(
   if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await prisma.product.delete({ where: { id: productId } });
+
+  logActivity({
+    action: "product.delete",
+    category: "product",
+    summary: `Deleted product "${product.sku}"`,
+    detail: { productId, sku: product.sku },
+    userId: session.user.id,
+  });
 
   return NextResponse.json({ ok: true });
 }
@@ -87,6 +96,14 @@ export async function PATCH(
       });
     }
   }
+
+  logActivity({
+    action: "product.update",
+    category: "product",
+    summary: `Updated product "${product.sku}" costs`,
+    detail: { productId, sku: product.sku, cost, shipping, mcfShip, mcfFreight, fbaFee },
+    userId: session.user.id,
+  });
 
   return NextResponse.json({ ok: true });
 }

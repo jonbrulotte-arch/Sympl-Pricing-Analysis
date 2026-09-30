@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity-log";
 
 async function verifyProjectAccess(projectId: string, userId: string) {
   const project = await prisma.project.findUnique({
@@ -73,6 +74,15 @@ export async function POST(
     }
   }
 
+  logActivity({
+    action: "project.addProducts",
+    category: "project",
+    summary: `Added ${added} product(s) to project`,
+    detail: { projectId, skuCount: unique.length, added },
+    customerId: project.customerId,
+    userId: session.user.id,
+  });
+
   return NextResponse.json({ added, total: unique.length });
 }
 
@@ -99,6 +109,15 @@ export async function DELETE(
       projectId,
       productId: { in: productIds },
     },
+  });
+
+  logActivity({
+    action: "project.removeProducts",
+    category: "project",
+    summary: `Removed ${result.count} product(s) from project`,
+    detail: { projectId, removedCount: result.count },
+    customerId: project.customerId,
+    userId: session.user.id,
   });
 
   return NextResponse.json({ removed: result.count });

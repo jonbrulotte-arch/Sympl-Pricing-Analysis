@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { encrypt, decrypt } from "@/lib/crypto";
+import { logActivity } from "@/lib/activity-log";
 
 export async function GET() {
   const session = await auth();
@@ -46,6 +47,14 @@ export async function POST(req: NextRequest) {
     data: { salsifyApiKeyEncrypted: encrypted },
   });
 
+  logActivity({
+    action: "profile.salsifyKey.set",
+    category: "admin",
+    summary: `Updated Salsify API key`,
+    detail: { last4: apiKey.slice(-4) },
+    userId: session.user.id,
+  });
+
   return NextResponse.json({ hasKey: true, last4: apiKey.slice(-4) });
 }
 
@@ -56,6 +65,13 @@ export async function DELETE() {
   await prisma.user.update({
     where: { id: session.user.id },
     data: { salsifyApiKeyEncrypted: null },
+  });
+
+  logActivity({
+    action: "profile.salsifyKey.remove",
+    category: "admin",
+    summary: `Removed Salsify API key`,
+    userId: session.user.id,
   });
 
   return NextResponse.json({ ok: true });

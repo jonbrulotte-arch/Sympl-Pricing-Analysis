@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { brandKey } from "@/lib/pricing/helpers";
+import { logActivity } from "@/lib/activity-log";
 
 async function verifyAccess(customerId: string, userId: string) {
   const link = await prisma.customerUser.findUnique({
@@ -62,6 +63,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
     });
   }
 
+  logActivity({
+    action: "royalty.update",
+    category: "royalty",
+    summary: `Updated ${entries.length} brand royalty rate(s)`,
+    detail: { customerId, entryCount: entries.length, brands: entries.map((e: { brandName: string }) => e.brandName) },
+    customerId,
+    userId: session.user.id,
+  });
+
   return NextResponse.json({ ok: true });
 }
 
@@ -80,6 +90,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
 
   await prisma.brandRoyalty.deleteMany({
     where: { customerId, brandKey: bk },
+  });
+
+  logActivity({
+    action: "royalty.delete",
+    category: "royalty",
+    summary: `Deleted brand royalty "${bk}"`,
+    detail: { customerId, brandKey: bk },
+    customerId,
+    userId: session.user.id,
   });
 
   return NextResponse.json({ ok: true });

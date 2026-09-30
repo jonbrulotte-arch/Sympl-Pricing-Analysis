@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { logActivity } from "@/lib/activity-log";
 
 async function verifyAccess(customerId: string, userId: string) {
   const link = await prisma.customerUser.findUnique({
@@ -36,6 +37,15 @@ export async function PATCH(
     data: { name, slug },
   });
 
+  logActivity({
+    action: "customer.update",
+    category: "customer",
+    summary: `Updated customer "${name}"`,
+    detail: { customerId, customerName: name },
+    customerId,
+    userId: session.user.id,
+  });
+
   return NextResponse.json(customer);
 }
 
@@ -52,6 +62,14 @@ export async function DELETE(
   if (link.role !== "OWNER") return NextResponse.json({ error: "Only the customer owner can delete this customer" }, { status: 403 });
 
   await prisma.customer.delete({ where: { id: customerId } });
+
+  logActivity({
+    action: "customer.delete",
+    category: "customer",
+    summary: `Deleted customer`,
+    detail: { customerId },
+    userId: session.user.id,
+  });
 
   return NextResponse.json({ ok: true });
 }

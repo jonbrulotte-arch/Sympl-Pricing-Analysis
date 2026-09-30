@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getPermissions } from "@/types";
 import { hash } from "bcryptjs";
 import { randomUUID } from "crypto";
+import { logActivity } from "@/lib/activity-log";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -34,6 +35,14 @@ export async function POST(req: NextRequest) {
       role,
     },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
+  });
+
+  logActivity({
+    action: "admin.createUser",
+    category: "admin",
+    summary: `Created user "${name}" (${email}) with role ${role}`,
+    detail: { createdUserId: user.id, name, email, role },
+    userId: session.user.id,
   });
 
   return NextResponse.json(user, { status: 201 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity-log";
 
 type Params = { params: Promise<{ customerId: string; channelId: string }> };
 
@@ -64,6 +65,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
   });
 
+  logActivity({
+    action: "channel.update",
+    category: "channel",
+    summary: `Updated channel "${channel.name}"`,
+    detail: { channelId, channelName: channel.name },
+    customerId,
+    userId: session.user.id,
+  });
+
   return NextResponse.json(channel);
 }
 
@@ -82,5 +92,15 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   if (channel.isDefault) return NextResponse.json({ error: "Cannot delete default channels" }, { status: 400 });
 
   await prisma.salesChannel.delete({ where: { id: channelId } });
+
+  logActivity({
+    action: "channel.delete",
+    category: "channel",
+    summary: `Deleted channel "${channel.name}"`,
+    detail: { channelId, channelName: channel.name },
+    customerId,
+    userId: session.user.id,
+  });
+
   return NextResponse.json({ ok: true });
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
+import { logActivity } from "@/lib/activity-log";
 
 async function verifyAccess(customerId: string, userId: string) {
   const link = await prisma.customerUser.findUnique({
@@ -79,6 +80,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
       defaults: body.defaults ?? {},
       blockedBrands: body.blockedBrands ?? [],
     },
+  });
+
+  logActivity({
+    action: "channel.create",
+    category: "channel",
+    summary: `Created channel "${name}"`,
+    detail: { channelId: channel.id, channelName: name, channelType: body.channelType || "online", shippingMode: body.shippingMode || "std" },
+    customerId,
+    userId: session.user.id,
   });
 
   return NextResponse.json(channel, { status: 201 });

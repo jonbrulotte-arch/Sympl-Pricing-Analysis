@@ -6,6 +6,7 @@ import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
 import { fetchAllSalsifyProducts, firstDelimited, type SalsifyProduct } from "@/lib/salsify/client";
 import { upsertImportRows } from "@/lib/db/upsert-import-rows";
 import type { ProductRow } from "@/lib/pricing/types";
+import { logActivity } from "@/lib/activity-log";
 
 const STRING_FIELDS = new Set(["sku", "name", "brand", "asin", "fbaClass", "amzCategory", "amzItemType", "invStatus"]);
 const UNITS_CONSTANT_FIELD = "units";
@@ -74,10 +75,26 @@ async function runSalsifySyncInBackground(
       where: { id: importId },
       data: { status: "complete", rowCount: rows.length, errors: { created, updated } },
     });
+
+    logActivity({
+      action: "import.salsify",
+      category: "import",
+      summary: `Salsify sync completed: ${created} created, ${updated} updated (${rows.length} rows)`,
+      detail: { importId, customerId, rowCount: rows.length, created, updated },
+      customerId,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error(`[salsify-sync] customer ${customerId} import ${importId} failed: ${message}`);
     await prisma.import.update({ where: { id: importId }, data: { status: "failed", errors: { message } } }).catch(() => {});
+
+    logActivity({
+      action: "import.salsify.failed",
+      category: "import",
+      summary: `Salsify sync failed: ${message}`,
+      detail: { importId, customerId, error: message },
+      customerId,
+    });
   }
 }
 

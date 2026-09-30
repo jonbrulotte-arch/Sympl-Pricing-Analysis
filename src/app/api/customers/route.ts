@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
 import { randomUUID } from "crypto";
+import { logActivity } from "@/lib/activity-log";
 
 export async function GET() {
   const session = await auth();
@@ -39,6 +40,15 @@ export async function POST(req: NextRequest) {
       slug,
       users: { create: { userId: session.user.id, role: "OWNER" } },
     },
+  });
+
+  logActivity({
+    action: "customer.create",
+    category: "customer",
+    summary: `Created customer "${name}"`,
+    detail: { customerId: customer.id, customerName: name },
+    customerId: customer.id,
+    userId: session.user.id,
   });
 
   return NextResponse.json(customer, { status: 201 });

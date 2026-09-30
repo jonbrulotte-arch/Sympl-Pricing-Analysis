@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
 import { updateSalsifyProducts, type SalsifyProductUpdate } from "@/lib/salsify/client";
+import { logActivity } from "@/lib/activity-log";
 
 async function verifyAccess(customerId: string, userId: string) {
   const link = await prisma.customerUser.findUnique({
@@ -93,6 +94,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
       where: { id: { in: publishedIds } },
     });
   }
+
+  logActivity({
+    action: "salsify.publish",
+    category: "publish",
+    summary: `Published ${result.succeeded.length} SKU(s) to Salsify${result.failed.length > 0 ? `, ${result.failed.length} failed` : ""}`,
+    detail: {
+      publishedSkus: result.succeeded,
+      failedSkus: result.failed.map((f: { sku: string; error: string }) => f.sku),
+      unmappedFields: [...new Set(unmapped)],
+    },
+    customerId,
+    userId: session.user.id,
+  });
 
   return NextResponse.json({
     published: result.succeeded.length,

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import type { ProductRow } from "@/lib/pricing/types";
 import { upsertImportRows } from "@/lib/db/upsert-import-rows";
+import { logActivity } from "@/lib/activity-log";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -65,6 +66,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   await prisma.import.update({
     where: { id: importId },
     data: { status: "complete" },
+  });
+
+  logActivity({
+    action: "import.spreadsheet",
+    category: "import",
+    summary: `Imported spreadsheet: ${created} created, ${updated} updated (${rows.length} rows)`,
+    detail: { fileName: fileName ?? null, rowCount: rows.length, created, updated, importId },
+    customerId,
+    userId: session.user.id,
   });
 
   return NextResponse.json({ created, updated, importId });

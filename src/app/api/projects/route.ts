@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
 import { randomUUID } from "crypto";
+import { logActivity } from "@/lib/activity-log";
 
 export async function GET() {
   const session = await auth();
@@ -60,6 +61,15 @@ export async function POST(req: NextRequest) {
       customerId,
       createdById: session.user.id,
     },
+  });
+
+  logActivity({
+    action: "project.create",
+    category: "project",
+    summary: `Created project "${name}"`,
+    detail: { projectId: project.id, projectName: name },
+    customerId,
+    userId: session.user.id,
   });
 
   return NextResponse.json(project, { status: 201 });

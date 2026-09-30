@@ -26,6 +26,7 @@ model User {
   imports      Import[]
   projects     Project[]
   salsifyStaged SalsifyStaged[]
+  activityLogs  ActivityLog[]
 }
 
 model Customer {
@@ -44,6 +45,7 @@ model Customer {
   projects       Project[]
   salsifyFieldMappings SalsifyFieldMapping[]
   salsifyStaged        SalsifyStaged[]
+  activityLogs         ActivityLog[]
 }
 
 model CustomerUser {
@@ -346,4 +348,21 @@ model SalsifyStaged {
 
   @@unique([customerId, sku, channelId])
   @@index([customerId])
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  action     String
+  category   String
+  summary    String
+  detail     Json?
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId, createdAt])
+  @@index([category, createdAt])
+  @@index([createdAt])
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity-log";
 
 async function verifyProjectAccess(projectId: string, userId: string) {
   const project = await prisma.project.findUnique({
@@ -70,6 +71,16 @@ export async function PATCH(
     data,
   });
 
+  const action = body.status === "archived" ? "project.archive" : body.status === "active" ? "project.restore" : "project.update";
+  logActivity({
+    action,
+    category: "project",
+    summary: `${action === "project.archive" ? "Archived" : action === "project.restore" ? "Restored" : "Updated"} project "${updated.name}"`,
+    detail: { projectId, changes: data },
+    customerId: project.customerId,
+    userId: session.user.id,
+  });
+
   return NextResponse.json(updated);
 }
 
@@ -85,6 +96,15 @@ export async function DELETE(
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await prisma.project.delete({ where: { id: projectId } });
+
+  logActivity({
+    action: "project.delete",
+    category: "project",
+    summary: `Deleted project`,
+    detail: { projectId },
+    customerId: project.customerId,
+    userId: session.user.id,
+  });
 
   return NextResponse.json({ ok: true });
 }

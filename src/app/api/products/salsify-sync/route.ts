@@ -8,6 +8,7 @@ import { autoMapColumns } from "@/lib/import/auto-map";
 import { buildRows } from "@/lib/import/build-rows";
 import { upsertSalsifyProducts } from "@/lib/db/upsert-salsify-products";
 import { randomUUID } from "crypto";
+import { logActivity } from "@/lib/activity-log";
 
 const POLL_INTERVAL_MS = 3_000;
 const MAX_POLL_ATTEMPTS = 120;
@@ -105,6 +106,13 @@ async function runSalsifySync(
         errors: { created, updated },
       },
     });
+
+    logActivity({
+      action: "import.salsify",
+      category: "import",
+      summary: `Salsify sync completed: ${created} created, ${updated} updated (${rows.length} rows)`,
+      detail: { importId, rowCount: rows.length, created, updated },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[salsify-sync] import ${importId} failed:`, message);
@@ -115,5 +123,12 @@ async function runSalsifySync(
         errors: { message },
       },
     }).catch(() => {});
+
+    logActivity({
+      action: "import.salsify.failed",
+      category: "import",
+      summary: `Salsify sync failed: ${message}`,
+      detail: { importId, error: message },
+    });
   }
 }

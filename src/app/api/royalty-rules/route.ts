@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { brandKey } from "@/lib/pricing/helpers";
+import { logActivity } from "@/lib/activity-log";
 
 export async function GET() {
   const session = await auth();
@@ -58,6 +59,14 @@ export async function POST(req: NextRequest) {
       value,
       mode,
     },
+  });
+
+  logActivity({
+    action: "royaltyRule.create.global",
+    category: "royalty",
+    summary: `Created global ${scope}-scope royalty rule (${mode} ${value})${scope === "brand" ? ` for "${brandName}"` : ` for ${skuList.length} SKU(s)`}`,
+    detail: { ruleId: rule.id, scope, brandName, skuCount: skuList.length, value, mode },
+    userId: session.user.id,
   });
 
   return NextResponse.json({

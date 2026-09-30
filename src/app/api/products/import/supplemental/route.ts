@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { upsertSupplementalData } from "@/lib/db/upsert-supplemental";
+import { logActivity } from "@/lib/activity-log";
 
 interface SupplementalRow {
   sku: string;
@@ -43,6 +44,14 @@ export async function POST(req: NextRequest) {
     await prisma.import.update({
       where: { id: importId },
       data: { status: "complete", rowCount: updated, errors: notFound.length > 0 ? { notFound } : undefined },
+    });
+
+    logActivity({
+      action: "import.supplemental",
+      category: "import",
+      summary: `Supplemental import: ${updated} updated, ${notFound.length} not found (${rows.length} rows)`,
+      detail: { importId, fileName, rowCount: rows.length, updated, notFoundCount: notFound.length },
+      userId: session.user.id,
     });
 
     return NextResponse.json({ updated, notFound, importId });

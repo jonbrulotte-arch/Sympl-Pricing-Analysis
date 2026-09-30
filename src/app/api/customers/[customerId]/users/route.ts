@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity-log";
 
 async function getLink(customerId: string, userId: string) {
   return prisma.customerUser.findUnique({
@@ -52,6 +53,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
     where: { customerId_userId: { customerId, userId: user.id } },
     update: {},
     create: { customerId, userId: user.id, role: "COLLABORATOR" },
+  });
+
+  logActivity({
+    action: "customer.addUser",
+    category: "customer",
+    summary: `Added collaborator "${user.name}" (${email})`,
+    detail: { customerId, addedUserId: user.id, email, role: member.role },
+    customerId,
+    userId: session.user.id,
   });
 
   return NextResponse.json({ userId: member.userId, role: member.role, name: user.name, email: user.email }, { status: 201 });

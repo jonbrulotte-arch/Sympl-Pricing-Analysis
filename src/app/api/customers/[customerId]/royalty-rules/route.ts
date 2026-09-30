@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { brandKey } from "@/lib/pricing/helpers";
+import { logActivity } from "@/lib/activity-log";
 
 async function verifyAccess(customerId: string, userId: string) {
   const link = await prisma.customerUser.findUnique({
@@ -72,6 +73,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
       value,
       mode,
     },
+  });
+
+  logActivity({
+    action: "royaltyRule.create",
+    category: "royalty",
+    summary: `Created ${scope}-scope royalty rule (${mode} ${value})${scope === "brand" ? ` for "${brandName}"` : ` for ${skuList.length} SKU(s)`}`,
+    detail: { customerId, ruleId: rule.id, scope, brandName, skuCount: skuList.length, value, mode },
+    customerId,
+    userId: session.user.id,
   });
 
   return NextResponse.json({

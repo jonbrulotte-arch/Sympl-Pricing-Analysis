@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPermissions } from "@/types";
+import { logActivity } from "@/lib/activity-log";
 
 const SINGLETON_ID = "singleton";
 
@@ -44,6 +45,19 @@ export async function PATCH(req: NextRequest) {
       salsifySyncEnabled: !!body.salsifySyncEnabled,
       salsifyDebugEnabled: !!body.salsifyDebugEnabled,
     },
+  });
+
+  logActivity({
+    action: "admin.settings.salsify",
+    category: "admin",
+    summary: `Updated Salsify settings`,
+    detail: {
+      salsifyOrgId: settings.salsifyOrgId ?? "",
+      salsifyChannelId: settings.salsifyChannelId ?? "",
+      salsifySyncEnabled: settings.salsifySyncEnabled,
+      salsifyDebugEnabled: settings.salsifyDebugEnabled,
+    },
+    userId: session.user.id,
   });
 
   return NextResponse.json({

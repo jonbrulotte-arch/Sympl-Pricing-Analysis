@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
+import { logActivity } from "@/lib/activity-log";
 
 async function verifyAccess(customerId: string, userId: string) {
   const link = await prisma.customerUser.findUnique({
@@ -67,6 +68,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
       newNetMargin: typeof newNetMargin === "number" ? newNetMargin : null,
       stagedAt: new Date(),
     },
+  });
+
+  logActivity({
+    action: "price.commit",
+    category: "price",
+    summary: `Committed price $${price.toFixed(2)} for ${sku} on ${channel.name}`,
+    detail: { sku, channelId, channelName: channel.name, newPrice: price, oldPrice: oldPrice ?? null, oldNetMargin: oldNetMargin ?? null, newNetMargin: newNetMargin ?? null },
+    customerId,
+    userId: session.user.id,
   });
 
   return NextResponse.json({ ok: true });

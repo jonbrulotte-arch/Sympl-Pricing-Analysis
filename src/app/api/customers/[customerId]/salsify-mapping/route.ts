@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity-log";
 
 async function verifyAccess(customerId: string, userId: string) {
   const link = await prisma.customerUser.findUnique({
@@ -51,6 +52,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ cust
       create: { customerId, importFieldKey: m.importFieldKey, salsifyPropertyId: propertyId },
     });
   }
+
+  logActivity({
+    action: "salsify.mapping.update",
+    category: "admin",
+    summary: `Updated ${mappings.length} Salsify field mapping(s)`,
+    detail: { customerId, mappingCount: mappings.length },
+    customerId,
+    userId: session.user.id,
+  });
 
   const updated = await prisma.salsifyFieldMapping.findMany({ where: { customerId } });
   return NextResponse.json(updated.map((m) => ({

@@ -20,6 +20,7 @@ import {
   Bug,
   Bell,
   Settings as SettingsIcon,
+  ClipboardList,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useState } from "react";
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/customers", label: "Customers", icon: Building2 },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/royalty-rules", label: "Royalty Rules", icon: DollarSign },
+  { href: "/activity-log", label: "Activity Log", icon: ClipboardList },
 ];
 
 const adminNavItems: { href: string; label: string; icon: React.ElementType; permission: Permission | null }[] = [
