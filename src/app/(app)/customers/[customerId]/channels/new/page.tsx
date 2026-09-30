@@ -376,7 +376,7 @@ export default function NewChannelPage() {
             <p className="text-sm text-gray-500">Set the default rates for enabled fee types.</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <NumberField label="Target GM%" value={defaults.goal as number} onChange={(v) => setDefault("goal", v)} suffix="%" />
+            <NumberField label="Target net margin %" value={defaults.goal as number} onChange={(v) => setDefault("goal", v)} suffix="%" />
             {flags.coupon && (
               <NumberField label="Coupon discount" value={(defaults.coupon as number) ?? 0} onChange={(v) => setDefault("coupon", v)} suffix="%" />
             )}
@@ -459,7 +459,7 @@ export default function NewChannelPage() {
               </div>
             )}
             <NumberField label="Low stock threshold" value={(defaults.lowStock as number) ?? 5} onChange={(v) => setDefault("lowStock", v)} suffix=" units" />
-            <NumberField label="Sell-down goal GM%" value={(defaults.sellGoal as number) ?? 0} onChange={(v) => setDefault("sellGoal", v)} suffix="%" />
+            <NumberField label="Sell-down goal net margin %" value={(defaults.sellGoal as number) ?? 0} onChange={(v) => setDefault("sellGoal", v)} suffix="%" />
           </CardContent>
         </Card>
       )}

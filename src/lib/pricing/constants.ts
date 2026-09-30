@@ -33,7 +33,7 @@ export interface FieldUiDef {
 }
 
 export const FIELDS_UI: FieldUiDef[] = [
-  { sec: "goal", key: "goal", label: "Goal net GM%", unit: "%" },
+  { sec: "goal", key: "goal", label: "Goal net margin %", unit: "%" },
   { sec: "market", key: "coupon", label: "Coupon discount", unit: "%", flag: "coupon" },
   { sec: "market", key: "tax", label: "Sales tax collected", hint: "(on the post-coupon price)", unit: "%", flag: "tax" },
   { sec: "market", key: "comm", label: "Category commission", unit: "%", flag: "comm" },
@@ -55,7 +55,7 @@ export const FIELDS_UI: FieldUiDef[] = [
   { sec: "commercial", key: "alloc4", label: "Add. Allocation 4", unit: "%", commercialOnly: true },
   { sec: "commercial", key: "alloc5", label: "Add. Allocation 5", unit: "%", commercialOnly: true },
   { sec: "life", key: "hideDisc", label: "Hide discontinued SKUs from this analysis", type: "check" },
-  { sec: "life", key: "sellGoal", label: "Sell-down goal net GM%", hint: "(discontinued)", unit: "%" },
+  { sec: "life", key: "sellGoal", label: "Sell-down goal net margin %", hint: "(discontinued)", unit: "%" },
   { sec: "life", key: "excludeDisc", label: "Keep discontinued out of the change report", type: "check" },
   { sec: "life", key: "excludeOOS", label: "Keep zero-stock SKUs out of the change report", type: "check" },
   { sec: "life", key: "lowStock", label: "Flag stock at or below", hint: "(units)", unit: "" },

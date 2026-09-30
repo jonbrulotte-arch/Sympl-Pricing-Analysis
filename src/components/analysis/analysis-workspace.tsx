@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ProductRow, BrandRoyaltyTable, ChannelDefaults, RoyaltyRuleEntry } from "@/lib/pricing/types";
 import { exportChangeReport, exportFullAnalysis } from "@/lib/export/change-report";
-import { Search, Download, ChevronDown, ChevronLeft, ChevronRight, Tag } from "lucide-react";
+import { Search, Download, ChevronDown, ChevronLeft, ChevronRight, Tag, CheckSquare } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
@@ -90,6 +90,35 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
   const [brandPanelOpen, setBrandPanelOpen] = useState(false);
   const [brandSearch, setBrandSearch] = useState("");
   const [calcCheckTarget, setCalcCheckTarget] = useState<{ channelId: string; sku: string } | null>(null);
+  const [selectedSkus, setSelectedSkus] = useState<Set<string>>(new Set());
+  const [bulkCommitting, setBulkCommitting] = useState(false);
+
+  function handleSelectSku(sku: string) {
+    setSelectedSkus((prev) => {
+      const next = new Set(prev);
+      if (next.has(sku)) next.delete(sku);
+      else next.add(sku);
+      return next;
+    });
+  }
+
+  function handleSelectAll(skus: string[]) {
+    setSelectedSkus(new Set(skus));
+  }
+
+  async function handleBulkCommit() {
+    if (selectedSkus.size === 0 || bulkCommitting) return;
+    setBulkCommitting(true);
+    try {
+      const skuList = Array.from(selectedSkus);
+      for (const sku of skuList) {
+        await commitPrice(sku);
+      }
+      setSelectedSkus(new Set());
+    } finally {
+      setBulkCommitting(false);
+    }
+  }
 
   function toggleBrand(brand: string) {
     setBrandFilter((prev) =>
@@ -144,7 +173,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
         {configs.map((cfg) => (
           <button
             key={cfg.id}
-            onClick={() => setActiveTab(cfg.id)}
+            onClick={() => { setActiveTab(cfg.id); setSelectedSkus(new Set()); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === cfg.id
                 ? "border-blue-600 text-blue-600"
@@ -155,7 +184,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
           </button>
         ))}
         <button
-          onClick={() => setActiveTab("__calc_check__")}
+          onClick={() => { setActiveTab("__calc_check__"); setSelectedSkus(new Set()); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
             isCalcCheck
               ? "border-blue-600 text-blue-600"
@@ -165,7 +194,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
           Calculation Check
         </button>
         <button
-          onClick={() => setActiveTab("__publish_salsify__")}
+          onClick={() => { setActiveTab("__publish_salsify__"); setSelectedSkus(new Set()); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
             isPublishSalsify
               ? "border-blue-600 text-blue-600"
@@ -275,6 +304,18 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
               )}
             </div>
             <div className="ml-auto flex items-center gap-3">
+              {selectedSkus.size > 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleBulkCommit}
+                  disabled={bulkCommitting}
+                  className="h-8 text-xs bg-green-600 hover:bg-green-700"
+                >
+                  <CheckSquare className="h-3.5 w-3.5 mr-1" />
+                  {bulkCommitting ? "Committing..." : `Commit Selected (${selectedSkus.size})`}
+                </Button>
+              )}
               <span className="text-xs text-gray-500">
                 {filteredResults.length} of {kpis.total} SKUs
               </span>
@@ -321,6 +362,9 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             cfg={activeCfg}
             settings={activeSettings}
             onShowMath={handleShowMath}
+            selectedSkus={selectedSkus}
+            onSelectSku={handleSelectSku}
+            onSelectAll={handleSelectAll}
           />
 
           {/* Pagination */}

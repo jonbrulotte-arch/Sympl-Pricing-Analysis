@@ -116,9 +116,9 @@ export function verifyAnalysis(
   const netViaRevenue = P * units - cur.alloc - shipping - cost * units;
   checks.push(check("Net margin", "revenue - alloc - ship - cost*U", cur.net, "independent route", netViaRevenue));
 
-  // 8. Net GM%
+  // 8. Net Margin %
   const gmViaNet = P * units > 0 ? cur.net / (P * units) : 0;
-  checks.push(check("Net GM%", "net / revenue", cur.gm, "net / (P*U)", gmViaNet));
+  checks.push(check("Net Margin %", "net / revenue", cur.gm, "net / (P*U)", gmViaNet));
 
   // 9. Fee rate k composition
   const k = computeFeeRate(r, commR, royRate);
@@ -142,7 +142,7 @@ export function verifyAnalysis(
   const { price: solvedP, achievable } = solveGoalPrice(cost, units, shipping, k, goalUsed, flatUnit, flatOrder);
   if (achievable) {
     const solvedCalc = forwardPass(solvedP, r, commR, royRate, royFlat, fvfFixed, ppc, units, shipping, cost);
-    checks.push(check("Goal price solves exactly", "solved GM%", solvedCalc.gm, "goal", goalUsed, SOLVE_TOL));
+    checks.push(check("Goal price solves exactly", "solved net margin %", solvedCalc.gm, "goal", goalUsed, SOLVE_TOL));
   }
 
   // 11. Rounded price re-analyzed matches

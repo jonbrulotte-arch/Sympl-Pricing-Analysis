@@ -20,7 +20,7 @@ export function KpiCards({ kpis }: { kpis: KpiData }) {
       <KpiCard label="At goal" value={kpis.atGoal} color="text-green-600" />
       <KpiCard label="Below goal" value={kpis.below} color="text-amber-600" />
       <KpiCard label="Losing money" value={kpis.loss} color="text-red-600" />
-      <KpiCard label="Avg GM%" value={`${(kpis.avgGm * 100).toFixed(1)}%`} />
+      <KpiCard label="Avg Net Margin" value={`${(kpis.avgGm * 100).toFixed(1)}%`} />
       <KpiCard label="Total margin" value={`$${kpis.totalMargin.toFixed(0)}`} />
       <KpiCard label="Need repricing" value={kpis.needRepricing} color="text-blue-600" />
       <KpiCard label="Unpriced" value={kpis.unpriced} color="text-gray-500" />

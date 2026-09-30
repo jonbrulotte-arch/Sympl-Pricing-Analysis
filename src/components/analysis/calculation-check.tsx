@@ -176,7 +176,7 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
               </tr>
               <tr className="font-bold">
                 <td className="py-1">21</td>
-                <td>Net GM%</td>
+                <td>Net Margin %</td>
                 <td colSpan={2} className="text-right">{(cur.gm * 100).toFixed(2)}%</td>
               </tr>
             </tbody>
@@ -223,7 +223,7 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
           <CardHeader><CardTitle className="text-sm">Goal Price Solve</CardTitle></CardHeader>
           <CardContent className="text-sm space-y-2">
             <p className="text-gray-600">
-              Solve for price P where net GM% = {(selected.goalUsed * 100).toFixed(1)}%:
+              Solve for price P where net margin % = {(selected.goalUsed * 100).toFixed(1)}%:
             </p>
             <div className="bg-gray-50 rounded p-3 font-mono text-xs space-y-1">
               <p>denom = 1 - k - goal = 1 - {k.toFixed(6)} - {selected.goalUsed.toFixed(4)} = {(1 - k - selected.goalUsed).toFixed(6)}</p>
@@ -240,7 +240,7 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
                   <>
                     <p>P = ${rawP.toFixed(6)} (raw)</p>
                     <p>Rounded ({rates.round}): <strong>${selected.rec!.toFixed(2)}</strong></p>
-                    {selected.recCalc && <p>GM% at rounded: <strong>{(selected.recCalc.gm * 100).toFixed(2)}%</strong></p>}
+                    {selected.recCalc && <p>Net margin % at rounded: <strong>{(selected.recCalc.gm * 100).toFixed(2)}%</strong></p>}
                   </>
                 );
               })()}

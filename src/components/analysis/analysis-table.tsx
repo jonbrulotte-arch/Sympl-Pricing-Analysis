@@ -7,6 +7,10 @@ import type { AnalysisResult, ChannelConfig, ChannelDefaults } from "@/lib/prici
 import { ChevronDown, ChevronUp, ArrowUpDown, Check, BarChart3, AlertTriangle } from "lucide-react";
 import { SkuDetailPanel } from "./sku-detail-panel";
 
+function isCommittable(r: AnalysisResult): boolean {
+  return !!(r.edited || (r.rec != null && r.rec !== r.price && !r.invalid && !r.unpriced));
+}
+
 interface Props {
   results: AnalysisResult[];
   sortKey: string;
@@ -18,6 +22,9 @@ interface Props {
   cfg?: ChannelConfig;
   settings?: ChannelDefaults;
   onShowMath?: (sku: string) => void;
+  selectedSkus?: Set<string>;
+  onSelectSku?: (sku: string) => void;
+  onSelectAll?: (skus: string[]) => void;
 }
 
 const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -28,10 +35,14 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "second
   invalid: { label: "Invalid", variant: "outline" },
 };
 
-export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, channelId, onCommit, cfg, settings, onShowMath }: Props) {
+export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, channelId, onCommit, cfg, settings, onShowMath, selectedSkus, onSelectSku, onSelectAll }: Props) {
   const [expandedSku, setExpandedSku] = useState<string | null>(null);
   const [committingSkus, setCommittingSkus] = useState<Set<string>>(new Set());
-  const colCount = 11 + (onCommit ? 1 : 0) + (cfg ? 1 : 0);
+  const hasSelection = !!(onCommit && selectedSkus && onSelectSku && onSelectAll);
+  const colCount = 11 + (onCommit ? 1 : 0) + (cfg ? 1 : 0) + (hasSelection ? 1 : 0);
+
+  const committableSkus = hasSelection ? results.filter(isCommittable).map((r) => r.sku) : [];
+  const allSelected = hasSelection && committableSkus.length > 0 && committableSkus.every((s) => selectedSkus!.has(s));
 
   function SortHeader({ label, field }: { label: string; field: string }) {
     return (
@@ -56,13 +67,24 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-200">
+            {hasSelection && (
+              <th className="py-2 px-2 w-8">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={() => onSelectAll!(allSelected ? [] : committableSkus)}
+                  className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
+                  title="Select all committable"
+                />
+              </th>
+            )}
             <SortHeader label="SKU" field="sku" />
             <SortHeader label="Name" field="name" />
             <SortHeader label="Brand" field="brand" />
             <SortHeader label="Cost" field="cost" />
             <SortHeader label="Price" field="price" />
             <th className="text-right py-2 px-2 text-gray-600 font-medium text-xs">Ship</th>
-            <SortHeader label="GM%" field="gm" />
+            <SortHeader label="NM%" field="gm" />
             <SortHeader label="Net $" field="net" />
             <SortHeader label="Rec" field="rec" />
             <SortHeader label="+/-%" field="delta" />
@@ -78,7 +100,19 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
 
             return (
               <Fragment key={r.sku}>
-              <tr className="border-b border-gray-50 hover:bg-gray-50/50">
+              <tr className={`border-b border-gray-50 hover:bg-gray-50/50 ${hasSelection && selectedSkus!.has(r.sku) ? "bg-blue-50/50" : ""}`}>
+                {hasSelection && (
+                  <td className="py-1.5 px-2">
+                    {isCommittable(r) && (
+                      <input
+                        type="checkbox"
+                        checked={selectedSkus!.has(r.sku)}
+                        onChange={() => onSelectSku!(r.sku)}
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
+                      />
+                    )}
+                  </td>
+                )}
                 <td className="py-1.5 px-2">
                   <div className="flex items-center gap-1">
                     <button
