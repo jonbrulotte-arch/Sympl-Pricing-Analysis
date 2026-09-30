@@ -1,5 +1,6 @@
 import type { AnalysisResult, ChannelConfig, ChannelDefaults } from "@/lib/pricing/types";
 import { computeRates } from "@/lib/pricing/engine";
+import { AlertTriangle } from "lucide-react";
 
 interface Props {
   result: AnalysisResult;
@@ -54,6 +55,19 @@ export function SkuDetailPanel({ result: r, cfg, settings, onShowMath }: Props) 
     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 grid md:grid-cols-2 gap-6">
       {/* Left: waterfall + message + tags */}
       <div>
+        {r.invRaw?.toLowerCase() === "discontinued" && (
+          <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 mb-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-red-800">
+                <p className="font-medium">Discontinued SKU</p>
+                <p className="mt-0.5 text-red-700">
+                  Selling through remaining stock — not reordering. Consider pricing strategy carefully before increasing price on liquidation items.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <p className="text-sm font-semibold text-gray-900 mb-3">
           Where the {cfg.tabLabel} list price goes
         </p>

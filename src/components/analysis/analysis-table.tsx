@@ -4,7 +4,7 @@ import { useState, Fragment } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { AnalysisResult, ChannelConfig, ChannelDefaults } from "@/lib/pricing/types";
-import { ChevronDown, ChevronUp, ArrowUpDown, Check, BarChart3 } from "lucide-react";
+import { ChevronDown, ChevronUp, ArrowUpDown, Check, BarChart3, AlertTriangle } from "lucide-react";
 import { SkuDetailPanel } from "./sku-detail-panel";
 
 interface Props {
@@ -80,12 +80,19 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
               <Fragment key={r.sku}>
               <tr className="border-b border-gray-50 hover:bg-gray-50/50">
                 <td className="py-1.5 px-2">
-                  <button
-                    onClick={() => setExpandedSku(expanded ? null : r.sku)}
-                    className="font-mono text-xs text-blue-600 hover:underline"
-                  >
-                    {r.sku}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setExpandedSku(expanded ? null : r.sku)}
+                      className="font-mono text-xs text-blue-600 hover:underline"
+                    >
+                      {r.sku}
+                    </button>
+                    {r.invRaw?.toLowerCase() === "discontinued" && (
+                      <span title="Discontinued — selling through remaining stock">
+                        <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="py-1.5 px-2 text-gray-700 max-w-[200px] truncate text-xs">{r.name ?? "-"}</td>
                 <td className="py-1.5 px-2 text-gray-600 text-xs">{r.brand ?? "-"}</td>

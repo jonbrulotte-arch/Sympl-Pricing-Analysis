@@ -30,14 +30,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cus
   const products = skus.length > 0
     ? await prisma.product.findMany({
         where: { sku: { in: skus } },
-        select: { sku: true, brand: true },
+        select: { sku: true, brand: true, inventoryStatus: true },
       })
     : [];
   const brandBySku = new Map(products.map((p) => [p.sku, p.brand]));
+  const statusBySku = new Map(products.map((p) => [p.sku, p.inventoryStatus]));
 
   const staged = raw.map((s) => ({
     ...s,
     brand: brandBySku.get(s.sku) ?? null,
+    inventoryStatus: statusBySku.get(s.sku) ?? null,
   }));
 
   return NextResponse.json({ staged });

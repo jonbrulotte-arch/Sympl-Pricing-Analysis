@@ -15,6 +15,7 @@ interface StagedEntry {
   newNetMargin: string | null;
   stagedAt: string;
   brand: string | null;
+  inventoryStatus: string | null;
   channel: {
     name: string;
     tabLabel: string;
@@ -353,7 +354,16 @@ export function PublishToSalsify({ customerId }: Props) {
                     )}
                   </td>
                   <td className="py-2 px-3 font-mono text-xs text-gray-900">
-                    {i === 0 ? group.sku : ""}
+                    {i === 0 && (
+                      <span className="inline-flex items-center gap-1">
+                        {group.sku}
+                        {entry.inventoryStatus?.toLowerCase() === "discontinued" && (
+                          <span title="Discontinued — selling through remaining stock">
+                            <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2 px-3">
                     <Badge variant="secondary" className="text-xs">
