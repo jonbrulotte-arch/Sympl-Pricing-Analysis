@@ -30,9 +30,10 @@ interface SkuGroup {
 
 interface Props {
   customerId: string;
+  onRevert?: (channelId: string, sku: string) => void;
 }
 
-export function PublishToSalsify({ customerId }: Props) {
+export function PublishToSalsify({ customerId, onRevert }: Props) {
   const [staged, setStaged] = useState<StagedEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -182,6 +183,10 @@ export function PublishToSalsify({ customerId }: Props) {
       });
       if (res.ok) {
         const data = await res.json();
+        const removed = staged.filter((e) => ids.includes(e.id));
+        for (const entry of removed) {
+          onRevert?.(entry.channelId, entry.sku);
+        }
         setStaged((prev) => prev.filter((e) => !ids.includes(e.id)));
         setSelectedIds((prev) => {
           const next = new Set(prev);

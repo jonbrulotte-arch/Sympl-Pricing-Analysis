@@ -260,6 +260,16 @@ export function useAnalysis(
     router.refresh();
   }, [activeTab, results, overrides, customerId, setOverride, router]);
 
+  const clearCommittedPrice = useCallback((channelId: string, sku: string) => {
+    setCommittedPrices((prev) => {
+      const ch = prev[channelId];
+      if (!ch || !(sku in ch)) return prev;
+      const next = { ...prev, [channelId]: { ...ch } };
+      delete next[channelId][sku];
+      return next;
+    });
+  }, []);
+
   function handleSort(key: string) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -297,5 +307,6 @@ export function useAnalysis(
     settingsMap,
     updateSetting,
     commitPrice,
+    clearCommittedPrice,
   };
 }
