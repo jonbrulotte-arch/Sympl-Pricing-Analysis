@@ -63,6 +63,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ...(body.priceRecordTiming !== undefined && { priceRecordTiming: body.priceRecordTiming }),
       ...(body.defaults !== undefined && { defaults: body.defaults }),
       ...(body.blockedBrands !== undefined && { blockedBrands: body.blockedBrands }),
+      ...(body.isDefault !== undefined && { isDefault: !!body.isDefault }),
     },
   });
 

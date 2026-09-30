@@ -64,6 +64,7 @@ export default function ChannelSettingsPage() {
   const [priceRecordTiming, setPriceRecordTiming] = useState("at_commit");
   const [blockedBrands, setBlockedBrands] = useState<string[]>([]);
   const [allBrands, setAllBrands] = useState<string[]>([]);
+  const [isDefault, setIsDefault] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -77,6 +78,7 @@ export default function ChannelSettingsPage() {
       setChannel(data);
       setDefaults(data.defaults ?? {});
       setPriceRecordTiming(data.priceRecordTiming ?? "at_commit");
+      setIsDefault(data.isDefault ?? false);
       setBlockedBrands(data.blockedBrands ?? []);
     }
     if (brandsRes.ok) {
@@ -95,7 +97,7 @@ export default function ChannelSettingsPage() {
     const res = await fetch(`/api/customers/${customerId}/channels/${channelId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ defaults, priceRecordTiming, blockedBrands }),
+      body: JSON.stringify({ defaults, priceRecordTiming, isDefault, blockedBrands }),
     });
     setSaving(false);
     if (res.ok) {
@@ -127,12 +129,12 @@ export default function ChannelSettingsPage() {
             </Badge>
             {channel.shippingMode === "fba" ? "FBA" : channel.shippingMode === "mcf" ? "MCF" : "Standard"} shipping
             {" · "}{channel.freightMode === "collect" ? "Collect" : "Prepaid"}
-            {channel.isDefault && " · Default channel"}
+            {isDefault && " · Default channel"}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-sm text-green-600">Saved</span>}
-          {!channel.isDefault && (
+          {!isDefault && (
             <ChannelDeleteButton
               customerId={customerId}
               channelId={channelId}
@@ -170,6 +172,26 @@ export default function ChannelSettingsPage() {
               ? "Price history is recorded immediately when a price is committed in the analysis view."
               : "Price history is deferred until the price is published to Salsify."}
           </p>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Channel Status</CardTitle>
+          <p className="text-xs text-gray-500">
+            Default channels cannot be deleted and are included in standard configurations
+          </p>
+        </CardHeader>
+        <CardContent>
+          <label className="flex items-center gap-3 cursor-pointer py-1">
+            <input
+              type="checkbox"
+              checked={isDefault}
+              onChange={(e) => setIsDefault(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600"
+            />
+            <span className="text-sm text-gray-900">Default channel</span>
+          </label>
         </CardContent>
       </Card>
 
