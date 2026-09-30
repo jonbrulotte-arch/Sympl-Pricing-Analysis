@@ -34,6 +34,7 @@ export async function upsertImportRows(
           ...(row.fbaClass !== undefined && { fbaClass: row.fbaClass }),
           ...(row.amzCategory !== undefined && { amzCategory: row.amzCategory }),
           ...(row.amzItemType !== undefined && { amzItemType: row.amzItemType }),
+          ...(row.invStatus !== undefined && { inventoryStatus: row.invStatus }),
         },
       });
       updated++;
@@ -49,6 +50,7 @@ export async function upsertImportRows(
           fbaClass: row.fbaClass,
           amzCategory: row.amzCategory,
           amzItemType: row.amzItemType,
+          inventoryStatus: row.invStatus,
         },
       });
       created++;

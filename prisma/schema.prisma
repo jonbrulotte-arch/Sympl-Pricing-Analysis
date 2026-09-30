@@ -137,10 +137,11 @@ model Product {
   sku         String   @unique
   name        String?
   brand       String?
-  asin        String?
-  fbaClass    String?
-  amzCategory String?
-  amzItemType String?
+  asin            String?
+  fbaClass        String?
+  amzCategory     String?
+  amzItemType     String?
+  inventoryStatus String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

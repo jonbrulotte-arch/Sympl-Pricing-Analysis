@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/utils";
 import { ProductEditor } from "@/components/products/product-editor";
 import { ProductDelete } from "@/components/products/product-delete";
 import { CostHistoryChart, ShippingHistoryChart } from "@/components/products/cost-chart";
+import { AlertTriangle } from "lucide-react";
 
 export default async function ProductDetailPage({
   params,
@@ -103,7 +104,23 @@ export default async function ProductDetailPage({
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-bold text-gray-900">{product.sku}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">{product.sku}</h1>
+          {product.inventoryStatus && (
+            <Badge
+              variant={product.inventoryStatus.toLowerCase() === "discontinued" ? "destructive" : "default"}
+              className={`text-xs ${
+                product.inventoryStatus.toLowerCase() === "discontinued"
+                  ? "bg-red-100 text-red-800 border-red-200"
+                  : product.inventoryStatus.toLowerCase() === "sales inventory"
+                    ? "bg-green-100 text-green-800 border-green-200"
+                    : "bg-gray-100 text-gray-800 border-gray-200"
+              }`}
+            >
+              {product.inventoryStatus}
+            </Badge>
+          )}
+        </div>
         <ProductDelete
           productId={productId}
           sku={product.sku}
@@ -114,12 +131,39 @@ export default async function ProductDetailPage({
       </div>
       <p className="text-sm text-gray-600 mb-6">{product.name || "Unnamed product"}</p>
 
+      {product.inventoryStatus?.toLowerCase() === "discontinued" && (
+        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 mb-6">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+            <div className="text-sm text-red-800">
+              <p className="font-medium">Discontinued SKU</p>
+              <p className="mt-0.5 text-red-700">
+                This product is being sold through remaining on-hand stock and will not be reordered.
+                Consider pricing strategy carefully before increasing prices on sell-through/liquidation items.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Product info */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="py-4">
             <p className="text-xs text-gray-600">Brand</p>
             <p className="text-sm font-medium">{product.brand || "-"}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-4">
+            <p className="text-xs text-gray-600">Inventory Status</p>
+            <p className={`text-sm font-medium ${
+              product.inventoryStatus?.toLowerCase() === "discontinued" ? "text-red-700" :
+              product.inventoryStatus?.toLowerCase() === "sales inventory" ? "text-green-700" :
+              "text-gray-900"
+            }`}>
+              {product.inventoryStatus || "-"}
+            </p>
           </CardContent>
         </Card>
         {product.asin && (

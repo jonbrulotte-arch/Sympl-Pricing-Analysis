@@ -217,6 +217,7 @@ export default async function ProductsPage({
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">SKU</th>
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Name</th>
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Brand</th>
+                  <th className="text-left py-3 px-2 text-gray-600 font-medium">Status</th>
                   <th className="text-right py-3 px-2 text-gray-600 font-medium">Cost</th>
                   <th className="text-right py-3 px-2 text-gray-600 font-medium">MCF Freight</th>
                   <th className="text-right py-3 px-2 text-gray-600 font-medium">Last Updated</th>
@@ -239,6 +240,20 @@ export default async function ProductsPage({
                       </td>
                       <td className="py-2 px-2 text-gray-700 max-w-xs truncate">{p.name || "-"}</td>
                       <td className="py-2 px-2 text-gray-600">{p.brand || "-"}</td>
+                      <td className="py-2 px-2">
+                        {p.inventoryStatus?.toLowerCase() === "discontinued" ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
+                            <AlertTriangle className="h-3 w-3" />
+                            DC&apos;d
+                          </span>
+                        ) : p.inventoryStatus?.toLowerCase() === "sales inventory" ? (
+                          <span className="inline-flex items-center text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">-</span>
+                        )}
+                      </td>
                       <td className="py-2 px-2 text-right font-mono text-gray-900">
                         {costEntry ? `$${costEntry.cost.toFixed(2)}` : "-"}
                       </td>
@@ -256,7 +271,7 @@ export default async function ProductsPage({
                 })}
                 {products.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-gray-500">
+                    <td colSpan={8} className="py-8 text-center text-gray-500">
                       {q ? "No products match your search." : "No products yet. Import data to get started."}
                     </td>
                   </tr>
