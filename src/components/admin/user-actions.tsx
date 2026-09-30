@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -104,6 +104,146 @@ export function AddUserButton() {
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={handleCreate} disabled={loading || !name.trim() || !email.trim() || password.length < 8}>
               {loading ? "Creating..." : "Create User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+interface EditUserProps {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userRole: "ADMIN" | "ANALYST";
+}
+
+export function EditUserButton({ userId, userName, userEmail, userRole }: EditUserProps) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(userName);
+  const [email, setEmail] = useState(userEmail);
+  const [role, setRole] = useState<"ADMIN" | "ANALYST">(userRole);
+  const [newPassword, setNewPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  function openDialog() {
+    setName(userName);
+    setEmail(userEmail);
+    setRole(userRole);
+    setNewPassword("");
+    setError(null);
+    setSuccess(null);
+    setOpen(true);
+  }
+
+  async function handleSave() {
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    const body: Record<string, string> = {};
+    if (name.trim() !== userName) body.name = name.trim();
+    if (email.trim().toLowerCase() !== userEmail) body.email = email.trim().toLowerCase();
+    if (role !== userRole) body.role = role;
+    if (newPassword) body.newPassword = newPassword;
+
+    if (Object.keys(body).length === 0) {
+      setError("No changes to save");
+      setLoading(false);
+      return;
+    }
+
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setLoading(false);
+    if (res.ok) {
+      setSuccess("User updated successfully");
+      setNewPassword("");
+      setTimeout(() => {
+        setOpen(false);
+        router.refresh();
+      }, 800);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Failed to update user");
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={openDialog}
+        className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+        title="Edit user"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>Update account details for {userName}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setRole("ANALYST")}
+                  className={`px-3 py-1.5 text-sm rounded-md border ${
+                    role === "ANALYST" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  Analyst
+                </button>
+                <button
+                  onClick={() => setRole("ADMIN")}
+                  className={`px-3 py-1.5 text-sm rounded-md border ${
+                    role === "ADMIN" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  Admin
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Reset Password</label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Leave blank to keep current password"
+              />
+              {newPassword && newPassword.length < 8 && (
+                <p className="text-xs text-amber-600 mt-1">Must be at least 8 characters</p>
+              )}
+            </div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            {success && <p className="text-sm text-green-600">{success}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleSave}
+              disabled={loading || !name.trim() || !email.trim() || (!!newPassword && newPassword.length < 8)}
+            >
+              {loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

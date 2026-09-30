@@ -5,7 +5,7 @@ import { getPermissions } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
-import { AddUserButton, DeleteUserButton } from "@/components/admin/user-actions";
+import { AddUserButton, EditUserButton, DeleteUserButton } from "@/components/admin/user-actions";
 
 export default async function AdminUsersPage() {
   const session = await auth();
@@ -69,7 +69,10 @@ export default async function AdminUsersPage() {
                     </td>
                     <td className="py-2 px-2 text-right text-gray-500">{formatDate(u.createdAt)}</td>
                     <td className="py-2 px-2 text-right">
-                      {u.id !== session.user.id && <DeleteUserButton userId={u.id} userName={u.name} />}
+                      <div className="flex items-center justify-end gap-1">
+                        <EditUserButton userId={u.id} userName={u.name} userEmail={u.email} userRole={u.role as "ADMIN" | "ANALYST"} />
+                        {u.id !== session.user.id && <DeleteUserButton userId={u.id} userName={u.name} />}
+                      </div>
                     </td>
                   </tr>
                 ))}

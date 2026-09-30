@@ -25,8 +25,22 @@ model User {
   analyses     Analysis[]
   imports      Import[]
   projects     Project[]
-  salsifyStaged SalsifyStaged[]
-  activityLogs  ActivityLog[]
+  salsifyStaged      SalsifyStaged[]
+  activityLogs       ActivityLog[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
 }
 
 model Customer {
