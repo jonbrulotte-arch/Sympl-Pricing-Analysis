@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { getPermissions } from "@/types";
+import { getPermissions } from "@/lib/permissions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
@@ -10,7 +10,7 @@ export default async function SalsifyLogPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const permissions = getPermissions(session.user.role);
+  const permissions = await getPermissions(session.user.role);
   if (!permissions.has("admin:settings")) redirect("/dashboard");
 
   const imports = await prisma.import.findMany({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,13 +14,29 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+interface RoleOption {
+  name: string;
+}
+
+function useRoles() {
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+  useEffect(() => {
+    fetch("/api/admin/roles")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setRoles(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+  return roles;
+}
+
 export function AddUserButton() {
   const router = useRouter();
+  const roles = useRoles();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"ADMIN" | "ANALYST">("ANALYST");
+  const [role, setRole] = useState("ANALYST");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,23 +95,18 @@ export function AddUserButton() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setRole("ANALYST")}
-                  className={`px-3 py-1.5 text-sm rounded-md border ${
-                    role === "ANALYST" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  Analyst
-                </button>
-                <button
-                  onClick={() => setRole("ADMIN")}
-                  className={`px-3 py-1.5 text-sm rounded-md border ${
-                    role === "ADMIN" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  Admin
-                </button>
+              <div className="flex flex-wrap gap-2">
+                {roles.map((r) => (
+                  <button
+                    key={r.name}
+                    onClick={() => setRole(r.name)}
+                    className={`px-3 py-1.5 text-sm rounded-md border ${
+                      role === r.name ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {r.name}
+                  </button>
+                ))}
               </div>
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
@@ -116,15 +127,16 @@ interface EditUserProps {
   userId: string;
   userName: string;
   userEmail: string;
-  userRole: "ADMIN" | "ANALYST";
+  userRole: string;
 }
 
 export function EditUserButton({ userId, userName, userEmail, userRole }: EditUserProps) {
   const router = useRouter();
+  const roles = useRoles();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(userName);
   const [email, setEmail] = useState(userEmail);
-  const [role, setRole] = useState<"ADMIN" | "ANALYST">(userRole);
+  const [role, setRole] = useState(userRole);
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -203,23 +215,18 @@ export function EditUserButton({ userId, userName, userEmail, userRole }: EditUs
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setRole("ANALYST")}
-                  className={`px-3 py-1.5 text-sm rounded-md border ${
-                    role === "ANALYST" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  Analyst
-                </button>
-                <button
-                  onClick={() => setRole("ADMIN")}
-                  className={`px-3 py-1.5 text-sm rounded-md border ${
-                    role === "ADMIN" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  Admin
-                </button>
+              <div className="flex flex-wrap gap-2">
+                {roles.map((r) => (
+                  <button
+                    key={r.name}
+                    onClick={() => setRole(r.name)}
+                    className={`px-3 py-1.5 text-sm rounded-md border ${
+                      role === r.name ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {r.name}
+                  </button>
+                ))}
               </div>
             </div>
             <div>

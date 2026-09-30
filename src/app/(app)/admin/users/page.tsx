@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { getPermissions } from "@/types";
+import { getPermissions } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
@@ -11,7 +11,7 @@ export default async function AdminUsersPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const permissions = getPermissions(session.user.role);
+  const permissions = await getPermissions(session.user.role);
   if (!permissions.has("admin:users")) redirect("/dashboard");
 
   const users = await prisma.user.findMany({
@@ -70,7 +70,7 @@ export default async function AdminUsersPage() {
                     <td className="py-2 px-2 text-right text-gray-500">{formatDate(u.createdAt)}</td>
                     <td className="py-2 px-2 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <EditUserButton userId={u.id} userName={u.name} userEmail={u.email} userRole={u.role as "ADMIN" | "ANALYST"} />
+                        <EditUserButton userId={u.id} userName={u.name} userEmail={u.email} userRole={u.role} />
                         {u.id !== session.user.id && <DeleteUserButton userId={u.id} userName={u.name} />}
                       </div>
                     </td>

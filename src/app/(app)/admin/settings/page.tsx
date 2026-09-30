@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { getPermissions } from "@/types";
+import { getPermissions } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SalsifySettings } from "@/components/admin/salsify-settings";
@@ -11,7 +11,7 @@ export default async function AdminSettingsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const permissions = getPermissions(session.user.role);
+  const permissions = await getPermissions(session.user.role);
   if (!permissions.has("admin:settings")) redirect("/dashboard");
 
   const [userCount, customerCount, productCount, channelCount] = await Promise.all([

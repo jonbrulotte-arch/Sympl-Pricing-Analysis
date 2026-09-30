@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPermissions } from "@/types";
+import { getPermissions } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity-log";
 
 const SINGLETON_ID = "singleton";
@@ -9,7 +9,7 @@ const SINGLETON_ID = "singleton";
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!getPermissions(session.user.role).has("admin:settings"))
+  if (!(await getPermissions(session.user.role)).has("admin:settings"))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const settings = await prisma.appSettings.findUnique({ where: { id: SINGLETON_ID } });
@@ -25,7 +25,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!getPermissions(session.user.role).has("admin:settings"))
+  if (!(await getPermissions(session.user.role)).has("admin:settings"))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();

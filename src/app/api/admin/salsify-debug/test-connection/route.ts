@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getPermissions } from "@/types";
+import { getPermissions } from "@/lib/permissions";
 import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
 import { fetchProductsPage } from "@/lib/salsify/client";
 
@@ -8,7 +8,7 @@ export async function POST() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const permissions = getPermissions(session.user.role);
+  const permissions = await getPermissions(session.user.role);
   if (!permissions.has("admin:settings")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const credentials = await resolveSalsifyCredentials(session.user.id);

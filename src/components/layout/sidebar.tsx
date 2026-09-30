@@ -21,22 +21,24 @@ import {
   Bell,
   Settings as SettingsIcon,
   ClipboardList,
+  Shield,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useState } from "react";
 import type { SafeUser, Permission } from "@/types";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/products", label: "Products", icon: Package },
-  { href: "/customers", label: "Customers", icon: Building2 },
-  { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/royalty-rules", label: "Royalty Rules", icon: DollarSign },
-  { href: "/activity-log", label: "Activity Log", icon: ClipboardList },
+const navItems: { href: string; label: string; icon: React.ElementType; permission: Permission | null }[] = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: null },
+  { href: "/products", label: "Products", icon: Package, permission: "module:products" },
+  { href: "/customers", label: "Customers", icon: Building2, permission: "module:customers" },
+  { href: "/projects", label: "Projects", icon: FolderKanban, permission: "module:projects" },
+  { href: "/royalty-rules", label: "Royalty Rules", icon: DollarSign, permission: "module:royalties" },
+  { href: "/activity-log", label: "Activity Log", icon: ClipboardList, permission: "module:activityLog" },
 ];
 
 const adminNavItems: { href: string; label: string; icon: React.ElementType; permission: Permission | null }[] = [
   { href: "/admin/users", label: "Users", icon: Users, permission: "admin:users" },
+  { href: "/admin/roles", label: "Roles", icon: Shield, permission: "admin:roles" },
   { href: "/admin/settings", label: "Settings", icon: Settings, permission: "admin:settings" },
 ];
 
@@ -71,7 +73,9 @@ export function Sidebar({ user, grantedPermissions, salsifyDebugEnabled = false 
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-2">
-        {navItems.map(({ href, label, icon: Icon }) => (
+        {navItems
+          .filter(({ permission }) => permission === null || grantedPermissions.has(permission))
+          .map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
@@ -89,9 +93,7 @@ export function Sidebar({ user, grantedPermissions, salsifyDebugEnabled = false 
 
         {(() => {
           const visibleAdminItems = adminNavItems.filter(({ permission }) =>
-            permission === null
-              ? user.role === "ADMIN"
-              : grantedPermissions.has(permission)
+            permission === null || grantedPermissions.has(permission)
           );
           if (salsifyDebugEnabled && grantedPermissions.has("admin:settings")) {
             visibleAdminItems.push({ href: "/admin/salsify-debug", label: "Salsify Debug", icon: Bug, permission: "admin:settings" });

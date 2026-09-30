@@ -11,6 +11,41 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  // Create default roles
+  await prisma.appRole.upsert({
+    where: { name: "ADMIN" },
+    update: {},
+    create: {
+      name: "ADMIN",
+      description: "Full access to all modules and settings",
+      permissions: [
+        "module:products", "module:customers", "module:projects", "module:royalties", "module:activityLog",
+        "customers:create", "customers:edit", "customers:delete",
+        "channels:create", "channels:edit", "channels:delete",
+        "analysis:create", "analysis:export",
+        "import:upload", "royalties:edit",
+        "admin:users", "admin:settings", "admin:roles",
+      ],
+      isSystem: true,
+    },
+  });
+
+  await prisma.appRole.upsert({
+    where: { name: "ANALYST" },
+    update: {},
+    create: {
+      name: "ANALYST",
+      description: "Standard analyst with access to core modules",
+      permissions: [
+        "module:products", "module:customers", "module:projects", "module:royalties", "module:activityLog",
+        "customers:edit", "channels:edit",
+        "analysis:create", "analysis:export",
+        "import:upload", "royalties:edit",
+      ],
+      isSystem: true,
+    },
+  });
+
   const adminPassword = await hash("admin123", 12);
 
   const admin = await prisma.user.upsert({

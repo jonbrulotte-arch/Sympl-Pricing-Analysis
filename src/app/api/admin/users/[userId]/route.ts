@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPermissions } from "@/types";
+import { getPermissions } from "@/lib/permissions";
 import { Prisma } from "@prisma/client";
 import { hash } from "bcryptjs";
 import { logActivity } from "@/lib/activity-log";
@@ -12,7 +12,7 @@ export async function PATCH(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!getPermissions(session.user.role).has("admin:users"))
+  if (!(await getPermissions(session.user.role)).has("admin:users"))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { userId } = await params;
@@ -40,8 +40,11 @@ export async function PATCH(
   }
 
   if (body.role !== undefined) {
-    const role = body.role === "ADMIN" ? "ADMIN" : "ANALYST";
-    data.role = role;
+    const roleName = typeof body.role === "string" ? body.role.trim() : "";
+    if (!roleName) return NextResponse.json({ error: "Role is required" }, { status: 400 });
+    const validRole = await prisma.appRole.findUnique({ where: { name: roleName } });
+    if (!validRole) return NextResponse.json({ error: `Invalid role: ${roleName}` }, { status: 400 });
+    data.role = roleName;
   }
 
   if (body.newPassword) {
@@ -80,7 +83,7 @@ export async function DELETE(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!getPermissions(session.user.role).has("admin:users"))
+  if (!(await getPermissions(session.user.role)).has("admin:users"))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { userId } = await params;

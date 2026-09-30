@@ -1,13 +1,13 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getPermissions } from "@/types";
+import { getPermissions } from "@/lib/permissions";
 import { SalsifyDebugClient } from "@/components/admin/salsify-debug-client";
 
 export default async function SalsifyDebugPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const permissions = getPermissions(session.user.role);
+  const permissions = await getPermissions(session.user.role);
   if (!permissions.has("admin:settings")) redirect("/dashboard");
 
   return (
