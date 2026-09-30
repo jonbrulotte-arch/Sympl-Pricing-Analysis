@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { BarChart3, Upload, Settings, Plus, Store, Package, Plug } from "lucide-react";
+import { NavigatingButton } from "@/components/ui/navigating-link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,12 +66,10 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
               Products
             </Button>
           </Link>
-          <Link href={`/customers/${customerId}/analysis`}>
-            <Button variant="outline">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Analysis
-            </Button>
-          </Link>
+          <NavigatingButton href={`/customers/${customerId}/analysis`} variant="outline" loadingText="Loading Analysis...">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Analysis
+          </NavigatingButton>
         </div>
       </div>
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Building2, Upload, BarChart3, Plus, FileSpreadsheet, Package, DollarSign, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NavigatingButton } from "@/components/ui/navigating-link";
 import { formatDate } from "@/lib/utils";
 
 export default async function DashboardPage() {
@@ -180,12 +181,10 @@ export default async function DashboardPage() {
                           {customer.name}
                         </Link>
                         <div className="flex items-center gap-2">
-                          <Link href={`/customers/${customer.id}/analysis`}>
-                            <Button variant="outline" size="sm" className="h-7 text-xs">
-                              <BarChart3 className="h-3 w-3 mr-1" />
-                              Analyze
-                            </Button>
-                          </Link>
+                          <NavigatingButton href={`/customers/${customer.id}/analysis`} variant="outline" size="sm" className="h-7 text-xs" loadingText="Loading...">
+                            <BarChart3 className="h-3 w-3 mr-1" />
+                            Analyze
+                          </NavigatingButton>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 mt-1.5">
