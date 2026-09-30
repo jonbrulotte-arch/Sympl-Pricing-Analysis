@@ -2,10 +2,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Building2, Upload, BarChart3, Plus, FileSpreadsheet, ArrowRight, Package, DollarSign, AlertTriangle } from "lucide-react";
+import { Building2, Upload, BarChart3, Plus, FileSpreadsheet, Package, DollarSign, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -29,11 +29,6 @@ export default async function DashboardPage() {
         name: true,
         channels: { select: { id: true, name: true } },
         customerProducts: { select: { productId: true } },
-        analyses: {
-          orderBy: { createdAt: "desc" },
-          take: 3,
-          select: { id: true, name: true, createdAt: true, createdBy: { select: { name: true } } },
-        },
         imports: {
           orderBy: { createdAt: "desc" },
           take: 1,
@@ -50,11 +45,6 @@ export default async function DashboardPage() {
   const totalCustomers = customers.length;
   const totalChannels = customers.reduce((sum, c) => sum + c.channels.length, 0);
   const missingSupplemental = totalProducts - Math.min(productsWithCost, productsWithFreight);
-
-  const recentAnalyses = customers
-    .flatMap((c) => c.analyses.map((a) => ({ ...a, customerName: c.name, customerId: c.id })))
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, 5);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -219,38 +209,7 @@ export default async function DashboardPage() {
           </Card>
         </div>
 
-        {/* Recent Analyses */}
         <div>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Recent Analyses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recentAnalyses.length === 0 ? (
-                <p className="text-sm text-gray-500 py-4 text-center">No analyses yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {recentAnalyses.map((a) => (
-                    <Link
-                      key={a.id}
-                      href={`/customers/${a.customerId}/analysis`}
-                      className="block p-3 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{a.name || "Untitled"}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{a.customerName}</p>
-                        </div>
-                        <ArrowRight className="h-3.5 w-3.5 text-gray-400 mt-0.5" />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">{formatDateTime(a.createdAt)}</p>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Quick Actions */}
           <Card className="mt-4">
             <CardHeader>
