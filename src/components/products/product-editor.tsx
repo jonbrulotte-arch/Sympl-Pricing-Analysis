@@ -11,6 +11,7 @@ interface Props {
   productId: string;
   currentCost: number | null;
   currentShipping: Record<string, number>;
+  hideCost?: boolean;
 }
 
 const SHIPPING_LABELS: Record<string, string> = {
@@ -20,7 +21,7 @@ const SHIPPING_LABELS: Record<string, string> = {
   fba_fee: "FBA Fee",
 };
 
-export function ProductEditor({ productId, currentCost, currentShipping }: Props) {
+export function ProductEditor({ productId, currentCost, currentShipping, hideCost }: Props) {
   const router = useRouter();
   const [cost, setCost] = useState(currentCost?.toString() ?? "");
   const [shipping, setShipping] = useState<Record<string, string>>({
@@ -95,6 +96,7 @@ export function ProductEditor({ productId, currentCost, currentShipping }: Props
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {!hideCost && (
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Unit Cost</label>
             <div className="relative">
@@ -108,6 +110,7 @@ export function ProductEditor({ productId, currentCost, currentShipping }: Props
               />
             </div>
           </div>
+          )}
           {Object.entries(SHIPPING_LABELS).map(([type, label]) => (
             <div key={type}>
               <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>

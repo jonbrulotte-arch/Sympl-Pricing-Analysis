@@ -7,9 +7,10 @@ interface Props {
   cfg: ChannelConfig;
   settings: ChannelDefaults;
   onShowMath: () => void;
+  canViewCost?: boolean;
 }
 
-export function SkuDetailPanel({ result: r, cfg, settings, onShowMath }: Props) {
+export function SkuDetailPanel({ result: r, cfg, settings, onShowMath, canViewCost = true }: Props) {
   const rates = computeRates(cfg, settings);
   const revenue = r.price * r.units;
   const costTotal = (r.cost ?? 0) * r.units;
@@ -17,7 +18,7 @@ export function SkuDetailPanel({ result: r, cfg, settings, onShowMath }: Props) 
 
   const segments = revenue > 0
     ? [
-        { label: "Cost", value: costTotal, color: "bg-slate-600" },
+        ...(canViewCost ? [{ label: "Cost", value: costTotal, color: "bg-slate-600" }] : []),
         { label: "Fees + alloc", value: cur.alloc, color: "bg-slate-400" },
         { label: "Shipping", value: r.ship, color: "bg-slate-200" },
         { label: "Net", value: cur.net, color: cur.net >= 0 ? "bg-green-600" : "bg-red-600" },
@@ -165,7 +166,7 @@ export function SkuDetailPanel({ result: r, cfg, settings, onShowMath }: Props) 
             {cfg.flags.ppc && <LedgerRow label="PPC fee" value={-r.ppcUsed} />}
             <LedgerRow label="Total fees and allocations" value={-cur.alloc} bold border />
             <ShippingRows result={r} cfg={cfg} />
-            <LedgerRow label={`SKU cost × ${r.units}`} value={-costTotal} />
+            {canViewCost && <LedgerRow label={`SKU cost × ${r.units}`} value={-costTotal} />}
             <LedgerRow
               label="Net margin"
               value={cur.net}

@@ -23,7 +23,8 @@ export type Permission =
   | "module:customers"
   | "module:projects"
   | "module:royalties"
-  | "module:activityLog";
+  | "module:activityLog"
+  | "data:viewCost";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "module:products",
@@ -44,6 +45,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "admin:users",
   "admin:settings",
   "admin:roles",
+  "data:viewCost",
 ];
 
 export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission; label: string }[] }[] = [
@@ -85,6 +87,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission;
     permissions: [
       { key: "import:upload", label: "Import Products" },
       { key: "royalties:edit", label: "Edit Royalties" },
+      { key: "data:viewCost", label: "View Unit Cost" },
     ],
   },
   {
@@ -111,4 +114,5 @@ export const DEFAULT_ANALYST_PERMISSIONS: Permission[] = [
   "analysis:export",
   "import:upload",
   "royalties:edit",
+  "data:viewCost",
 ];

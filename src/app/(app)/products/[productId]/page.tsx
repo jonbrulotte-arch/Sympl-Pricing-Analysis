@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
+import { getPermissions } from "@/lib/permissions";
 import { ProductEditor } from "@/components/products/product-editor";
 import { ProductDelete } from "@/components/products/product-delete";
 import { CostHistoryChart, ShippingHistoryChart } from "@/components/products/cost-chart";
@@ -19,6 +20,9 @@ export default async function ProductDetailPage({
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
   const { productId } = await params;
+
+  const permissions = await getPermissions(session.user.role);
+  const canViewCost = permissions.has("data:viewCost");
 
   const customerIds = (
     await prisma.customerUser.findMany({
@@ -188,11 +192,13 @@ export default async function ProductDetailPage({
       {/* Editable Cost & Shipping */}
       <ProductEditor
         productId={productId}
-        currentCost={latestCost ? Number(latestCost.cost) : null}
+        currentCost={canViewCost ? (latestCost ? Number(latestCost.cost) : null) : null}
         currentShipping={latestShipping}
+        hideCost={!canViewCost}
       />
 
       {/* Cost History */}
+      {canViewCost && (
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-base">Cost History ({costHistory.length} records)</CardTitle>
@@ -237,6 +243,7 @@ export default async function ProductDetailPage({
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Price History */}
       <Card className="mb-6">

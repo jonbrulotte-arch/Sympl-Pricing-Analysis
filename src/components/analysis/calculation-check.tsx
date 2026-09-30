@@ -15,9 +15,10 @@ interface Props {
   settingsMap: Record<string, Record<string, unknown>>;
   initialChannelId?: string;
   initialSku?: string;
+  canViewCost?: boolean;
 }
 
-export function CalculationCheck({ results, configs, settingsMap, initialChannelId, initialSku }: Props) {
+export function CalculationCheck({ results, configs, settingsMap, initialChannelId, initialSku, canViewCost = true }: Props) {
   const [selectedChannel, setSelectedChannel] = useState(initialChannelId ?? configs[0]?.id ?? "");
   const [selectedSku, setSelectedSku] = useState(initialSku ?? "");
 
@@ -105,7 +106,7 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
             <InputRow label="List price" value={`$${P.toFixed(2)}`} />
-            <InputRow label="Cost" value={`$${(selected.cost ?? 0).toFixed(2)}`} />
+            {canViewCost && <InputRow label="Cost" value={`$${(selected.cost ?? 0).toFixed(2)}`} />}
             <InputRow label="Units" value={selected.units.toString()} />
             <InputRow label="Shipping" value={`$${selected.ship.toFixed(2)}`} />
             <InputRow label="Commission" value={`${(selected.commR * 100).toFixed(2)}%`} from={selected.commFrom} />
@@ -162,11 +163,13 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
                 <td>Revenue</td>
                 <td colSpan={2} className="text-right">${cur.revenue.toFixed(2)}</td>
               </tr>
+              {canViewCost && (
               <tr>
                 <td className="py-1">19</td>
                 <td>Cost ({selected.units}U)</td>
                 <td colSpan={2} className="text-right text-red-600">-${((selected.cost ?? 0) * selected.units).toFixed(2)}</td>
               </tr>
+              )}
               <tr className="border-t font-bold">
                 <td className="py-1">20</td>
                 <td>Net margin</td>
@@ -229,8 +232,8 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
               <p>denom = 1 - k - goal = 1 - {k.toFixed(6)} - {selected.goalUsed.toFixed(4)} = {(1 - k - selected.goalUsed).toFixed(6)}</p>
               <p>flatUnit = fvfFixed + royFlat = {selected.fvfFixedUsed.toFixed(2)} + {selected.royFlat.toFixed(2)} = {(selected.fvfFixedUsed + selected.royFlat).toFixed(2)}</p>
               <p>flatOrder = ccFlat + ppc = {rates.ccFlat.toFixed(2)} + {selected.ppcUsed.toFixed(2)} = {(rates.ccFlat + selected.ppcUsed).toFixed(2)}</p>
-              <p>P = (cost*U + ship + flatUnit*U + flatOrder) / (U * denom)</p>
-              <p>P = ({((selected.cost ?? 0) * selected.units + selected.ship + (selected.fvfFixedUsed + selected.royFlat) * selected.units + rates.ccFlat + selected.ppcUsed).toFixed(4)}) / ({(selected.units * (1 - k - selected.goalUsed)).toFixed(6)})</p>
+              <p>P = ({canViewCost ? "cost*U + " : ""}ship + flatUnit*U + flatOrder) / (U * denom)</p>
+              {canViewCost && <p>P = ({((selected.cost ?? 0) * selected.units + selected.ship + (selected.fvfFixedUsed + selected.royFlat) * selected.units + rates.ccFlat + selected.ppcUsed).toFixed(4)}) / ({(selected.units * (1 - k - selected.goalUsed)).toFixed(6)})</p>}
               {(() => {
                 const { price: rawP } = solveGoalPrice(
                   selected.cost ?? 0, selected.units, selected.ship, k, selected.goalUsed,

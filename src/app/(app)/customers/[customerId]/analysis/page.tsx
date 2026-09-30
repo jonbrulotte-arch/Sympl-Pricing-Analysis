@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
 import { loadProductRows } from "@/lib/db/load-product-rows";
+import { getPermissions } from "@/lib/permissions";
 import type { BrandRoyaltyTable, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
 export default async function AnalysisPage({ params }: { params: Promise<{ customerId: string }> }) {
@@ -10,6 +11,9 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
   const { customerId } = await params;
+
+  const permissions = await getPermissions(session.user.role);
+  const canViewCost = permissions.has("data:viewCost");
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, users: { some: { userId } } },
@@ -104,6 +108,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
         brandRoyalties={brandRoyalties}
         customerId={customerId}
         royaltyRules={royaltyRules}
+        canViewCost={canViewCost}
       />
     </div>
   );

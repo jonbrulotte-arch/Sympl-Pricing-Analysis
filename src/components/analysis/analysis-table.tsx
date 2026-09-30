@@ -25,6 +25,7 @@ interface Props {
   selectedSkus?: Set<string>;
   onSelectSku?: (sku: string) => void;
   onSelectAll?: (skus: string[]) => void;
+  canViewCost?: boolean;
 }
 
 const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -35,11 +36,11 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "second
   invalid: { label: "Invalid", variant: "outline" },
 };
 
-export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, channelId, onCommit, cfg, settings, onShowMath, selectedSkus, onSelectSku, onSelectAll }: Props) {
+export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, channelId, onCommit, cfg, settings, onShowMath, selectedSkus, onSelectSku, onSelectAll, canViewCost = true }: Props) {
   const [expandedSku, setExpandedSku] = useState<string | null>(null);
   const [committingSkus, setCommittingSkus] = useState<Set<string>>(new Set());
   const hasSelection = !!(onCommit && selectedSkus && onSelectSku && onSelectAll);
-  const colCount = 11 + (onCommit ? 1 : 0) + (cfg ? 1 : 0) + (hasSelection ? 1 : 0);
+  const colCount = (canViewCost ? 11 : 10) + (onCommit ? 1 : 0) + (cfg ? 1 : 0) + (hasSelection ? 1 : 0);
 
   const committableSkus = hasSelection ? results.filter(isCommittable).map((r) => r.sku) : [];
   const allSelected = hasSelection && committableSkus.length > 0 && committableSkus.every((s) => selectedSkus!.has(s));
@@ -81,7 +82,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
             <SortHeader label="SKU" field="sku" />
             <SortHeader label="Name" field="name" />
             <SortHeader label="Brand" field="brand" />
-            <SortHeader label="Cost" field="cost" align="right" />
+            {canViewCost && <SortHeader label="Cost" field="cost" align="right" />}
             <SortHeader label="Price" field="price" align="right" />
             <th className="text-right py-2 px-2 text-gray-600 font-medium text-xs">Ship</th>
             <SortHeader label="NM%" field="gm" align="right" />
@@ -130,7 +131,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
                 </td>
                 <td className="py-1.5 px-2 text-gray-700 max-w-[200px] truncate text-xs">{r.name ?? "-"}</td>
                 <td className="py-1.5 px-2 text-gray-600 text-xs">{r.brand ?? "-"}</td>
-                <td className="py-1.5 px-2 text-right text-xs">{r.cost != null ? `$${r.cost.toFixed(2)}` : "-"}</td>
+                {canViewCost && <td className="py-1.5 px-2 text-right text-xs">{r.cost != null ? `$${r.cost.toFixed(2)}` : "-"}</td>}
                 <td className="py-1.5 px-2 text-right">
                   <EditableCell
                     value={r.price}
@@ -204,6 +205,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
                       cfg={cfg}
                       settings={settings}
                       onShowMath={() => onShowMath?.(r.sku)}
+                      canViewCost={canViewCost}
                     />
                   </td>
                 </tr>

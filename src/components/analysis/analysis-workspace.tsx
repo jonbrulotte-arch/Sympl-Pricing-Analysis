@@ -45,6 +45,7 @@ interface Props {
   brandRoyalties: BrandRoyaltyTable;
   customerId: string;
   royaltyRules?: RoyaltyRuleEntry[];
+  canViewCost?: boolean;
 }
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -55,7 +56,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "unpriced", label: "Unpriced" },
 ];
 
-export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [] }: Props) {
+export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], canViewCost = true }: Props) {
   const {
     configs,
     activeTab,
@@ -213,6 +214,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
           settingsMap={settingsMap}
           initialChannelId={calcCheckTarget?.channelId}
           initialSku={calcCheckTarget?.sku}
+          canViewCost={canViewCost}
         />
       ) : isPublishSalsify ? (
         <PublishToSalsify customerId={customerId} onRevert={revertCommittedPrice} />
@@ -366,6 +368,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             selectedSkus={selectedSkus}
             onSelectSku={handleSelectSku}
             onSelectAll={handleSelectAll}
+            canViewCost={canViewCost}
           />
 
           {/* Pagination */}
