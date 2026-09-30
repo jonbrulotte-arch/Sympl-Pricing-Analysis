@@ -60,6 +60,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         hasFallback: body.flags.fb,
         hasAsin: body.flags.asin,
       }),
+      ...(body.priceRecordTiming !== undefined && { priceRecordTiming: body.priceRecordTiming }),
       ...(body.defaults !== undefined && { defaults: body.defaults }),
       ...(body.blockedBrands !== undefined && { blockedBrands: body.blockedBrands }),
     },

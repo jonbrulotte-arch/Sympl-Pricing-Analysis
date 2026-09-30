@@ -22,6 +22,7 @@ interface ChannelData {
   priceField: string;
   fallbackPriceField: string | null;
   isDefault: boolean;
+  priceRecordTiming: string;
   hasCoupon: boolean;
   hasTax: boolean;
   hasCommission: boolean;
@@ -60,6 +61,7 @@ export default function ChannelSettingsPage() {
   const router = useRouter();
   const [channel, setChannel] = useState<ChannelData | null>(null);
   const [defaults, setDefaults] = useState<Record<string, unknown>>({});
+  const [priceRecordTiming, setPriceRecordTiming] = useState("at_commit");
   const [blockedBrands, setBlockedBrands] = useState<string[]>([]);
   const [allBrands, setAllBrands] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -74,6 +76,7 @@ export default function ChannelSettingsPage() {
       const data = await channelRes.json();
       setChannel(data);
       setDefaults(data.defaults ?? {});
+      setPriceRecordTiming(data.priceRecordTiming ?? "at_commit");
       setBlockedBrands(data.blockedBrands ?? []);
     }
     if (brandsRes.ok) {
@@ -92,7 +95,7 @@ export default function ChannelSettingsPage() {
     const res = await fetch(`/api/customers/${customerId}/channels/${channelId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ defaults, blockedBrands }),
+      body: JSON.stringify({ defaults, priceRecordTiming, blockedBrands }),
     });
     setSaving(false);
     if (res.ok) {
@@ -142,6 +145,33 @@ export default function ChannelSettingsPage() {
           </Button>
         </div>
       </div>
+
+      <Card className="mb-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Price Recording</CardTitle>
+          <p className="text-xs text-gray-500">
+            Controls when price changes are written to the product&apos;s price history
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-700 w-48 shrink-0">Record price</label>
+            <select
+              value={priceRecordTiming}
+              onChange={(e) => setPriceRecordTiming(e.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm flex-1"
+            >
+              <option value="at_commit">At Commit</option>
+              <option value="at_publish">At Publish to Salsify</option>
+            </select>
+          </div>
+          <p className="text-xs text-gray-500 mt-2 ml-[12.75rem]">
+            {priceRecordTiming === "at_commit"
+              ? "Price history is recorded immediately when a price is committed in the analysis view."
+              : "Price history is deferred until the price is published to Salsify."}
+          </p>
+        </CardContent>
+      </Card>
 
       {SECTIONS.map((sec) => {
         const fields = FIELDS_UI.filter((f) =>

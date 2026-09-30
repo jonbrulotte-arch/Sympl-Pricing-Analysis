@@ -39,14 +39,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   });
   if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
-  await prisma.priceHistory.create({
-    data: {
-      id: randomUUID(),
-      productId: product.id,
-      channelId,
-      price,
-    },
-  });
+  if ((channel as Record<string, unknown>).priceRecordTiming !== "at_publish") {
+    await prisma.priceHistory.create({
+      data: {
+        id: randomUUID(),
+        productId: product.id,
+        channelId,
+        price,
+      },
+    });
+  }
 
   await prisma.salsifyStaged.upsert({
     where: { customerId_sku_channelId: { customerId, sku, channelId } },

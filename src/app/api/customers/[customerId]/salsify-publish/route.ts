@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
 import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
 import { updateSalsifyProducts, type SalsifyProductUpdate } from "@/lib/salsify/client";
 import { logActivity } from "@/lib/activity-log";
@@ -90,6 +91,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
     .map((e) => e.id);
 
   if (publishedIds.length > 0) {
+    const publishedEntries = staged.filter((e) => publishedSkus.has(e.sku));
+    const channelIds = [...new Set(publishedEntries.map((e) => e.channelId))];
+    const channelRows = await prisma.salesChannel.findMany({
+      where: { id: { in: channelIds } },
+    });
+    const channelTimingMap = new Map(
+      channelRows.map((ch) => [ch.id, ((ch as Record<string, unknown>).priceRecordTiming as string) ?? "at_commit"]),
+    );
+
+    for (const entry of publishedEntries) {
+      if (channelTimingMap.get(entry.channelId) !== "at_publish") continue;
+      const product = await prisma.product.findFirst({
+        where: { sku: entry.sku, customers: { some: { customerId } } },
+        select: { id: true },
+      });
+      if (product) {
+        await prisma.priceHistory.create({
+          data: {
+            id: randomUUID(),
+            productId: product.id,
+            channelId: entry.channelId,
+            price: entry.newPrice,
+          },
+        });
+      }
+    }
+
     await prisma.salsifyStaged.deleteMany({
       where: { id: { in: publishedIds } },
     });

@@ -71,8 +71,20 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
       select: { id: true, sku: true, channelId: true, oldPrice: true },
     });
 
+    const channelIds = [...new Set(stagedRows.map((r) => r.channelId))];
+    const revertChannels = await prisma.salesChannel.findMany({
+      where: { id: { in: channelIds } },
+    });
+    const timingByChannel = new Map(
+      revertChannels.map((ch) => [ch.id, ((ch as Record<string, unknown>).priceRecordTiming as string) ?? "at_commit"]),
+    );
+
     for (const row of stagedRows) {
       if (row.oldPrice == null) continue;
+      if (timingByChannel.get(row.channelId) === "at_publish") {
+        reverted++;
+        continue;
+      }
 
       const product = await prisma.product.findUnique({
         where: { sku: row.sku },

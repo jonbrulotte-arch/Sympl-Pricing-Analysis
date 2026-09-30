@@ -108,6 +108,9 @@ model SalesChannel {
   hasFallback         Boolean @default(false)
   hasAsin             Boolean @default(false)
 
+  // When price changes are recorded: "at_commit" or "at_publish"
+  priceRecordTiming String @default("at_commit")
+
   // Default fee rates and settings (JSON)
   defaults      Json @default("{}")
   blockedBrands Json @default("[]")
