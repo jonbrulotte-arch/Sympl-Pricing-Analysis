@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
+import { Upload, Loader2, CheckCircle, AlertTriangle, Undo2 } from "lucide-react";
 
 interface StagedEntry {
   id: string;
@@ -37,6 +37,7 @@ export function PublishToSalsify({ customerId }: Props) {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [publishing, setPublishing] = useState<Set<string>>(new Set());
+  const [undoing, setUndoing] = useState<Set<string>>(new Set());
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [brandFilter, setBrandFilter] = useState<string>("all");
@@ -171,15 +172,29 @@ export function PublishToSalsify({ customerId }: Props) {
     await publishEntries(visibleSelected);
   }
 
-  async function removeEntries(ids: string[]) {
-    const res = await fetch(`/api/customers/${customerId}/salsify-staged`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entries: ids.map((id) => ({ id })) }),
-    });
-    if (res.ok) {
-      setStaged((prev) => prev.filter((e) => !ids.includes(e.id)));
-      setSelectedIds((prev) => {
+  async function undoEntries(ids: string[]) {
+    setUndoing((prev) => new Set([...prev, ...ids]));
+    try {
+      const res = await fetch(`/api/customers/${customerId}/salsify-staged`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: ids.map((id) => ({ id })), revert: true }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStaged((prev) => prev.filter((e) => !ids.includes(e.id)));
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          for (const id of ids) next.delete(id);
+          return next;
+        });
+        setFeedback({
+          type: "success",
+          message: `Reverted ${data.reverted ?? ids.length} price(s) to previous values.`,
+        });
+      }
+    } finally {
+      setUndoing((prev) => {
         const next = new Set(prev);
         for (const id of ids) next.delete(id);
         return next;
@@ -286,10 +301,16 @@ export function PublishToSalsify({ customerId }: Props) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => removeEntries(filteredIds.filter((id) => selectedIds.has(id)))}
+                onClick={() => undoEntries(filteredIds.filter((id) => selectedIds.has(id)))}
+                disabled={undoing.size > 0}
                 className="text-xs"
               >
-                Remove ({visibleSelectedCount})
+                {undoing.size > 0 ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                ) : (
+                  <Undo2 className="h-3.5 w-3.5 mr-1" />
+                )}
+                Undo ({visibleSelectedCount})
               </Button>
               <Button
                 size="sm"
@@ -335,6 +356,7 @@ export function PublishToSalsify({ customerId }: Props) {
               const skuIds = group.entries.map((e) => e.id);
               const skuSelected = skuIds.every((id) => selectedIds.has(id));
               const skuPublishing = skuIds.some((id) => publishing.has(id));
+              const skuUndoing = skuIds.some((id) => undoing.has(id));
 
               return group.entries.map((entry, i) => (
                 <tr
@@ -384,19 +406,35 @@ export function PublishToSalsify({ customerId }: Props) {
                   </td>
                   <td className="py-2 px-3 text-right">
                     {i === 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => publishSku(group.sku)}
-                        disabled={skuPublishing}
-                        className="h-7 text-xs"
-                      >
-                        {skuPublishing ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          "Publish"
-                        )}
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => undoEntries(skuIds)}
+                          disabled={skuUndoing}
+                          className="h-7 text-xs text-gray-500 hover:text-red-600"
+                          title="Undo — revert to previous price"
+                        >
+                          {skuUndoing ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Undo2 className="h-3 w-3" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => publishSku(group.sku)}
+                          disabled={skuPublishing}
+                          className="h-7 text-xs"
+                        >
+                          {skuPublishing ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            "Publish"
+                          )}
+                        </Button>
+                      </div>
                     )}
                   </td>
                 </tr>

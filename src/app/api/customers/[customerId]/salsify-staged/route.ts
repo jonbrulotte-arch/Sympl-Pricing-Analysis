@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
 import { logActivity } from "@/lib/activity-log";
 
 async function verifyAccess(customerId: string, userId: string) {
@@ -53,7 +54,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
   if (!(await verifyAccess(customerId, session.user.id)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { entries } = await req.json();
+  const { entries, revert } = await req.json();
   if (!Array.isArray(entries) || entries.length === 0) {
     return NextResponse.json({ error: "entries required" }, { status: 400 });
   }
@@ -62,6 +63,35 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
     .map((e: { id?: string }) => e.id)
     .filter((id): id is string => typeof id === "string");
 
+  let reverted = 0;
+
+  if (revert && ids.length > 0) {
+    const stagedRows = await prisma.salsifyStaged.findMany({
+      where: { id: { in: ids }, customerId },
+      select: { id: true, sku: true, channelId: true, oldPrice: true },
+    });
+
+    for (const row of stagedRows) {
+      if (row.oldPrice == null) continue;
+
+      const product = await prisma.product.findUnique({
+        where: { sku: row.sku },
+        select: { id: true },
+      });
+      if (!product) continue;
+
+      await prisma.priceHistory.create({
+        data: {
+          id: randomUUID(),
+          productId: product.id,
+          channelId: row.channelId,
+          price: row.oldPrice,
+        },
+      });
+      reverted++;
+    }
+  }
+
   if (ids.length > 0) {
     await prisma.salsifyStaged.deleteMany({
       where: { id: { in: ids }, customerId },
@@ -69,13 +99,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
   }
 
   logActivity({
-    action: "salsify.staged.remove",
+    action: revert ? "salsify.staged.revert" : "salsify.staged.remove",
     category: "publish",
-    summary: `Removed ${ids.length} staged price(s)`,
-    detail: { customerId, removedCount: ids.length },
+    summary: revert
+      ? `Reverted ${reverted} staged price(s) to previous values`
+      : `Removed ${ids.length} staged price(s)`,
+    detail: { customerId, removedCount: ids.length, reverted: reverted || undefined },
     customerId,
     userId: session.user.id,
   });
 
-  return NextResponse.json({ ok: true, removed: ids.length });
+  return NextResponse.json({ ok: true, removed: ids.length, reverted });
 }
