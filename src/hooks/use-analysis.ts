@@ -243,8 +243,8 @@ export function useAnalysis(
         channelId,
         price: priceToCommit,
         oldPrice: (row.basePrice ?? 0) > 0 ? row.basePrice! : undefined,
-        oldNetMargin: !override && row.price > 0 ? row.gm : undefined,
-        newNetMargin: override != null ? row.gm : (row.recCalc?.gm ?? undefined),
+        oldNetMargin: row.price > 0 ? row.gm : undefined,
+        newNetMargin: row.recCalc?.gm ?? undefined,
       }),
     });
 
