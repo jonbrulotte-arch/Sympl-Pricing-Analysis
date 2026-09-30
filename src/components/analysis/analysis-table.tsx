@@ -8,7 +8,10 @@ import { ChevronDown, ChevronUp, ArrowUpDown, Check, BarChart3, AlertTriangle } 
 import { SkuDetailPanel } from "./sku-detail-panel";
 
 function isCommittable(r: AnalysisResult): boolean {
-  return !!(r.edited || (r.rec != null && r.rec !== r.price && !r.invalid && !r.unpriced));
+  if (r.edited) return true;
+  if (r.invalid || r.rec == null) return false;
+  if (r.unpriced) return r.rec > 0;
+  return r.rec !== r.price;
 }
 
 interface Props {
@@ -164,7 +167,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
                 </td>
                 {onCommit && (
                   <td className="py-1.5 px-2 text-center">
-                    {(r.edited || (r.rec != null && r.rec !== r.price && !r.invalid && !r.unpriced)) && (
+                    {isCommittable(r) && (
                       <button
                         disabled={committingSkus.has(r.sku)}
                         onClick={async () => {
