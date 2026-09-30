@@ -7,7 +7,7 @@ import { formatDateTime } from "@/lib/utils";
 import { ProductEditor } from "@/components/products/product-editor";
 import { ProductDelete } from "@/components/products/product-delete";
 import { CostHistoryChart, ShippingHistoryChart } from "@/components/products/cost-chart";
-import { PriceHistoryChart } from "@/components/products/price-history-chart";
+import { PriceHistorySection } from "@/components/products/price-history-section";
 import { AlertTriangle } from "lucide-react";
 
 export default async function ProductDetailPage({
@@ -247,34 +247,12 @@ export default async function ProductDetailPage({
           {allPriceRecords.length === 0 ? (
             <p className="text-sm text-gray-500">No price records yet. Run a Salsify Sync to populate.</p>
           ) : (
-            <>
-              <PriceHistoryChart data={allPriceRecords.map((pr) => ({
+            <PriceHistorySection data={allPriceRecords.map((pr) => ({
                 id: pr.id,
                 label: pr.label,
                 price: pr.price,
                 recordedAt: pr.recordedAt.toISOString(),
               }))} />
-              <table className="w-full text-sm mt-4">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 text-gray-600 font-medium">Date</th>
-                  <th className="text-left py-2 text-gray-600 font-medium">Channel</th>
-                  <th className="text-right py-2 text-gray-600 font-medium">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allPriceRecords.map((pr) => (
-                  <tr key={pr.id} className="border-b border-gray-50">
-                    <td className="py-1.5 text-gray-700">{formatDateTime(pr.recordedAt)}</td>
-                    <td className="py-1.5">
-                      <Badge variant="secondary" className="text-xs">{pr.label}</Badge>
-                    </td>
-                    <td className="py-1.5 text-right font-mono">${pr.price.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </>
           )}
         </CardContent>
       </Card>
