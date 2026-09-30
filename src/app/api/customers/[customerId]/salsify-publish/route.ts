@@ -5,20 +5,14 @@ import { randomUUID } from "crypto";
 import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
 import { updateSalsifyProducts, type SalsifyProductUpdate } from "@/lib/salsify/client";
 import { logActivity } from "@/lib/activity-log";
-
-async function verifyAccess(customerId: string, userId: string) {
-  const link = await prisma.customerUser.findUnique({
-    where: { customerId_userId: { customerId, userId } },
-  });
-  return !!link;
-}
+import { canAccessCustomer } from "@/lib/permissions";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { customerId } = await params;
-  if (!(await verifyAccess(customerId, session.user.id)))
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { ids } = await req.json();

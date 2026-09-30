@@ -14,9 +14,10 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
 
   const permissions = await getPermissions(session.user.role);
   const canViewCost = permissions.has("data:viewCost");
+  const isAdmin = permissions.has("admin:settings");
 
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, users: { some: { userId } } },
+    where: { id: customerId, ...(isAdmin ? {} : { users: { some: { userId } } }) },
     include: {
       channels: { orderBy: { sortOrder: "asc" } },
       brandRoyalties: true,

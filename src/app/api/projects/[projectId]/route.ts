@@ -2,18 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity-log";
+import { canAccessCustomer } from "@/lib/permissions";
 
-async function verifyProjectAccess(projectId: string, userId: string) {
+async function verifyProjectAccess(projectId: string, userId: string, role: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: { id: true, customerId: true },
   });
   if (!project) return null;
-
-  const link = await prisma.customerUser.findUnique({
-    where: { customerId_userId: { customerId: project.customerId, userId } },
-  });
-  if (!link) return null;
+  if (!(await canAccessCustomer(project.customerId, userId, role))) return null;
   return project;
 }
 
@@ -25,7 +22,7 @@ export async function GET(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId } = await params;
-  const project = await verifyProjectAccess(projectId, session.user.id);
+  const project = await verifyProjectAccess(projectId, session.user.id, session.user.role);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const full = await prisma.project.findUnique({
@@ -57,7 +54,7 @@ export async function PATCH(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId } = await params;
-  const project = await verifyProjectAccess(projectId, session.user.id);
+  const project = await verifyProjectAccess(projectId, session.user.id, session.user.role);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
@@ -92,7 +89,7 @@ export async function DELETE(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId } = await params;
-  const project = await verifyProjectAccess(projectId, session.user.id);
+  const project = await verifyProjectAccess(projectId, session.user.id, session.user.role);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await prisma.project.delete({ where: { id: projectId } });

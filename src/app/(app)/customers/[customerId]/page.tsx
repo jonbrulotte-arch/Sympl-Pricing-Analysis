@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { getPermissions } from "@/lib/permissions";
 import { CustomerActions } from "@/components/customers/customer-actions";
 import { ChannelDeleteButton } from "@/components/channels/channel-delete-button";
 import { CustomerCollaborators } from "@/components/customers/customer-collaborators";
@@ -18,8 +19,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
   const userId = session.user.id;
   const { customerId } = await params;
 
+  const permissions = await getPermissions(session.user.role);
+  const isAdmin = permissions.has("admin:settings");
+
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, users: { some: { userId } } },
+    where: { id: customerId, ...(isAdmin ? {} : { users: { some: { userId } } }) },
     include: {
       channels: { orderBy: { sortOrder: "asc" } },
       _count: { select: { customerProducts: true } },
@@ -30,7 +34,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
 
   if (!customer) notFound();
 
-  const isOwner = customer.users[0]?.role === "OWNER";
+  const isOwner = isAdmin || customer.users[0]?.role === "OWNER";
 
   return (
     <div className="p-6 max-w-5xl mx-auto">

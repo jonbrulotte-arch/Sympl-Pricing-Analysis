@@ -12,12 +12,7 @@ const STRING_FIELDS = new Set(["sku", "name", "brand", "asin", "fbaClass", "amzC
 const UNITS_CONSTANT_FIELD = "units";
 const PROGRESS_UPDATE_EVERY_N_PAGES = 3;
 
-async function verifyAccess(customerId: string, userId: string) {
-  const link = await prisma.customerUser.findUnique({
-    where: { customerId_userId: { customerId, userId } },
-  });
-  return !!link;
-}
+import { canAccessCustomer } from "@/lib/permissions";
 
 function transformRows(salsifyProducts: SalsifyProduct[], propertyIdByField: Map<string, string>): ProductRow[] {
   const rows: ProductRow[] = [];
@@ -103,7 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { customerId } = await params;
-  if (!(await verifyAccess(customerId, session.user.id)))
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const credentials = await resolveSalsifyCredentials(session.user.id);

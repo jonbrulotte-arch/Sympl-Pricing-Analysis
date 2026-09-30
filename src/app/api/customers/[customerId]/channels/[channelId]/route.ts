@@ -2,22 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity-log";
+import { canAccessCustomer } from "@/lib/permissions";
 
 type Params = { params: Promise<{ customerId: string; channelId: string }> };
-
-async function verifyAccess(customerId: string, userId: string) {
-  const link = await prisma.customerUser.findUnique({
-    where: { customerId_userId: { customerId, userId } },
-  });
-  return !!link;
-}
 
 export async function GET(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { customerId, channelId } = await params;
-  if (!(await verifyAccess(customerId, session.user.id)))
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const channel = await prisma.salesChannel.findFirst({
@@ -33,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { customerId, channelId } = await params;
-  if (!(await verifyAccess(customerId, session.user.id)))
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
@@ -84,7 +78,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { customerId, channelId } = await params;
-  if (!(await verifyAccess(customerId, session.user.id)))
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const channel = await prisma.salesChannel.findFirst({

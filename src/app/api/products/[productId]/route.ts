@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { logActivity } from "@/lib/activity-log";
-import { getPermissions } from "@/lib/permissions";
+import { getPermissions, getAccessibleCustomerIds } from "@/lib/permissions";
 
 export async function DELETE(
   _req: NextRequest,
@@ -18,12 +18,7 @@ export async function DELETE(
 
   const { productId } = await params;
 
-  const customerIds = (
-    await prisma.customerUser.findMany({
-      where: { userId: session.user.id },
-      select: { customerId: true },
-    })
-  ).map((cu) => cu.customerId);
+  const customerIds = await getAccessibleCustomerIds(session.user.id, session.user.role);
 
   const product = await prisma.product.findFirst({
     where: {
@@ -60,12 +55,7 @@ export async function PATCH(
 
   const { productId } = await params;
 
-  const customerIds = (
-    await prisma.customerUser.findMany({
-      where: { userId: session.user.id },
-      select: { customerId: true },
-    })
-  ).map((cu) => cu.customerId);
+  const customerIds = await getAccessibleCustomerIds(session.user.id, session.user.role);
 
   const product = await prisma.product.findFirst({
     where: {

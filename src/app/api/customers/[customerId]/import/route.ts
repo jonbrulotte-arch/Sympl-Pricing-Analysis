@@ -5,16 +5,15 @@ import { randomUUID } from "crypto";
 import type { ProductRow } from "@/lib/pricing/types";
 import { upsertImportRows } from "@/lib/db/upsert-import-rows";
 import { logActivity } from "@/lib/activity-log";
+import { canAccessCustomer } from "@/lib/permissions";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { customerId } = await params;
-  const link = await prisma.customerUser.findUnique({
-    where: { customerId_userId: { customerId, userId: session.user.id } },
-  });
-  if (!link) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
   const { fileName, sheetName, headerSig, columnMap, rows } = body as {

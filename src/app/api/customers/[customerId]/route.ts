@@ -3,13 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
 import { logActivity } from "@/lib/activity-log";
-
-async function verifyAccess(customerId: string, userId: string) {
-  const link = await prisma.customerUser.findUnique({
-    where: { customerId_userId: { customerId, userId } },
-  });
-  return link;
-}
+import { canAccessCustomer, getPermissions } from "@/lib/permissions";
 
 export async function PATCH(
   req: NextRequest,
@@ -19,8 +13,8 @@ export async function PATCH(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { customerId } = await params;
-  const link = await verifyAccess(customerId, session.user.id);
-  if (!link) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
   const name = (body.name ?? "").trim();
@@ -57,9 +51,15 @@ export async function DELETE(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { customerId } = await params;
-  const link = await verifyAccess(customerId, session.user.id);
-  if (!link) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  if (link.role !== "OWNER") return NextResponse.json({ error: "Only the customer owner can delete this customer" }, { status: 403 });
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const perms = await getPermissions(session.user.role);
+  if (!perms.has("admin:settings")) {
+    const link = await prisma.customerUser.findUnique({
+      where: { customerId_userId: { customerId, userId: session.user.id } },
+    });
+    if (!link || link.role !== "OWNER") return NextResponse.json({ error: "Only the customer owner can delete this customer" }, { status: 403 });
+  }
 
   await prisma.customer.delete({ where: { id: customerId } });
 

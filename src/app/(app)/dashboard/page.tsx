@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { getAccessibleCustomerIds, getPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { Building2, Upload, BarChart3, Plus, FileSpreadsheet, Package, DollarSign, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,18 +14,15 @@ export default async function DashboardPage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const customerIds = (
-    await prisma.customerUser.findMany({
-      where: { userId },
-      select: { customerId: true },
-    })
-  ).map((cu) => cu.customerId);
+  const customerIds = await getAccessibleCustomerIds(userId, session.user.role);
+  const permissions = await getPermissions(session.user.role);
+  const isAdmin = permissions.has("admin:settings");
 
   const baseProductWhere = { customers: { some: { customerId: { in: customerIds } } } };
 
   const [customers, totalProducts, productsWithCost, productsWithFreight] = await Promise.all([
     prisma.customer.findMany({
-      where: { users: { some: { userId } } },
+      where: isAdmin ? {} : { users: { some: { userId } } },
       select: {
         id: true,
         name: true,

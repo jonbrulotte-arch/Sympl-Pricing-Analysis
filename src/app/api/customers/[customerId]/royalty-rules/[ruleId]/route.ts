@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { brandKey } from "@/lib/pricing/helpers";
-
-async function verifyAccess(customerId: string, userId: string) {
-  const link = await prisma.customerUser.findUnique({
-    where: { customerId_userId: { customerId, userId } },
-  });
-  return !!link;
-}
+import { canAccessCustomer } from "@/lib/permissions";
 
 export async function PATCH(
   req: NextRequest,
@@ -18,7 +12,7 @@ export async function PATCH(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { customerId, ruleId } = await params;
-  if (!(await verifyAccess(customerId, session.user.id)))
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const existing = await prisma.royaltyRule.findFirst({
@@ -61,7 +55,7 @@ export async function DELETE(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { customerId, ruleId } = await params;
-  if (!(await verifyAccess(customerId, session.user.id)))
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const existing = await prisma.royaltyRule.findFirst({

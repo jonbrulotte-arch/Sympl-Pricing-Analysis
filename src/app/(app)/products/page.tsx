@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { getAccessibleCustomerIds } from "@/lib/permissions";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,12 +25,7 @@ export default async function ProductsPage({
   const pageSize = PAGE_SIZES.includes(Number(pageSizeParam)) ? Number(pageSizeParam) : 25;
   const page = Math.max(1, Number(pageParam) || 1);
 
-  const customerIds = (
-    await prisma.customerUser.findMany({
-      where: { userId },
-      select: { customerId: true },
-    })
-  ).map((cu) => cu.customerId);
+  const customerIds = await getAccessibleCustomerIds(userId, session.user.role);
 
   const where = {
     customers: { some: { customerId: { in: customerIds } } },

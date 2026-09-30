@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { loadProductRows } from "@/lib/db/load-product-rows";
-import { getPermissions } from "@/lib/permissions";
+import { getPermissions, canAccessCustomer } from "@/lib/permissions";
 import type { BrandRoyaltyTable, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
@@ -36,10 +36,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   if (!project) notFound();
 
-  const hasAccess = await prisma.customerUser.findUnique({
-    where: { customerId_userId: { customerId: project.customerId, userId } },
-  });
-  if (!hasAccess) notFound();
+  if (!(await canAccessCustomer(project.customerId, userId, session.user.role))) notFound();
 
   const permissions = await getPermissions(session.user.role);
   const canViewCost = permissions.has("data:viewCost");

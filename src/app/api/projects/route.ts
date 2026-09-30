@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { getAccessibleCustomerIds, canAccessCustomer } from "@/lib/permissions";
 import { randomUUID } from "crypto";
 import { logActivity } from "@/lib/activity-log";
 
@@ -9,12 +10,7 @@ export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const customerIds = (
-    await prisma.customerUser.findMany({
-      where: { userId: session.user.id },
-      select: { customerId: true },
-    })
-  ).map((cu) => cu.customerId);
+  const customerIds = await getAccessibleCustomerIds(session.user.id, session.user.role);
 
   const projects = await prisma.project.findMany({
     where: { customerId: { in: customerIds } },
@@ -41,10 +37,8 @@ export async function POST(req: NextRequest) {
   if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
   if (!customerId) return NextResponse.json({ error: "Customer is required" }, { status: 400 });
 
-  const link = await prisma.customerUser.findUnique({
-    where: { customerId_userId: { customerId, userId: session.user.id } },
-  });
-  if (!link) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const slug = slugify(name);
   const existing = await prisma.project.findUnique({

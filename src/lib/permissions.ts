@@ -27,6 +27,28 @@ export async function getPermissions(role: string): Promise<Set<Permission>> {
   return new Set(permissions);
 }
 
+export async function getAccessibleCustomerIds(userId: string, role: string): Promise<string[]> {
+  const permissions = await getPermissions(role);
+  if (permissions.has("admin:settings")) {
+    const all = await prisma.customer.findMany({ select: { id: true } });
+    return all.map((c) => c.id);
+  }
+  const links = await prisma.customerUser.findMany({
+    where: { userId },
+    select: { customerId: true },
+  });
+  return links.map((l) => l.customerId);
+}
+
+export async function canAccessCustomer(customerId: string, userId: string, role: string): Promise<boolean> {
+  const permissions = await getPermissions(role);
+  if (permissions.has("admin:settings")) return true;
+  const link = await prisma.customerUser.findUnique({
+    where: { customerId_userId: { customerId, userId } },
+  });
+  return !!link;
+}
+
 export function invalidateRoleCache(roleName?: string) {
   if (roleName) {
     roleCache.delete(roleName);

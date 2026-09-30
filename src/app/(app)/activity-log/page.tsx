@@ -1,14 +1,18 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getPermissions } from "@/lib/permissions";
 import { ActivityLogView } from "@/components/activity-log/activity-log-view";
 
 export default async function ActivityLogPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
+  const permissions = await getPermissions(session.user.role);
+  const isAdmin = permissions.has("admin:settings");
+
   const customers = await prisma.customer.findMany({
-    where: { users: { some: { userId: session.user.id } } },
+    where: isAdmin ? {} : { users: { some: { userId: session.user.id } } },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
