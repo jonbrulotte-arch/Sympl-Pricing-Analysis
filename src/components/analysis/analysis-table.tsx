@@ -44,13 +44,13 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
   const committableSkus = hasSelection ? results.filter(isCommittable).map((r) => r.sku) : [];
   const allSelected = hasSelection && committableSkus.length > 0 && committableSkus.every((s) => selectedSkus!.has(s));
 
-  function SortHeader({ label, field }: { label: string; field: string }) {
+  function SortHeader({ label, field, align = "left" }: { label: string; field: string; align?: "left" | "right" | "center" }) {
     return (
       <th
-        className="text-left py-2 px-2 text-gray-600 font-medium cursor-pointer select-none hover:text-gray-900 text-xs"
+        className={`py-2 px-2 text-gray-600 font-medium cursor-pointer select-none hover:text-gray-900 text-xs text-${align}`}
         onClick={() => onSort(field)}
       >
-        <span className="flex items-center gap-1">
+        <span className={`flex items-center gap-1 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : ""}`}>
           {label}
           {sortKey === field ? (
             sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
@@ -81,13 +81,13 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
             <SortHeader label="SKU" field="sku" />
             <SortHeader label="Name" field="name" />
             <SortHeader label="Brand" field="brand" />
-            <SortHeader label="Cost" field="cost" />
-            <SortHeader label="Price" field="price" />
+            <SortHeader label="Cost" field="cost" align="right" />
+            <SortHeader label="Price" field="price" align="right" />
             <th className="text-right py-2 px-2 text-gray-600 font-medium text-xs">Ship</th>
-            <SortHeader label="NM%" field="gm" />
-            <SortHeader label="Net $" field="net" />
-            <SortHeader label="Rec" field="rec" />
-            <SortHeader label="+/-%" field="delta" />
+            <SortHeader label="NM%" field="gm" align="right" />
+            <SortHeader label="Net $" field="net" align="right" />
+            <SortHeader label="Rec" field="rec" align="right" />
+            <SortHeader label="+/-%" field="delta" align="right" />
             <th className="text-center py-2 px-2 text-gray-600 font-medium text-xs">Status</th>
             {onCommit && <th className="text-center py-2 px-2 text-gray-600 font-medium text-xs w-16"></th>}
             {cfg && <th className="text-center py-2 px-2 text-gray-600 font-medium text-xs w-16"></th>}
