@@ -22,6 +22,7 @@ interface Props {
   onOverride: (sku: string, field: "price" | "ship", value: number | undefined) => void;
   channelId: string;
   onCommit?: (sku: string) => Promise<void>;
+  committedSkus?: Set<string>;
   cfg?: ChannelConfig;
   settings?: ChannelDefaults;
   onShowMath?: (sku: string) => void;
@@ -39,13 +40,13 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "second
   invalid: { label: "Invalid", variant: "outline" },
 };
 
-export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, channelId, onCommit, cfg, settings, onShowMath, selectedSkus, onSelectSku, onSelectAll, canViewCost = true }: Props) {
+export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, channelId, onCommit, committedSkus, cfg, settings, onShowMath, selectedSkus, onSelectSku, onSelectAll, canViewCost = true }: Props) {
   const [expandedSku, setExpandedSku] = useState<string | null>(null);
   const [committingSkus, setCommittingSkus] = useState<Set<string>>(new Set());
   const hasSelection = !!(onCommit && selectedSkus && onSelectSku && onSelectAll);
   const colCount = (canViewCost ? 11 : 10) + (onCommit ? 1 : 0) + (cfg ? 1 : 0) + (hasSelection ? 1 : 0);
 
-  const committableSkus = hasSelection ? results.filter(isCommittable).map((r) => r.sku) : [];
+  const committableSkus = hasSelection ? results.filter((r) => isCommittable(r) && !committedSkus?.has(r.sku)).map((r) => r.sku) : [];
   const allSelected = hasSelection && committableSkus.length > 0 && committableSkus.every((s) => selectedSkus!.has(s));
 
   function SortHeader({ label, field, align = "left" }: { label: string; field: string; align?: "left" | "right" | "center" }) {
@@ -107,7 +108,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
               <tr className={`border-b border-gray-50 hover:bg-gray-50/50 ${hasSelection && selectedSkus!.has(r.sku) ? "bg-blue-50/50" : ""}`}>
                 {hasSelection && (
                   <td className="py-1.5 px-2">
-                    {isCommittable(r) && (
+                    {isCommittable(r) && !committedSkus?.has(r.sku) && (
                       <input
                         type="checkbox"
                         checked={selectedSkus!.has(r.sku)}
@@ -167,7 +168,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
                 </td>
                 {onCommit && (
                   <td className="py-1.5 px-2 text-center">
-                    {isCommittable(r) && (
+                    {isCommittable(r) && !committedSkus?.has(r.sku) ? (
                       <button
                         disabled={committingSkus.has(r.sku)}
                         onClick={async () => {
@@ -181,7 +182,9 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
                         <Check className="h-3 w-3" />
                         {committingSkus.has(r.sku) ? "..." : "Commit"}
                       </button>
-                    )}
+                    ) : committedSkus?.has(r.sku) ? (
+                      <span className="text-xs text-green-600">Committed</span>
+                    ) : null}
                   </td>
                 )}
                 {cfg && (

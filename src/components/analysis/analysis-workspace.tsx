@@ -84,6 +84,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     settingsMap,
     commitPrice,
     revertCommittedPrice,
+    committedSkus,
   } = useAnalysis(channels, products, brandRoyalties, customerId, royaltyRules);
 
   const isCalcCheck = activeTab === "__calc_check__";
@@ -362,6 +363,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             onOverride={(sku, field, value) => setOverride(activeTab, sku, field, value)}
             channelId={activeTab}
             onCommit={commitPrice}
+            committedSkus={committedSkus[activeTab]}
             cfg={activeCfg}
             settings={activeSettings}
             onShowMath={handleShowMath}

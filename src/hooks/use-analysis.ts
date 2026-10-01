@@ -79,6 +79,7 @@ export function useAnalysis(
   const [activeTab, setActiveTab] = useState<string>(channels[0]?.id ?? "");
   const [overrides, setOverrides] = useState<Overrides>({});
   const [committedPrices, setCommittedPrices] = useState<Record<string, Record<string, number>>>({});
+  const [committedSkus, setCommittedSkus] = useState<Record<string, Set<string>>>({});
   const [settingsMap, setSettingsMap] = useState<Record<string, Record<string, unknown>>>(() => {
     const m: Record<string, Record<string, unknown>> = {};
     for (const ch of channels) m[ch.id] = { ...(ch.defaults as Record<string, unknown>) };
@@ -216,6 +217,14 @@ export function useAnalysis(
       }
       return next;
     });
+    if (field === "price" && value !== undefined) {
+      setCommittedSkus((prev) => {
+        if (!prev[channelId]?.has(sku)) return prev;
+        const next = { ...prev, [channelId]: new Set(prev[channelId]) };
+        next[channelId].delete(sku);
+        return next;
+      });
+    }
   }, []);
 
   const updateSetting = useCallback((channelId: string, key: string, value: unknown) => {
@@ -256,6 +265,13 @@ export function useAnalysis(
       ...prev,
       [channelId]: { ...prev[channelId], [sku]: priceToCommit },
     }));
+    setCommittedSkus((prev) => {
+      const next = { ...prev };
+      if (!next[channelId]) next[channelId] = new Set();
+      else next[channelId] = new Set(next[channelId]);
+      next[channelId].add(sku);
+      return next;
+    });
     setOverride(channelId, sku, "price", undefined);
     router.refresh();
   }, [activeTab, results, overrides, customerId, setOverride, router]);
@@ -311,5 +327,6 @@ export function useAnalysis(
     updateSetting,
     commitPrice,
     revertCommittedPrice,
+    committedSkus,
   };
 }
