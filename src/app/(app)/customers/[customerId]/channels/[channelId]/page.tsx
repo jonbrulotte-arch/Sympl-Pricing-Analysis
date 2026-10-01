@@ -123,14 +123,14 @@ export default function ChannelSettingsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{channel.name}</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <div className="text-sm text-gray-500 mt-1">
             <Badge variant="secondary" className="text-xs mr-2">
               {channel.channelType === "commercial" ? "Commercial" : "Online"}
             </Badge>
             {channel.shippingMode === "fba" ? "FBA" : channel.shippingMode === "mcf" ? "MCF" : "Standard"} shipping
             {" · "}{channel.freightMode === "collect" ? "Collect" : "Prepaid"}
             {isDefault && " · Default channel"}
-          </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-sm text-green-600">Saved</span>}
