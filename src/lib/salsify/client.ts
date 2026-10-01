@@ -55,6 +55,35 @@ export async function fetchAllSalsifyProducts(
   return products;
 }
 
+/** Fetch specific products by their Salsify IDs (SKUs). Returns a map of id → product. */
+export async function fetchSalsifyProductsByIds(
+  orgId: string,
+  apiKey: string,
+  ids: string[],
+): Promise<Map<string, SalsifyProduct>> {
+  const results = new Map<string, SalsifyProduct>();
+  const batchSize = 100;
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batch = ids.slice(i, i + batchSize);
+    const filter = `='salsify:id':in('${batch.map((id) => id.replace(/'/g, "\\'")).join("','")}')`;
+    const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/products?filter=${encodeURIComponent(filter)}&per_page=${batchSize}`;
+    const res = await salsifyFetch(url, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) continue;
+    const data = await res.json();
+    const products: SalsifyProduct[] = Array.isArray(data) ? data : (data.data ?? data.products ?? []);
+    for (const p of products) {
+      const id = String(p["salsify:id"] ?? "");
+      if (id) results.set(id, p);
+    }
+  }
+  return results;
+}
+
 /** Pulls the first element out of a Salsify " | "-delimited array-style string value. */
 export function firstDelimited(value: unknown): string | null {
   if (value == null) return null;

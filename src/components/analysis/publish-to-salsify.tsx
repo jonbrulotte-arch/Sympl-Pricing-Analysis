@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Loader2, CheckCircle, AlertTriangle, Undo2 } from "lucide-react";
+import { Upload, Loader2, CheckCircle, AlertTriangle, Undo2, Download, ArrowLeft, ArrowRight } from "lucide-react";
+import * as XLSX from "xlsx";
 
 interface StagedEntry {
   id: string;
@@ -28,10 +29,25 @@ interface SkuGroup {
   entries: StagedEntry[];
 }
 
+interface PreviewChange {
+  id: string;
+  sku: string;
+  channelLabel: string;
+  priceField: string;
+  salsifyProperty: string | null;
+  currentValue: number | null;
+  newValue: number;
+}
+
 interface Props {
   customerId: string;
   onRevert?: (channelId: string, sku: string, oldPrice: number | null) => void;
 }
+
+type ViewState =
+  | { step: "list" }
+  | { step: "preview"; ids: string[]; changes: PreviewChange[]; unmappedFields: string[] }
+  | { step: "success"; publishedCount: number; failedCount: number };
 
 export function PublishToSalsify({ customerId, onRevert }: Props) {
   const [staged, setStaged] = useState<StagedEntry[]>([]);
@@ -42,6 +58,8 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [brandFilter, setBrandFilter] = useState<string>("all");
+  const [view, setView] = useState<ViewState>({ step: "list" });
+  const [previewing, setPreviewing] = useState(false);
 
   const fetchStaged = useCallback(async () => {
     const res = await fetch(`/api/customers/${customerId}/salsify-staged`);
@@ -117,6 +135,31 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
     });
   }
 
+  async function fetchPreview(ids: string[]) {
+    setPreviewing(true);
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/customers/${customerId}/salsify-publish/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeedback({ type: "error", message: data.error ?? "Failed to load preview" });
+        return;
+      }
+      setView({
+        step: "preview",
+        ids,
+        changes: data.changes ?? [],
+        unmappedFields: data.unmappedFields ?? [],
+      });
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   async function publishEntries(ids: string[]) {
     setPublishing((prev) => new Set([...prev, ...ids]));
     setFeedback(null);
@@ -132,18 +175,9 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
 
       if (!res.ok) {
         setFeedback({ type: "error", message: data.error ?? "Publish failed" });
+        setView({ step: "list" });
         return;
       }
-
-      const msg = [`Published ${data.published} SKU(s) to Salsify.`];
-      if (data.failed?.length > 0) {
-        const errors = data.failed.map((f: { sku: string; error: string }) => `${f.sku}: ${f.error}`);
-        msg.push(`${data.failed.length} failed — ${errors.join("; ")}`);
-      }
-      if (data.unmappedFields?.length > 0) {
-        msg.push(`Unmapped fields: ${data.unmappedFields.join(", ")}. Configure in Admin > Salsify Field Mapping.`);
-      }
-      setFeedback({ type: data.failed?.length > 0 ? "error" : "success", message: msg.join(" ") });
 
       const removedIds: string[] = data.removedIds ?? [];
       if (removedIds.length > 0) {
@@ -153,6 +187,17 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
           for (const id of removedIds) next.delete(id);
           return next;
         });
+      }
+
+      setView({
+        step: "success",
+        publishedCount: data.published ?? 0,
+        failedCount: data.failed?.length ?? 0,
+      });
+
+      if (data.failed?.length > 0) {
+        const errors = data.failed.map((f: { sku: string; error: string }) => `${f.sku}: ${f.error}`);
+        setFeedback({ type: "error", message: `${data.failed.length} SKU(s) failed: ${errors.join("; ")}` });
       }
     } finally {
       setPublishing((prev) => {
@@ -165,12 +210,12 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
 
   async function publishSku(sku: string) {
     const ids = filtered.filter((e) => e.sku === sku).map((e) => e.id);
-    await publishEntries(ids);
+    await fetchPreview(ids);
   }
 
   async function publishSelected() {
     const visibleSelected = filteredIds.filter((id) => selectedIds.has(id));
-    await publishEntries(visibleSelected);
+    await fetchPreview(visibleSelected);
   }
 
   async function undoEntries(ids: string[]) {
@@ -208,7 +253,28 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
     }
   }
 
-  function fmt(val: string | null | undefined): string {
+  function downloadChangeReport(changes: PreviewChange[]) {
+    const rows = changes.map((c) => ({
+      SKU: c.sku,
+      Channel: c.channelLabel,
+      "Salsify Property": c.salsifyProperty ?? "(unmapped)",
+      "Current Value (Salsify)": c.currentValue != null ? c.currentValue : "",
+      "New Value": c.newValue,
+      "Change": c.currentValue != null ? +(c.newValue - c.currentValue).toFixed(2) : "",
+      "Change %": c.currentValue != null && c.currentValue > 0
+        ? `${(((c.newValue - c.currentValue) / c.currentValue) * 100).toFixed(1)}%`
+        : "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 18 }, { wch: 16 }, { wch: 24 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Change Report");
+    XLSX.writeFile(wb, `salsify-change-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  function fmt(val: string | number | null | undefined): string {
     if (val == null) return "-";
     const n = Number(val);
     return isNaN(n) ? "-" : `$${n.toFixed(2)}`;
@@ -244,7 +310,7 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
     );
   }
 
-  if (staged.length === 0) {
+  if (staged.length === 0 && view.step !== "success") {
     return (
       <div className="text-center py-16">
         <Upload className="h-8 w-8 text-gray-300 mx-auto mb-3" />
@@ -252,6 +318,184 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
         <p className="text-sm text-gray-400 mt-1">
           Commit prices on any channel tab to stage them here.
         </p>
+      </div>
+    );
+  }
+
+  if (view.step === "success") {
+    return (
+      <div className="text-center py-16">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
+          <CheckCircle className="h-8 w-8 text-green-600" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          Published to Salsify
+        </h3>
+        <p className="text-gray-600 mb-1">
+          {view.publishedCount} SKU{view.publishedCount !== 1 ? "s" : ""} updated successfully.
+        </p>
+        {view.failedCount > 0 && (
+          <p className="text-red-600 text-sm mb-1">
+            {view.failedCount} SKU{view.failedCount !== 1 ? "s" : ""} failed to publish.
+          </p>
+        )}
+        {feedback?.type === "error" && (
+          <div className="max-w-lg mx-auto mt-3 flex items-start gap-2 px-4 py-3 rounded-md text-sm bg-red-50 text-red-700 border border-red-200 text-left">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>{feedback.message}</span>
+          </div>
+        )}
+        <div className="mt-6">
+          <Button
+            variant="outline"
+            onClick={() => { setView({ step: "list" }); setFeedback(null); }}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Staged Prices
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (view.step === "preview") {
+    const isPublishing = publishing.size > 0;
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setView({ step: "list" })}
+              className="text-xs"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+              Back
+            </Button>
+            <h3 className="text-sm font-medium text-gray-900">
+              Change Report — {view.changes.length} price{view.changes.length !== 1 ? "s" : ""} to update
+            </h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadChangeReport(view.changes)}
+              className="text-xs"
+            >
+              <Download className="h-3.5 w-3.5 mr-1" />
+              Download Report
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => publishEntries(view.ids)}
+              disabled={isPublishing}
+              className="text-xs"
+            >
+              {isPublishing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+              ) : (
+                <Upload className="h-3.5 w-3.5 mr-1" />
+              )}
+              {isPublishing ? "Publishing..." : "Confirm Publish"}
+            </Button>
+          </div>
+        </div>
+
+        {view.unmappedFields.length > 0 && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-md mb-4 text-sm bg-amber-50 text-amber-700 border border-amber-200">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Unmapped fields will be skipped: {view.unmappedFields.join(", ")}. Configure mappings in Admin &gt; Salsify Field Mapping.
+          </div>
+        )}
+
+        {feedback?.type === "error" && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-md mb-4 text-sm bg-red-50 text-red-700 border border-red-200">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {feedback.message}
+          </div>
+        )}
+
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="py-2 px-3 text-left text-gray-600 font-medium text-xs">SKU</th>
+                <th className="py-2 px-3 text-left text-gray-600 font-medium text-xs">Channel</th>
+                <th className="py-2 px-3 text-left text-gray-600 font-medium text-xs">Salsify Property</th>
+                <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">Current (Salsify)</th>
+                <th className="py-2 px-3 text-center text-gray-600 font-medium text-xs w-8"></th>
+                <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">New Value</th>
+                <th className="py-2 px-3 text-right text-gray-600 font-medium text-xs">Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.changes.map((c) => {
+                const diff = c.currentValue != null ? c.newValue - c.currentValue : null;
+                const diffPct = c.currentValue != null && c.currentValue > 0
+                  ? ((c.newValue - c.currentValue) / c.currentValue) * 100
+                  : null;
+                const diffColor = diff != null
+                  ? diff > 0 ? "text-green-600" : diff < 0 ? "text-red-600" : "text-gray-500"
+                  : "text-gray-400";
+
+                return (
+                  <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                    <td className="py-2 px-3 font-mono text-xs text-gray-900">{c.sku}</td>
+                    <td className="py-2 px-3">
+                      <Badge variant="secondary" className="text-xs">{c.channelLabel}</Badge>
+                    </td>
+                    <td className="py-2 px-3 text-xs text-gray-600">{c.salsifyProperty ?? "-"}</td>
+                    <td className="py-2 px-3 text-right font-mono text-gray-500">
+                      {c.currentValue != null ? fmt(c.currentValue) : <span className="text-gray-400 italic">not set</span>}
+                    </td>
+                    <td className="py-2 px-3 text-center">
+                      <ArrowRight className="h-3 w-3 text-gray-400 mx-auto" />
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono font-medium text-blue-600">
+                      {fmt(c.newValue)}
+                    </td>
+                    <td className={`py-2 px-3 text-right font-mono text-xs ${diffColor}`}>
+                      {diff != null ? (
+                        <span>
+                          {diff > 0 ? "+" : ""}{fmt(diff)}
+                          {diffPct != null && (
+                            <span className="ml-1 text-gray-400">
+                              ({diffPct > 0 ? "+" : ""}{diffPct.toFixed(1)}%)
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">new</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex items-center justify-end mt-4 gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setView({ step: "list" })}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => publishEntries(view.ids)}
+            disabled={isPublishing}
+          >
+            {isPublishing ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+            ) : (
+              <Upload className="h-4 w-4 mr-1" />
+            )}
+            {isPublishing ? "Publishing..." : `Publish ${view.changes.length} Price${view.changes.length !== 1 ? "s" : ""} to Salsify`}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -321,15 +565,15 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
               <Button
                 size="sm"
                 onClick={publishSelected}
-                disabled={publishing.size > 0}
+                disabled={previewing || publishing.size > 0}
                 className="text-xs"
               >
-                {publishing.size > 0 ? (
+                {previewing ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
                 ) : (
                   <Upload className="h-3.5 w-3.5 mr-1" />
                 )}
-                Publish Selected ({visibleSelectedCount})
+                {previewing ? "Loading preview..." : `Publish Selected (${visibleSelectedCount})`}
               </Button>
             </>
           )}
@@ -431,10 +675,10 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
                           variant="outline"
                           size="sm"
                           onClick={() => publishSku(group.sku)}
-                          disabled={skuPublishing}
+                          disabled={skuPublishing || previewing}
                           className="h-7 text-xs"
                         >
-                          {skuPublishing ? (
+                          {skuPublishing || previewing ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           ) : (
                             "Publish"
