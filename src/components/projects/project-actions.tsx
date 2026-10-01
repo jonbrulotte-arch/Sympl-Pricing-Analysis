@@ -242,10 +242,12 @@ export function ProjectActions({
 
       {/* Product list card — collapsible */}
       <Card>
-        <button
-          type="button"
-          className="flex w-full items-center justify-between px-4 py-3 text-left"
+        <div
+          role="button"
+          tabIndex={0}
+          className="flex w-full items-center justify-between px-4 py-3 text-left cursor-pointer"
           onClick={() => { if (products.length > 0) { setExpanded((v) => !v); setSearch(""); } }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (products.length > 0) { setExpanded((v) => !v); setSearch(""); } } }}
         >
           <div className="flex items-center gap-2 min-w-0">
             <Package className="h-4 w-4 text-gray-400 shrink-0" />
@@ -272,7 +274,7 @@ export function ProjectActions({
               </span>
             )}
           </div>
-        </button>
+        </div>
         {expanded && (
           <CardContent className="pt-0">
             {products.length > PREVIEW_COUNT && (

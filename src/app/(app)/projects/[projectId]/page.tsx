@@ -127,7 +127,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           products={projectProducts}
         />
       </div>
-      <p className="text-xs text-gray-500 mb-4">
+      <div className="text-xs text-gray-500 mb-4">
         <Link href={`/customers/${project.customerId}`} className="hover:text-blue-600 transition-colors">
           {customer.name}
         </Link>
@@ -139,7 +139,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         <Badge variant={project.status === "active" ? "default" : "secondary"} className="text-xs">
           {project.status}
         </Badge>
-      </p>
+      </div>
 
       {customer.channels.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
