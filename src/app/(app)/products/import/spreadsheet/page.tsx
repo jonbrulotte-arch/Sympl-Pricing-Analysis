@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Upload, FileSpreadsheet, Check, AlertCircle, ArrowLeft } from "lucide-react";
+import { Upload, FileSpreadsheet, Check, AlertCircle, ArrowLeft, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { autoMapColumns, headerSignature } from "@/lib/import/auto-map";
 import { buildRows } from "@/lib/import/build-rows";
 import { IMPORT_FIELDS } from "@/lib/pricing/constants";
 import type { ProductRow } from "@/lib/pricing/types";
+import * as XLSX from "xlsx";
 
 interface CustomerOption {
   id: string;
@@ -66,6 +67,16 @@ export default function SpreadsheetImportPage() {
     };
     reader.readAsArrayBuffer(file);
   }, []);
+
+  function downloadTemplate() {
+    const headers = IMPORT_FIELDS.map((f) => f.label);
+    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    const colWidths = headers.map((h) => ({ wch: Math.max(h.length + 2, 14) }));
+    ws["!cols"] = colWidths;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Products");
+    XLSX.writeFile(wb, "product-import-template.xlsx");
+  }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -226,6 +237,12 @@ export default function SpreadsheetImportPage() {
               </Button>
               <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileInput} className="hidden" />
             </label>
+          </div>
+          <div className="mt-4 flex items-center justify-center">
+            <Button variant="ghost" size="sm" className="text-gray-500" onClick={downloadTemplate}>
+              <Download className="h-4 w-4 mr-1.5" />
+              Download blank template (.xlsx)
+            </Button>
           </div>
           {error && (
             <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 mt-4">{error}</div>
