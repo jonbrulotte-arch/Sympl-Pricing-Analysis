@@ -238,11 +238,39 @@ export default function SpreadsheetImportPage() {
               <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileInput} className="hidden" />
             </label>
           </div>
-          <div className="mt-4 flex items-center justify-center">
-            <Button variant="ghost" size="sm" className="text-gray-500" onClick={downloadTemplate}>
-              <Download className="h-4 w-4 mr-1.5" />
-              Download blank template (.xlsx)
-            </Button>
+          <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-900">Need a template?</span>
+              <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                <Download className="h-3.5 w-3.5 mr-1.5" />
+                Download Template
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs">
+              <div>
+                <p className="font-medium text-gray-700 mb-1">Required columns</p>
+                {IMPORT_FIELDS.filter((f) => f.req).map((f) => (
+                  <p key={f.key} className="text-gray-600 py-0.5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400 mr-1.5 align-middle" />
+                    {f.label}
+                  </p>
+                ))}
+              </div>
+              <div>
+                <p className="font-medium text-gray-700 mb-1">Optional columns</p>
+                <div className="max-h-40 overflow-y-auto">
+                  {IMPORT_FIELDS.filter((f) => !f.req).map((f) => (
+                    <p key={f.key} className="text-gray-500 py-0.5">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-300 mr-1.5 align-middle" />
+                      {f.label}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Column headers are auto-matched during import — exact names aren&apos;t required.
+            </p>
           </div>
           {error && (
             <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 mt-4">{error}</div>
