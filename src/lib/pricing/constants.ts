@@ -67,7 +67,7 @@ export const FIELDS_UI: FieldUiDef[] = [
 export const IMPORT_FIELDS = [
   { key: "sku", label: "SKU", req: true, cand: ["sku", "skuid", "itemid", "itemnumber", "mpn", "partnumber", "customlabel"] },
   { key: "name", label: "Item name", req: false, cand: ["itemname", "name", "title", "itemtitle", "productname", "description"] },
-  { key: "cost", label: "SKU cost", req: true, cand: ["skucost", "landedcost", "cost", "unitcost", "itemcost", "cogs"] },
+  { key: "cost", label: "SKU cost", req: false, cand: ["skucost", "landedcost", "cost", "unitcost", "itemcost", "cogs"] },
   { key: "priceJSP", label: "eBay list price", req: false, cand: ["ebaylistprice", "ebayprice", "ebayjspprice", "listingprice", "listprice", "price"] },
   { key: "priceMCF", label: "eBay MCF price", req: false, cand: ["ebaylistpricemcf", "mcflistprice", "ebaymcfprice", "mcfprice"] },
   { key: "priceWM", label: "Walmart price", req: false, cand: ["wmcommarketplaceprice", "walmartprice", "wmprice", "walmartmarketplaceprice", "wmcomprice"] },
