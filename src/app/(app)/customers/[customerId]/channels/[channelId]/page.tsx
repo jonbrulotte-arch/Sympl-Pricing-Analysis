@@ -65,6 +65,8 @@ export default function ChannelSettingsPage() {
   const [blockedBrands, setBlockedBrands] = useState<string[]>([]);
   const [allBrands, setAllBrands] = useState<string[]>([]);
   const [isDefault, setIsDefault] = useState(false);
+  const [name, setName] = useState("");
+  const [tabLabel, setTabLabel] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -76,6 +78,8 @@ export default function ChannelSettingsPage() {
     if (channelRes.ok) {
       const data = await channelRes.json();
       setChannel(data);
+      setName(data.name ?? "");
+      setTabLabel(data.tabLabel ?? "");
       setDefaults(data.defaults ?? {});
       setPriceRecordTiming(data.priceRecordTiming ?? "at_commit");
       setIsDefault(data.isDefault ?? false);
@@ -97,10 +101,12 @@ export default function ChannelSettingsPage() {
     const res = await fetch(`/api/customers/${customerId}/channels/${channelId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ defaults, priceRecordTiming, isDefault, blockedBrands }),
+      body: JSON.stringify({ name, tabLabel, defaults, priceRecordTiming, isDefault, blockedBrands }),
     });
     setSaving(false);
     if (res.ok) {
+      const updated = await res.json();
+      setChannel(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     }
@@ -122,7 +128,7 @@ export default function ChannelSettingsPage() {
     <div className="p-6 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{channel.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{name || channel.name}</h1>
           <div className="text-sm text-gray-500 mt-1">
             <Badge variant="secondary" className="text-xs mr-2">
               {channel.channelType === "commercial" ? "Commercial" : "Online"}
@@ -138,7 +144,7 @@ export default function ChannelSettingsPage() {
             <ChannelDeleteButton
               customerId={customerId}
               channelId={channelId}
-              channelName={channel.name}
+              channelName={name || channel.name}
               redirectTo={`/customers/${customerId}`}
             />
           )}
@@ -147,6 +153,33 @@ export default function ChannelSettingsPage() {
           </Button>
         </div>
       </div>
+
+      <Card className="mb-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Channel Identity</CardTitle>
+          <p className="text-xs text-gray-500">
+            The channel name and the shorter tab label shown in the analysis view
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-700 w-48 shrink-0">Channel name</label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="flex-1"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-700 w-48 shrink-0">Tab label</label>
+            <Input
+              value={tabLabel}
+              onChange={(e) => setTabLabel(e.target.value)}
+              className="flex-1"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="mb-4">
         <CardHeader className="pb-2">
