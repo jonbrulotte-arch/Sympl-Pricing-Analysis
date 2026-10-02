@@ -24,6 +24,7 @@ model User {
   passwordHash           String
   role                   String         @default("ANALYST")
   salsifyApiKeyEncrypted String?
+  lastLoginAt            DateTime?
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
   customers    CustomerUser[]

@@ -21,6 +21,7 @@ export default async function AdminUsersPage() {
       email: true,
       name: true,
       role: true,
+      lastLoginAt: true,
       createdAt: true,
       customers: {
         select: { customer: { select: { id: true, name: true } } },
@@ -51,6 +52,7 @@ export default async function AdminUsersPage() {
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Email</th>
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Role</th>
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Customers</th>
+                  <th className="text-right py-3 px-2 text-gray-600 font-medium">Last Login</th>
                   <th className="text-right py-3 px-2 text-gray-600 font-medium">Created</th>
                   <th className="text-right py-3 px-2 text-gray-600 font-medium w-12"></th>
                 </tr>
@@ -70,6 +72,7 @@ export default async function AdminUsersPage() {
                         ? "-"
                         : u.customers.map((c) => c.customer.name).join(", ")}
                     </td>
+                    <td className="py-2 px-2 text-right text-gray-500">{u.lastLoginAt ? formatDate(u.lastLoginAt) : "Never"}</td>
                     <td className="py-2 px-2 text-right text-gray-500">{formatDate(u.createdAt)}</td>
                     <td className="py-2 px-2 text-right">
                       <div className="flex items-center justify-end gap-1">
