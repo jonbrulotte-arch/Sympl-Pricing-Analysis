@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
 
   let salsifyProducts;
   try {
-    salsifyProducts = await fetchSalsifyProductsByIds(organizationId, apiKey, uniqueSkus, skuPropertyId);
+    salsifyProducts = await fetchSalsifyProductsByIds(organizationId, apiKey, uniqueSkus);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: `Failed to fetch Salsify data: ${message}` }, { status: 502 });

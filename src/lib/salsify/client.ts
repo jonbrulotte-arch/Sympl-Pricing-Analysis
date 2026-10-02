@@ -55,18 +55,17 @@ export async function fetchAllSalsifyProducts(
   return products;
 }
 
-/** Fetch specific products by their SKU values. Returns a map of sku → product. */
+/** Fetch specific products by their salsify:id (SKU). Returns a map of id → product. */
 export async function fetchSalsifyProductsByIds(
   orgId: string,
   apiKey: string,
   ids: string[],
-  skuPropertyId: string = "salsify:id",
 ): Promise<Map<string, SalsifyProduct>> {
   const results = new Map<string, SalsifyProduct>();
   const batchSize = 100;
   for (let i = 0; i < ids.length; i += batchSize) {
     const batch = ids.slice(i, i + batchSize);
-    const filter = `='${skuPropertyId}':in('${batch.map((id) => id.replace(/'/g, "\\'")).join("','")}')`;
+    const filter = `='salsify:id':in('${batch.map((id) => id.replace(/'/g, "\\'")).join("','")}')`;
     const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/products?filter=${encodeURIComponent(filter)}&per_page=${batchSize}`;
     const res = await salsifyFetch(url, {
       headers: {
@@ -78,7 +77,7 @@ export async function fetchSalsifyProductsByIds(
     const data = await res.json();
     const products: SalsifyProduct[] = Array.isArray(data) ? data : (data.data ?? data.products ?? []);
     for (const p of products) {
-      const id = String(p[skuPropertyId] ?? p["salsify:id"] ?? "");
+      const id = String(p["salsify:id"] ?? "");
       if (id) results.set(id, p);
     }
   }
