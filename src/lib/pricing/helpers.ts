@@ -17,6 +17,18 @@ export function parseStatus(raw: string | undefined | null): "active" | "disc" |
   return "unknown";
 }
 
+export function roundStep(mode: string): number {
+  switch (mode) {
+    case "cent":  return 0.01;
+    case "99":    return 1.00;
+    case "95":    return 1.00;
+    case "05":    return 0.05;
+    case "25":    return 0.25;
+    case "1":     return 1.00;
+    default:      return 0.01;
+  }
+}
+
 export function roundUp(value: number, mode: string): number {
   if (!isFinite(value) || value <= 0) return value;
   switch (mode) {

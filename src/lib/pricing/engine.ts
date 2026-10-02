@@ -10,7 +10,7 @@ import type {
   Overrides,
   RoyaltyRuleEntry,
 } from "./types";
-import { parseNum, parseStatus, roundUp, brandKey } from "./helpers";
+import { parseNum, parseStatus, roundUp, roundStep, brandKey } from "./helpers";
 
 export function computeRates(cfg: ChannelConfig, s: ChannelDefaults): RateTuple {
   const f = cfg.flags;
@@ -296,11 +296,12 @@ export function analyzeProduct(
   let recCalc: ForwardPassResult | null = null;
   if (achievable && !invalid && rawRec > 0) {
     rec = roundUp(rawRec, r.round);
+    const step = roundStep(r.round);
     let guard = 0;
     while (guard < 40) {
       recCalc = forwardPass(rec, r, commR, royRate, royFlat, fvfFixedUsed, ppcUsed, units, ship, cost);
       if (recCalc.gm >= goalUsed - 1e-9) break;
-      rec = roundUp(rec + 0.01, r.round);
+      rec = roundUp(rec + step, r.round);
       guard++;
     }
     if (!recCalc) {
