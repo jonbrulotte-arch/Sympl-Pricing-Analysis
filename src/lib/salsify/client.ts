@@ -62,24 +62,23 @@ export async function fetchSalsifyProductsByIds(
   ids: string[],
 ): Promise<Map<string, SalsifyProduct>> {
   const results = new Map<string, SalsifyProduct>();
-  const batchSize = 100;
-  for (let i = 0; i < ids.length; i += batchSize) {
-    const batch = ids.slice(i, i + batchSize);
-    const filter = `='salsify:id':in('${batch.map((id) => id.replace(/'/g, "\\'")).join("','")}')`;
-    const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/products?filter=${encodeURIComponent(filter)}&per_page=${batchSize}`;
-    const res = await salsifyFetch(url, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
+  const concurrency = 5;
+  for (let i = 0; i < ids.length; i += concurrency) {
+    const batch = ids.slice(i, i + concurrency);
+    const fetches = batch.map(async (id) => {
+      const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/products/${encodeURIComponent(id)}`;
+      const res = await salsifyFetch(url, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json",
+        },
+      });
+      if (!res.ok) return;
+      const product: SalsifyProduct = await res.json();
+      const salsifyId = String(product["salsify:id"] ?? id);
+      results.set(salsifyId, product);
     });
-    if (!res.ok) continue;
-    const data = await res.json();
-    const products: SalsifyProduct[] = Array.isArray(data) ? data : (data.data ?? data.products ?? []);
-    for (const p of products) {
-      const id = String(p["salsify:id"] ?? "");
-      if (id) results.set(id, p);
-    }
+    await Promise.all(fetches);
   }
   return results;
 }
