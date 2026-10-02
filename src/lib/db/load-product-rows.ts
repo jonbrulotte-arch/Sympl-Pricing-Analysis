@@ -46,6 +46,7 @@ export async function loadProductRows(
     }
 
     const row: ProductRow = {
+      productId: p.id,
       sku: p.sku,
       name: p.name ?? undefined,
       cost: latestCost ? Number(latestCost.cost) : null,

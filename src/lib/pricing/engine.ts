@@ -315,6 +315,7 @@ export function analyzeProduct(
   const deltaPct = rec != null && price > 0 ? (rec - price) / price : null;
 
   return {
+    productId: row.productId,
     sku: row.sku,
     name: row.name,
     cost: row.cost != null ? cost : null,

@@ -58,6 +58,7 @@ export interface ChannelConfig {
 }
 
 export interface ProductRow {
+  productId?: string;
   sku: string;
   name?: string;
   cost: number | null;
@@ -136,6 +137,7 @@ export interface ForwardPassResult {
 export type AnalysisStatus = "pass" | "below" | "loss" | "invalid" | "unpriced";
 
 export interface AnalysisResult {
+  productId?: string;
   sku: string;
   name?: string;
   cost: number | null;
