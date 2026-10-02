@@ -93,9 +93,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
     });
   }
 
+  const debug: Record<string, unknown> = {
+    skuPropertyId,
+    queriedSkus: uniqueSkus,
+    productsFound: salsifyProducts.size,
+    foundSkus: [...salsifyProducts.keys()],
+  };
+  if (salsifyProducts.size > 0) {
+    const [firstSku, firstProduct] = [...salsifyProducts.entries()][0];
+    debug.sampleSku = firstSku;
+    debug.sampleKeys = Object.keys(firstProduct);
+  }
+
   return NextResponse.json({
     changes,
     unmappedFields: [...new Set(unmapped)],
     skuCount: uniqueSkus.length,
+    _debug: debug,
   });
 }

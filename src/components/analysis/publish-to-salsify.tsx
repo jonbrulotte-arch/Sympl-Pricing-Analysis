@@ -46,7 +46,7 @@ interface Props {
 
 type ViewState =
   | { step: "list" }
-  | { step: "preview"; ids: string[]; changes: PreviewChange[]; unmappedFields: string[] }
+  | { step: "preview"; ids: string[]; changes: PreviewChange[]; unmappedFields: string[]; _debug?: Record<string, unknown> }
   | { step: "success"; publishedCount: number; failedCount: number };
 
 export function PublishToSalsify({ customerId, onRevert }: Props) {
@@ -154,6 +154,7 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
         ids,
         changes: data.changes ?? [],
         unmappedFields: data.unmappedFields ?? [],
+        _debug: data._debug,
       });
     } finally {
       setPreviewing(false);
@@ -402,6 +403,15 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
             </Button>
           </div>
         </div>
+
+        {view._debug && (
+          <details className="mb-4 text-xs">
+            <summary className="cursor-pointer text-gray-400 hover:text-gray-600">Debug info</summary>
+            <pre className="mt-1 p-3 bg-gray-100 rounded text-gray-600 overflow-x-auto whitespace-pre-wrap">
+              {JSON.stringify(view._debug, null, 2)}
+            </pre>
+          </details>
+        )}
 
         {view.unmappedFields.length > 0 && (
           <div className="flex items-center gap-2 px-4 py-3 rounded-md mb-4 text-sm bg-amber-50 text-amber-700 border border-amber-200">
