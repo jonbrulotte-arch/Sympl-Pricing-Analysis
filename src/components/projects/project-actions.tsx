@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Plus, Search, Archive, RotateCcw, ChevronDown, ChevronUp, Package } from "lucide-react";
+import { Trash2, Plus, Search, Archive, RotateCcw, ChevronDown, ChevronUp, Package, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -140,6 +140,9 @@ export function ProjectActions({
   const [skuInput, setSkuInput] = useState("");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [newName, setNewName] = useState(projectName);
+  const [renaming, setRenaming] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState("");
@@ -193,6 +196,25 @@ export function ProjectActions({
     }
   }
 
+  async function handleRename() {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === projectName) {
+      setRenameOpen(false);
+      return;
+    }
+    setRenaming(true);
+    const res = await fetch(`/api/projects/${projectId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: trimmed }),
+    });
+    setRenaming(false);
+    if (res.ok) {
+      setRenameOpen(false);
+      router.refresh();
+    }
+  }
+
   async function toggleArchive() {
     await fetch(`/api/projects/${projectId}`, {
       method: "PATCH",
@@ -216,6 +238,10 @@ export function ProjectActions({
     <>
       {/* Action buttons */}
       <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={() => { setNewName(projectName); setRenameOpen(true); }}>
+          <Pencil className="h-3.5 w-3.5 mr-1.5" />
+          Rename
+        </Button>
         <Button variant="outline" size="sm" onClick={toggleArchive}>
           {status === "active" ? (
             <>
@@ -346,6 +372,33 @@ export function ProjectActions({
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button onClick={handleAddSkus} disabled={adding || !skuInput.trim()}>
               {adding ? "Adding..." : "Add Products"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Project Dialog */}
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Project</DialogTitle>
+            <DialogDescription>
+              Enter a new name for this project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Project name"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter") handleRename(); }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameOpen(false)}>Cancel</Button>
+            <Button onClick={handleRename} disabled={renaming || !newName.trim()}>
+              {renaming ? "Renaming..." : "Rename"}
             </Button>
           </DialogFooter>
         </DialogContent>
