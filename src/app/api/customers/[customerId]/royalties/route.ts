@@ -1,0 +1,99 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
+import { brandKey } from "@/lib/pricing/helpers";
+import { logActivity } from "@/lib/activity-log";
+import { canAccessCustomer } from "@/lib/permissions";
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { customerId } = await params;
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const royalties = await prisma.brandRoyalty.findMany({
+    where: { customerId },
+    orderBy: { brandName: "asc" },
+  });
+
+  return NextResponse.json(royalties.map((r) => ({
+    id: r.id,
+    brandKey: r.brandKey,
+    brandName: r.brandName,
+    value: Number(r.value),
+  })));
+}
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { customerId } = await params;
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const body = await req.json();
+  const entries = body.entries as { brandName: string; value: number }[];
+
+  if (!entries?.length) return NextResponse.json({ error: "No entries" }, { status: 400 });
+
+  for (const entry of entries) {
+    const bk = brandKey(entry.brandName);
+    if (!bk) continue;
+
+    await prisma.brandRoyalty.upsert({
+      where: { customerId_brandKey: { customerId, brandKey: bk } },
+      update: { brandName: entry.brandName, value: entry.value },
+      create: {
+        id: randomUUID(),
+        customerId,
+        brandKey: bk,
+        brandName: entry.brandName,
+        value: entry.value,
+      },
+    });
+  }
+
+  logActivity({
+    action: "royalty.update",
+    category: "royalty",
+    summary: `Updated ${entries.length} brand royalty rate(s)`,
+    detail: { customerId, entryCount: entries.length, brands: entries.map((e: { brandName: string }) => e.brandName) },
+    customerId,
+    userId: session.user.id,
+  });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { customerId } = await params;
+  if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const body = await req.json();
+  const { brandKey: bk } = body;
+
+  if (!bk) return NextResponse.json({ error: "brandKey required" }, { status: 400 });
+
+  await prisma.brandRoyalty.deleteMany({
+    where: { customerId, brandKey: bk },
+  });
+
+  logActivity({
+    action: "royalty.delete",
+    category: "royalty",
+    summary: `Deleted brand royalty "${bk}"`,
+    detail: { customerId, brandKey: bk },
+    customerId,
+    userId: session.user.id,
+  });
+
+  return NextResponse.json({ ok: true });
+}
