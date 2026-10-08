@@ -40,6 +40,14 @@ export async function getAccessibleCustomerIds(userId: string, role: string): Pr
   return links.map((l) => l.customerId);
 }
 
+/** Prisma `where` fragment for products a user may see: admins see the full catalog, others only customer-linked products. */
+export async function productVisibilityWhere(userId: string, role: string) {
+  const permissions = await getPermissions(role);
+  if (permissions.has("admin:settings")) return {};
+  const customerIds = await getAccessibleCustomerIds(userId, role);
+  return { customers: { some: { customerId: { in: customerIds } } } };
+}
+
 export async function canAccessCustomer(customerId: string, userId: string, role: string): Promise<boolean> {
   const permissions = await getPermissions(role);
   if (permissions.has("admin:settings")) return true;

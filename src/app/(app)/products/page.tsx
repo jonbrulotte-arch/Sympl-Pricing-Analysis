@@ -1,11 +1,13 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { getAccessibleCustomerIds } from "@/lib/permissions";
+import { getPermissions, productVisibilityWhere } from "@/lib/permissions";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Search, ChevronLeft, ChevronRight, Upload, FileSpreadsheet, RefreshCw, Package, DollarSign, AlertTriangle, Truck } from "lucide-react";
 import { PageSizeSelect } from "@/components/products/page-size-select";
 import { McfFreightImport } from "@/components/products/mcf-freight-import";
@@ -15,20 +17,25 @@ const PAGE_SIZES = [25, 50, 100];
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; pageSize?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; pageSize?: string; assigned?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
-  const { q, page: pageParam, pageSize: pageSizeParam } = await searchParams;
+  const { q, page: pageParam, pageSize: pageSizeParam, assigned } = await searchParams;
 
   const pageSize = PAGE_SIZES.includes(Number(pageSizeParam)) ? Number(pageSizeParam) : 25;
   const page = Math.max(1, Number(pageParam) || 1);
 
-  const customerIds = await getAccessibleCustomerIds(userId, session.user.role);
+  const permissions = await getPermissions(session.user.role);
+  const isAdmin = permissions.has("admin:settings");
+  const unassignedOnly = isAdmin && assigned === "unassigned";
+
+  const baseWhere = await productVisibilityWhere(userId, session.user.role);
 
   const where = {
-    customers: { some: { customerId: { in: customerIds } } },
+    ...baseWhere,
+    ...(unassignedOnly ? { customers: { none: {} } } : {}),
     ...(q
       ? {
           OR: [
@@ -40,15 +47,13 @@ export default async function ProductsPage({
       : {}),
   };
 
-  const baseWhere = { customers: { some: { customerId: { in: customerIds } } } };
-
-  const [products, totalCount, totalProducts, withCost, withMcfFreight] = await Promise.all([
+  const [products, totalCount, totalProducts, withCost, withMcfFreight, unassignedCount] = await Promise.all([
     prisma.product.findMany({
       where,
       orderBy: { sku: "asc" },
       include: {
         _count: {
-          select: { costHistories: true, priceHistories: true, shippingCostHistories: true, productPrices: true },
+          select: { costHistories: true, priceHistories: true, shippingCostHistories: true, productPrices: true, customers: true },
         },
       },
       skip: (page - 1) * pageSize,
@@ -62,6 +67,7 @@ export default async function ProductsPage({
     prisma.product.count({
       where: { ...baseWhere, shippingCostHistories: { some: { shippingType: "mcf_freight" } } },
     }),
+    isAdmin ? prisma.product.count({ where: { customers: { none: {} } } }) : Promise.resolve(0),
   ]);
 
   const missingCost = totalProducts - withCost;
@@ -93,7 +99,16 @@ export default async function ProductsPage({
   function pageHref(p: number) {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
+    if (unassignedOnly) params.set("assigned", "unassigned");
     params.set("page", String(p));
+    params.set("pageSize", String(pageSize));
+    return `/products?${params.toString()}`;
+  }
+
+  function filterHref(unassigned: boolean) {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (unassigned) params.set("assigned", "unassigned");
     params.set("pageSize", String(pageSize));
     return `/products?${params.toString()}`;
   }
@@ -185,17 +200,42 @@ export default async function ProductsPage({
       </div>
 
       <div className="flex items-center justify-between gap-3 mb-4">
-        <form className="max-w-sm w-full">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-            <Input
-              name="q"
-              defaultValue={q ?? ""}
-              placeholder="Search SKU, name, or brand..."
-              className="pl-9"
-            />
-          </div>
-        </form>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <form className="max-w-sm w-full">
+            {unassignedOnly && <input type="hidden" name="assigned" value="unassigned" />}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Input
+                name="q"
+                defaultValue={q ?? ""}
+                placeholder="Search SKU, name, or brand..."
+                className="pl-9"
+              />
+            </div>
+          </form>
+          {isAdmin && (
+            <div className="inline-flex rounded-md border border-gray-300 overflow-hidden text-xs shrink-0">
+              <Link
+                href={filterHref(false)}
+                className={cn(
+                  "px-3 py-1.5",
+                  !unassignedOnly ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50",
+                )}
+              >
+                All
+              </Link>
+              <Link
+                href={filterHref(true)}
+                className={cn(
+                  "px-3 py-1.5 border-l border-gray-300",
+                  unassignedOnly ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50",
+                )}
+              >
+                Unassigned ({unassignedCount})
+              </Link>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <p className="text-sm text-gray-600">
             {totalCount === 0
@@ -229,12 +269,17 @@ export default async function ProductsPage({
                   return (
                     <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                       <td className="py-2 px-2">
-                        <Link
-                          href={`/products/${p.id}`}
-                          className="font-mono text-xs text-blue-600 hover:underline"
-                        >
-                          {p.sku}
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          <Link
+                            href={`/products/${p.id}`}
+                            className="font-mono text-xs text-blue-600 hover:underline"
+                          >
+                            {p.sku}
+                          </Link>
+                          {p._count.customers === 0 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Unassigned</Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="py-2 px-2 text-gray-700 max-w-xs truncate">{p.name || "-"}</td>
                       <td className="py-2 px-2 text-gray-600">{p.brand || "-"}</td>
@@ -270,7 +315,11 @@ export default async function ProductsPage({
                 {products.length === 0 && (
                   <tr>
                     <td colSpan={8} className="py-8 text-center text-gray-500">
-                      {q ? "No products match your search." : "No products yet. Import data to get started."}
+                      {q
+                        ? "No products match your search."
+                        : unassignedOnly
+                          ? "Every product is assigned to a customer."
+                          : "No products yet. Import data to get started."}
                     </td>
                   </tr>
                 )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Upload, FileSpreadsheet, Check, AlertCircle, ArrowLeft, Download } from "lucide-react";
@@ -14,19 +14,11 @@ import { IMPORT_FIELDS } from "@/lib/pricing/constants";
 import type { ProductRow } from "@/lib/pricing/types";
 import * as XLSX from "xlsx";
 
-interface CustomerOption {
-  id: string;
-  name: string;
-}
-
-type Step = "customer" | "upload" | "map" | "preview" | "importing" | "done";
+type Step = "upload" | "map" | "preview" | "importing" | "done";
 
 export default function SpreadsheetImportPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("customer");
-  const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [customersLoading, setCustomersLoading] = useState(true);
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [step, setStep] = useState<Step>("upload");
   const [fileName, setFileName] = useState("");
   const [sheets, setSheets] = useState<ParsedSheet[]>([]);
   const [selectedSheet, setSelectedSheet] = useState(0);
@@ -34,17 +26,7 @@ export default function SpreadsheetImportPage() {
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [result, setResult] = useState<{ created: number; updated: number } | null>(null);
-
-  useEffect(() => {
-    fetch("/api/customers")
-      .then((r) => r.json())
-      .then((data) => {
-        setCustomers(data.customers ?? data ?? []);
-        setCustomersLoading(false);
-      })
-      .catch(() => setCustomersLoading(false));
-  }, []);
+  const [result, setResult] = useState<{ created: number; updated: number; unchanged: number } | null>(null);
 
   const processFile = useCallback((file: File) => {
     setFileName(file.name);
@@ -121,7 +103,7 @@ export default function SpreadsheetImportPage() {
     setStep("importing");
 
     try {
-      const res = await fetch(`/api/customers/${selectedCustomerId}/import`, {
+      const res = await fetch("/api/products/import/spreadsheet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -148,10 +130,6 @@ export default function SpreadsheetImportPage() {
     }
   }
 
-  function handleCustomerContinue() {
-    if (selectedCustomerId) setStep("upload");
-  }
-
   const sheet = sheets[selectedSheet];
   const missingRequired = IMPORT_FIELDS.filter((f) => f.req && columnMap[f.key] === undefined);
 
@@ -167,59 +145,15 @@ export default function SpreadsheetImportPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Spreadsheet Import</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Upload a spreadsheet with full product data including channel prices.
+            Upload a spreadsheet of product data into the product catalog. Prices are stored per
+            price field and apply to every customer channel that uses that field.
           </p>
         </div>
       </div>
 
-      {/* Customer picker */}
-      {step === "customer" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Select Customer</CardTitle>
-            <p className="text-sm text-gray-500">
-              Channel prices are per-customer. Choose which customer this import is for.
-            </p>
-          </CardHeader>
-          <CardContent>
-            {customersLoading ? (
-              <p className="text-sm text-gray-500">Loading customers...</p>
-            ) : customers.length === 0 ? (
-              <p className="text-sm text-gray-500">No customers found. Create a customer first.</p>
-            ) : (
-              <div className="space-y-4">
-                <select
-                  value={selectedCustomerId}
-                  onChange={(e) => setSelectedCustomerId(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-md px-3 py-2"
-                >
-                  <option value="">Select a customer...</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-                <div className="flex justify-end">
-                  <Button onClick={handleCustomerContinue} disabled={!selectedCustomerId}>
-                    Continue
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Upload */}
       {step === "upload" && (
         <div>
-          <div className="mb-4 flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              Customer: {customers.find((c) => c.id === selectedCustomerId)?.name}
-            </Badge>
-            <Button variant="ghost" size="sm" className="text-xs h-6" onClick={() => setStep("customer")}>
-              Change
-            </Button>
-          </div>
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
@@ -425,13 +359,14 @@ export default function SpreadsheetImportPage() {
           <CardContent className="py-12 text-center">
             <Check className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-gray-900 mb-2">Import Complete</h2>
-            <p className="text-gray-600 mb-1">{result.created} new products added to database</p>
-            <p className="text-gray-600 mb-6">{result.updated} existing products updated</p>
+            <p className="text-gray-600 mb-1">{result.created} new products added to the catalog</p>
+            <p className="text-gray-600 mb-1">{result.updated} existing products updated</p>
+            <p className="text-gray-600 mb-6">{result.unchanged} products unchanged</p>
             <div className="flex gap-3 justify-center">
               <Button onClick={() => router.push("/products")}>
                 View Products
               </Button>
-              <Button variant="outline" onClick={() => { setStep("customer"); setRows([]); setResult(null); }}>
+              <Button variant="outline" onClick={() => { setStep("upload"); setRows([]); setResult(null); }}>
                 Import More
               </Button>
             </div>

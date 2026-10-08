@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
-import { getPermissions, getAccessibleCustomerIds } from "@/lib/permissions";
+import { getPermissions, getAccessibleCustomerIds, productVisibilityWhere } from "@/lib/permissions";
 import { ProductEditor } from "@/components/products/product-editor";
 import { ProductDelete } from "@/components/products/product-delete";
 import { CostHistoryChart, ShippingHistoryChart } from "@/components/products/cost-chart";
@@ -40,7 +40,7 @@ export default async function ProductDetailPage({
   const product = await prisma.product.findFirst({
     where: {
       id: productId,
-      customers: { some: { customerId: { in: customerIds } } },
+      ...(await productVisibilityWhere(userId, session.user.role)),
     },
   });
   if (!product) notFound();

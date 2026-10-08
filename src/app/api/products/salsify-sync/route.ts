@@ -6,12 +6,12 @@ import { triggerChannelExport, pollExportStatus, downloadExportFile } from "@/li
 import { parseWorkbook } from "@/lib/import/parse";
 import { autoMapColumns } from "@/lib/import/auto-map";
 import { buildRows } from "@/lib/import/build-rows";
-import { upsertSalsifyProducts } from "@/lib/db/upsert-salsify-products";
+import { upsertGlobalProducts } from "@/lib/db/upsert-global-products";
 import { randomUUID } from "crypto";
 import { logActivity } from "@/lib/activity-log";
 
 const POLL_INTERVAL_MS = 3_000;
-const MAX_POLL_ATTEMPTS = 120;
+const MAX_POLL_ATTEMPTS = 300; // ~15 minutes
 
 export async function POST() {
   const session = await auth();
@@ -88,30 +88,37 @@ async function runSalsifySync(
     const sheet = sheets[0];
     const columnMap = autoMapColumns(sheet.headers);
     if (columnMap.sku === undefined) {
-      throw new Error("Export file has no recognizable SKU column");
+      const headers = sheet.headers.filter(Boolean).slice(0, 30).join(", ");
+      throw new Error(`Export file has no recognizable SKU column. Headers found: ${headers}`);
     }
 
     const rows = buildRows(sheet.data, columnMap);
     if (rows.length === 0) throw new Error("No valid product rows found in export");
 
-    const { created, updated } = await upsertSalsifyProducts(importId, rows);
+    const totalRows = sheet.data.length;
+    const skipped = totalRows - rows.length;
+
+    const { created, updated, unchanged, duplicates } = await upsertGlobalProducts(importId, rows, (processed) =>
+      prisma.import.update({ where: { id: importId }, data: { rowCount: processed } }).then(() => {}),
+    );
+    const productCount = created + updated + unchanged;
 
     await prisma.import.update({
       where: { id: importId },
       data: {
         status: "complete",
-        rowCount: rows.length,
+        rowCount: productCount,
         columnMap: columnMap as Record<string, number>,
         sheetName: sheet.name,
-        errors: { created, updated },
+        errors: { created, updated, unchanged, skipped, duplicates, totalRows },
       },
     });
 
     logActivity({
       action: "import.salsify",
       category: "import",
-      summary: `Salsify sync completed: ${created} created, ${updated} updated (${rows.length} rows)`,
-      detail: { importId, rowCount: rows.length, created, updated },
+      summary: `Salsify sync completed: ${created} created, ${updated} updated, ${unchanged} unchanged (${totalRows} rows)`,
+      detail: { importId, totalRows, created, updated, unchanged, skipped, duplicates },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

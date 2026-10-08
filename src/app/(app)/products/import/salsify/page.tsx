@@ -7,6 +7,15 @@ import { RefreshCw, Check, ArrowLeft, AlertCircle, Settings } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
+interface SyncResult {
+  created: number;
+  updated: number;
+  unchanged: number;
+  skipped: number;
+  duplicates: number;
+  totalRows: number;
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -16,7 +25,7 @@ export default function SalsifySyncPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncProgress, setSyncProgress] = useState(0);
-  const [result, setResult] = useState<{ created: number; updated: number } | null>(null);
+  const [result, setResult] = useState<SyncResult | null>(null);
 
   async function handleSync() {
     setSyncing(true);
@@ -47,8 +56,15 @@ export default function SalsifySyncPage() {
         setSyncProgress(statusData.rowCount ?? 0);
 
         if (statusData.status === "complete") {
-          const { created, updated } = statusData.errors ?? {};
-          setResult({ created: created ?? 0, updated: updated ?? 0 });
+          const e = statusData.errors ?? {};
+          setResult({
+            created: e.created ?? 0,
+            updated: e.updated ?? 0,
+            unchanged: e.unchanged ?? 0,
+            skipped: e.skipped ?? 0,
+            duplicates: e.duplicates ?? 0,
+            totalRows: e.totalRows ?? 0,
+          });
           break;
         }
         if (statusData.status === "failed") {
@@ -85,11 +101,24 @@ export default function SalsifySyncPage() {
           <CardContent className="py-12 text-center">
             <Check className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-gray-900 mb-2">Sync Complete</h2>
+            {result.totalRows > 0 && (
+              <p className="text-sm text-gray-500 mb-3">{result.totalRows} rows in the channel export</p>
+            )}
             <p className="text-gray-600 mb-1">{result.created} new products created</p>
-            <p className="text-gray-600 mb-6">{result.updated} existing products updated</p>
-            <div className="flex gap-3 justify-center">
+            <p className="text-gray-600 mb-1">{result.updated} existing products updated</p>
+            <p className="text-gray-600 mb-1">{result.unchanged} products unchanged</p>
+            {result.skipped > 0 && (
+              <p className="text-amber-700 mb-1">{result.skipped} rows skipped (blank SKU)</p>
+            )}
+            {result.duplicates > 0 && (
+              <p className="text-amber-700 mb-1">{result.duplicates} duplicate SKU rows merged</p>
+            )}
+            <div className="flex gap-3 justify-center mt-6">
               <Button onClick={() => router.push("/products")}>
                 View Products
+              </Button>
+              <Button variant="outline" onClick={() => router.push("/products?assigned=unassigned")}>
+                View Unassigned
               </Button>
               <Button variant="outline" onClick={() => { setResult(null); setSyncProgress(0); }}>
                 Sync Again
@@ -117,9 +146,10 @@ export default function SalsifySyncPage() {
                 all product data (attributes, costs, prices, and shipping) into the product database.
               </p>
               <p className="text-sm text-gray-500 mb-4">
-                Column headers from the export are automatically matched to product fields.
-                Price data is stored at the product level and becomes available for analysis
-                when products are assigned to a customer project.
+                Every SKU in the export is imported into the product catalog, whether or not it is
+                assigned to a customer. Column headers are matched to product fields automatically.
+                Prices are stored per price field and apply to any customer channel using that field
+                once the product is added to one of the customer&apos;s projects.
               </p>
               <div className="flex items-center gap-3">
                 <Button onClick={handleSync}>
