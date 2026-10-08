@@ -1,17 +1,25 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
 import { loadProductRows } from "@/lib/db/load-product-rows";
 import { loadChannelProductIds } from "@/lib/db/channel-products";
 import { getPermissions } from "@/lib/permissions";
 import type { BrandRoyaltyTable, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
-export default async function AnalysisPage({ params }: { params: Promise<{ customerId: string }> }) {
+export default async function AnalysisPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ customerId: string }>;
+  searchParams: Promise<{ channel?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
   const { customerId } = await params;
+  const { channel: channelParam } = await searchParams;
 
   const permissions = await getPermissions(session.user.role);
   const canViewCost = permissions.has("data:viewCost");
@@ -28,16 +36,20 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
 
   if (!customer) notFound();
 
-  const dbProducts = await prisma.product.findMany({
-    where: { customers: { some: { customerId } } },
-    orderBy: { sku: "asc" },
-    select: { id: true },
-  });
+  const singleChannel = customer.channels.find((c) => c.id === channelParam) ?? null;
+  const channels = singleChannel ? [singleChannel] : customer.channels;
+  const channelProductIds = await loadChannelProductIds(channels);
 
-  const products = await loadProductRows(
-    dbProducts.map((p) => p.id),
-    customer.channels,
-  );
+  const productIds = singleChannel && channelProductIds[singleChannel.id]
+    ? channelProductIds[singleChannel.id]!
+    : (
+        await prisma.product.findMany({
+          where: { customers: { some: { customerId } } },
+          select: { id: true },
+        })
+      ).map((p) => p.id);
+
+  const products = await loadProductRows(productIds, channels);
 
   const brandRoyalties: BrandRoyaltyTable = {};
   for (const br of customer.brandRoyalties) {
@@ -71,9 +83,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
     })),
   ];
 
-  const channelProductIds = await loadChannelProductIds(customer.channels);
-
-  const channelsData = customer.channels.map((ch) => ({
+  const channelsData = channels.map((ch) => ({
     channelProductIds: channelProductIds[ch.id],
     id: ch.id,
     name: ch.name,
@@ -101,10 +111,35 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900">{customer.name} — Analysis</h1>
-        <p className="text-sm text-gray-500">
-          {products.length} products across {customer.channels.length} channels
-        </p>
+        {singleChannel ? (
+          <>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {customer.name} — {singleChannel.name} Analysis
+            </h1>
+            <p className="text-sm text-gray-500">
+              {products.length} products
+              {singleChannel.salsifyListId && " from this channel's Salsify list"}
+              {" · "}
+              <Link href={`/customers/${customerId}/analysis`} className="text-blue-600 hover:underline">
+                All channels
+              </Link>
+              {" · "}
+              <Link
+                href={`/customers/${customerId}/channels/${singleChannel.id}`}
+                className="text-blue-600 hover:underline"
+              >
+                Channel settings
+              </Link>
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold text-gray-900">{customer.name} — Analysis</h1>
+            <p className="text-sm text-gray-500">
+              {products.length} products across {customer.channels.length} channels
+            </p>
+          </>
+        )}
       </div>
 
       <AnalysisWorkspace

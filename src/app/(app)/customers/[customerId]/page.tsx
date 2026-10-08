@@ -117,6 +117,16 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
                         </div>
                       </Link>
                       <div className="flex items-center gap-2 shrink-0">
+                        <NavigatingButton
+                          href={`/customers/${customerId}/analysis?channel=${ch.id}`}
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs px-2.5"
+                          loadingText="Loading..."
+                        >
+                          <BarChart3 className="h-3.5 w-3.5 mr-1" />
+                          Analysis
+                        </NavigatingButton>
                         {ch.isDefault && (
                           <Badge variant="secondary" className="text-xs">
                             Default
