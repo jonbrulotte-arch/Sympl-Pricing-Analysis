@@ -83,6 +83,74 @@ export async function fetchSalsifyProductsByIds(
   return results;
 }
 
+const LIST_ID_RE = /^s-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Accepts a bare Salsify list id (s-<uuid>) or a full product_lists URL; returns the id or null. */
+export function normalizeListId(input: string): string | null {
+  const trimmed = input.trim();
+  const fromUrl = trimmed.match(/\/(?:product_)?lists\/(s-[0-9a-f-]+)/i)?.[1];
+  const id = fromUrl ?? trimmed;
+  return LIST_ID_RE.test(id) ? id : null;
+}
+
+/** One page of products in a Salsify product list. `listId` must already be normalized. */
+export async function fetchListProductsPage(
+  orgId: string,
+  apiKey: string,
+  listId: string,
+  page: number,
+  perPage = PAGE_SIZE,
+): Promise<{ products: SalsifyProduct[]; total: number }> {
+  const filter = encodeURIComponent(`=list:'${listId}'`);
+  const url = `${SALSIFY_API_BASE}/orgs/${encodeURIComponent(orgId)}/products?filter=${filter}&page=${page}&per_page=${perPage}`;
+  const res = await salsifyFetch(url, {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+    timeoutMs: 60_000,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Salsify list request failed (${res.status}): ${text || res.statusText}`);
+  }
+  const data = await res.json();
+  const products: SalsifyProduct[] = Array.isArray(data) ? data : (data.data ?? []);
+  const total = Number(data?.meta?.total_entries ?? products.length);
+  return { products, total };
+}
+
+/** All products in a Salsify product list, paged. */
+export async function fetchSalsifyListProducts(
+  orgId: string,
+  apiKey: string,
+  listId: string,
+  onPage?: (fetched: number, total: number) => void | Promise<void>,
+): Promise<{ products: SalsifyProduct[]; total: number }> {
+  const products: SalsifyProduct[] = [];
+  let total = 0;
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const res = await fetchListProductsPage(orgId, apiKey, listId, page);
+    total = res.total;
+    for (const p of res.products) {
+      delete p["salsify:digital_assets"];
+      products.push(p);
+    }
+    if (onPage) await onPage(products.length, total);
+    if (res.products.length < PAGE_SIZE || products.length >= total) break;
+  }
+  return { products, total };
+}
+
+/** Flattens a Salsify property value: localized objects → en-US (or first), arrays → first element. */
+export function salsifyScalar(value: unknown): string | null {
+  if (value == null) return null;
+  if (Array.isArray(value)) return value.length > 0 ? salsifyScalar(value[0]) : null;
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    return salsifyScalar(obj["en-US"] ?? Object.values(obj)[0]);
+  }
+  const s = String(value).trim();
+  return s || null;
+}
+
 /** Pulls the first element out of a Salsify " | "-delimited array-style string value. */
 export function firstDelimited(value: unknown): string | null {
   if (value == null) return null;

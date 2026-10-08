@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity-log";
 import { canAccessCustomer } from "@/lib/permissions";
+import { normalizeListId } from "@/lib/salsify/client";
 
 type Params = { params: Promise<{ customerId: string; channelId: string }> };
 
@@ -16,10 +17,12 @@ export async function GET(req: NextRequest, { params }: Params) {
 
   const channel = await prisma.salesChannel.findFirst({
     where: { id: channelId, customerId },
+    include: { _count: { select: { channelProducts: true } } },
   });
   if (!channel) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json(channel);
+  const { _count, ...rest } = channel;
+  return NextResponse.json({ ...rest, channelProductCount: _count.channelProducts });
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
@@ -30,7 +33,32 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const owned = await prisma.salesChannel.findFirst({ where: { id: channelId, customerId }, select: { id: true } });
+  if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const body = await req.json();
+
+  let salsifyListId: string | null | undefined;
+  if (body.salsifyListId !== undefined) {
+    const raw = typeof body.salsifyListId === "string" ? body.salsifyListId.trim() : "";
+    if (raw === "") {
+      salsifyListId = null;
+    } else {
+      salsifyListId = normalizeListId(raw);
+      if (!salsifyListId)
+        return NextResponse.json({ error: "Invalid Salsify list ID. Paste the s-… ID or the list's URL." }, { status: 400 });
+    }
+  }
+  const salsifyPriceProperty =
+    body.salsifyPriceProperty === undefined
+      ? undefined
+      : typeof body.salsifyPriceProperty === "string" && body.salsifyPriceProperty.trim() !== ""
+        ? body.salsifyPriceProperty.trim()
+        : null;
+
+  if (salsifyListId === null) {
+    await prisma.channelProduct.deleteMany({ where: { channelId } });
+  }
 
   const channel = await prisma.salesChannel.update({
     where: { id: channelId },
@@ -58,6 +86,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ...(body.defaults !== undefined && { defaults: body.defaults }),
       ...(body.blockedBrands !== undefined && { blockedBrands: body.blockedBrands }),
       ...(body.isDefault !== undefined && { isDefault: !!body.isDefault }),
+      ...(salsifyListId !== undefined && { salsifyListId, ...(salsifyListId === null && { salsifyListSyncedAt: null }) }),
+      ...(salsifyPriceProperty !== undefined && { salsifyPriceProperty }),
     },
   });
 

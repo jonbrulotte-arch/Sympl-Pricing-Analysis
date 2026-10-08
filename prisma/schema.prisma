@@ -116,14 +116,31 @@ model SalesChannel {
   defaults      Json @default("{}")
   blockedBrands Json @default("[]")
 
+  // Salsify Product List that defines which SKUs are sold on this channel
+  salsifyListId        String?
+  salsifyPriceProperty String?
+  salsifyListSyncedAt  DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   priceHistories  PriceHistory[]
   analysisResults AnalysisResult[]
   salsifyStaged   SalsifyStaged[]
+  channelProducts ChannelProduct[]
 
   @@unique([customerId, slug])
+}
+
+model ChannelProduct {
+  channelId String
+  productId String
+  channel   SalesChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@id([channelId, productId])
+  @@index([productId])
 }
 
 model CustomerProduct {
@@ -157,6 +174,7 @@ model Product {
   productPrices         ProductPrice[]
   analysisResults       AnalysisResult[]
   projects              ProjectProduct[]
+  channels              ChannelProduct[]
 }
 
 model CostHistory {

@@ -37,6 +37,7 @@ interface ChannelDb {
   hasAsin: boolean;
   defaults: Record<string, unknown>;
   blockedBrands: string[];
+  channelProductIds?: string[] | null;
 }
 
 interface Props {

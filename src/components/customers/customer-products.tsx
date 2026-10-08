@@ -7,6 +7,7 @@ import { Plus, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ export interface CustomerProductRow {
   inventoryStatus: string | null;
   cost: number | null;
   projectCount: number;
+  channels: string[];
 }
 
 interface Props {
@@ -32,6 +34,7 @@ interface Props {
   canEdit: boolean;
   canViewCost: boolean;
   unassignedCount: number;
+  showChannels: boolean;
   emptyMessage: string;
 }
 
@@ -41,7 +44,7 @@ interface AddResult {
   missing: string[];
 }
 
-export function CustomerProducts({ customerId, rows, canEdit, canViewCost, unassignedCount, emptyMessage }: Props) {
+export function CustomerProducts({ customerId, rows, canEdit, canViewCost, unassignedCount, showChannels, emptyMessage }: Props) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addOpen, setAddOpen] = useState(false);
@@ -56,7 +59,7 @@ export function CustomerProducts({ customerId, rows, canEdit, canViewCost, unass
   const selectedRows = rows.filter((r) => selected.has(r.id));
   const selectedInProjects = selectedRows.filter((r) => r.projectCount > 0).length;
   const skuCount = skuInput.split(/[\n,]+/).filter((s) => s.trim()).length;
-  const colCount = 5 + (canEdit ? 1 : 0) + (canViewCost ? 1 : 0);
+  const colCount = 5 + (canEdit ? 1 : 0) + (canViewCost ? 1 : 0) + (showChannels ? 1 : 0);
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -166,6 +169,7 @@ export function CustomerProducts({ customerId, rows, canEdit, canViewCost, unass
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Brand</th>
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Status</th>
                   {canViewCost && <th className="text-right py-3 px-2 text-gray-600 font-medium">Cost</th>}
+                  {showChannels && <th className="text-left py-3 px-2 text-gray-600 font-medium">Channels</th>}
                   <th className="text-right py-3 px-2 text-gray-600 font-medium">Projects</th>
                 </tr>
               </thead>
@@ -194,6 +198,19 @@ export function CustomerProducts({ customerId, rows, canEdit, canViewCost, unass
                     {canViewCost && (
                       <td className="py-2 px-2 text-right font-mono text-gray-900">
                         {r.cost != null ? `$${r.cost.toFixed(2)}` : "-"}
+                      </td>
+                    )}
+                    {showChannels && (
+                      <td className="py-2 px-2">
+                        {r.channels.length === 0 ? (
+                          <span className="text-gray-400 text-xs">-</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {r.channels.map((c) => (
+                              <Badge key={c} variant="secondary" className="text-[10px] px-1.5 py-0">{c}</Badge>
+                            ))}
+                          </div>
+                        )}
                       </td>
                     )}
                     <td className="py-2 px-2 text-right text-gray-600">{r.projectCount || "-"}</td>

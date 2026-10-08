@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
 import { loadProductRows } from "@/lib/db/load-product-rows";
+import { loadChannelProductIds } from "@/lib/db/channel-products";
 import { getPermissions } from "@/lib/permissions";
 import type { BrandRoyaltyTable, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
@@ -70,7 +71,10 @@ export default async function AnalysisPage({ params }: { params: Promise<{ custo
     })),
   ];
 
+  const channelProductIds = await loadChannelProductIds(customer.channels);
+
   const channelsData = customer.channels.map((ch) => ({
+    channelProductIds: channelProductIds[ch.id],
     id: ch.id,
     name: ch.name,
     tabLabel: ch.tabLabel,

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { getPermissions } from "@/lib/permissions";
 import { PageSizeSelect } from "@/components/products/page-size-select";
 import { CustomerProducts } from "@/components/customers/customer-products";
+import { ChannelFilterSelect } from "@/components/customers/channel-filter-select";
 
 const PAGE_SIZES = [25, 50, 100];
 
@@ -16,13 +17,13 @@ export default async function CustomerProductsPage({
   searchParams,
 }: {
   params: Promise<{ customerId: string }>;
-  searchParams: Promise<{ q?: string; page?: string; pageSize?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; pageSize?: string; channel?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
   const { customerId } = await params;
-  const { q, page: pageParam, pageSize: pageSizeParam } = await searchParams;
+  const { q, page: pageParam, pageSize: pageSizeParam, channel: channelParam } = await searchParams;
 
   const permissions = await getPermissions(session.user.role);
   const isAdmin = permissions.has("admin:settings");
@@ -31,16 +32,22 @@ export default async function CustomerProductsPage({
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, ...(isAdmin ? {} : { users: { some: { userId } } }) },
-    select: { id: true, name: true },
+    select: {
+      id: true,
+      name: true,
+      channels: { orderBy: { sortOrder: "asc" }, select: { id: true, tabLabel: true, salsifyListId: true } },
+    },
   });
   if (!customer) notFound();
 
   const pageSize = PAGE_SIZES.includes(Number(pageSizeParam)) ? Number(pageSizeParam) : 25;
   const page = Math.max(1, Number(pageParam) || 1);
+  const channelFilter = customer.channels.find((c) => c.id === channelParam) ?? null;
 
   const linked = { customers: { some: { customerId } } };
   const where = {
     ...linked,
+    ...(channelFilter ? { channels: { some: { channelId: channelFilter.id } } } : {}),
     ...(q
       ? {
           OR: [
@@ -66,7 +73,8 @@ export default async function CustomerProductsPage({
   ]);
 
   const productIds = products.map((p) => p.id);
-  const [projectCounts, latestCosts] = await Promise.all([
+  const listChannels = customer.channels.filter((c) => c.salsifyListId);
+  const [projectCounts, latestCosts, memberships] = await Promise.all([
     prisma.projectProduct.groupBy({
       by: ["productId"],
       where: { productId: { in: productIds }, project: { customerId } },
@@ -80,9 +88,22 @@ export default async function CustomerProductsPage({
           select: { productId: true, cost: true },
         })
       : Promise.resolve([]),
+    listChannels.length > 0
+      ? prisma.channelProduct.findMany({
+          where: { productId: { in: productIds }, channelId: { in: listChannels.map((c) => c.id) } },
+          select: { productId: true, channelId: true },
+        })
+      : Promise.resolve([]),
   ]);
   const projectMap = new Map(projectCounts.map((p) => [p.productId, p._count._all]));
   const costMap = new Map(latestCosts.map((c) => [c.productId, Number(c.cost)]));
+  const channelLabel = new Map(customer.channels.map((c) => [c.id, c.tabLabel]));
+  const channelsByProduct = new Map<string, string[]>();
+  for (const m of memberships) {
+    const list = channelsByProduct.get(m.productId) ?? [];
+    list.push(channelLabel.get(m.channelId) ?? "");
+    channelsByProduct.set(m.productId, list);
+  }
 
   const rows = products.map((p) => ({
     id: p.id,
@@ -92,6 +113,7 @@ export default async function CustomerProductsPage({
     inventoryStatus: p.inventoryStatus,
     cost: costMap.get(p.id) ?? null,
     projectCount: projectMap.get(p.id) ?? 0,
+    channels: channelsByProduct.get(p.id) ?? [],
   }));
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -101,6 +123,7 @@ export default async function CustomerProductsPage({
   function pageHref(p: number) {
     const sp = new URLSearchParams();
     if (q) sp.set("q", q);
+    if (channelFilter) sp.set("channel", channelFilter.id);
     sp.set("page", String(p));
     sp.set("pageSize", String(pageSize));
     return `/customers/${customerId}/products?${sp.toString()}`;
@@ -125,12 +148,19 @@ export default async function CustomerProductsPage({
 
       <div className="flex items-center justify-between gap-3 mb-4">
         <form className="max-w-sm w-full">
+          {channelFilter && <input type="hidden" name="channel" value={channelFilter.id} />}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
             <Input name="q" defaultValue={q ?? ""} placeholder="Search SKU, name, or brand..." className="pl-9" />
           </div>
         </form>
         <div className="flex items-center gap-3">
+          {listChannels.length > 0 && (
+            <ChannelFilterSelect
+              channels={listChannels.map((c) => ({ id: c.id, label: c.tabLabel }))}
+              value={channelFilter?.id ?? null}
+            />
+          )}
           <p className="text-sm text-gray-600">
             {totalCount === 0 ? "0 products" : `${rangeStart}–${rangeEnd} of ${totalCount}`}
           </p>
@@ -144,7 +174,14 @@ export default async function CustomerProductsPage({
         canEdit={canEdit}
         canViewCost={canViewCost}
         unassignedCount={unassignedCount}
-        emptyMessage={q ? "No products match your search." : "No products assigned yet."}
+        showChannels={listChannels.length > 0}
+        emptyMessage={
+          q
+            ? "No products match your search."
+            : channelFilter
+              ? `No products on ${channelFilter.tabLabel} yet. Sync its Salsify list from the channel settings.`
+              : "No products assigned yet."
+        }
       />
 
       {totalCount > 0 && (

@@ -10,6 +10,7 @@ import { SECTIONS, FIELDS_UI, ROUND_OPTS } from "@/lib/pricing/constants";
 import type { ChannelFlags, ChannelDefaults } from "@/lib/pricing/types";
 import { ChannelDeleteButton } from "@/components/channels/channel-delete-button";
 import { brandKey } from "@/lib/pricing/helpers";
+import { SalsifyListCard } from "@/components/channels/salsify-list-card";
 
 interface ChannelData {
   id: string;
@@ -37,6 +38,9 @@ interface ChannelData {
   hasAsin: boolean;
   defaults: Record<string, unknown>;
   blockedBrands: string[];
+  salsifyListId: string | null;
+  salsifyPriceProperty: string | null;
+  salsifyListSyncedAt: string | null;
 }
 
 function toFlags(ch: ChannelData): ChannelFlags {
@@ -67,8 +71,12 @@ export default function ChannelSettingsPage() {
   const [isDefault, setIsDefault] = useState(false);
   const [name, setName] = useState("");
   const [tabLabel, setTabLabel] = useState("");
+  const [listId, setListId] = useState("");
+  const [priceProperty, setPriceProperty] = useState("");
+  const [channelProductCount, setChannelProductCount] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [channelRes, brandsRes] = await Promise.all([
@@ -80,6 +88,9 @@ export default function ChannelSettingsPage() {
       setChannel(data);
       setName(data.name ?? "");
       setTabLabel(data.tabLabel ?? "");
+      setListId(data.salsifyListId ?? "");
+      setPriceProperty(data.salsifyPriceProperty ?? "");
+      setChannelProductCount(data.channelProductCount ?? 0);
       setDefaults(data.defaults ?? {});
       setPriceRecordTiming(data.priceRecordTiming ?? "at_commit");
       setIsDefault(data.isDefault ?? false);
@@ -98,17 +109,33 @@ export default function ChannelSettingsPage() {
 
   async function handleSave() {
     setSaving(true);
+    setSaveError(null);
     const res = await fetch(`/api/customers/${customerId}/channels/${channelId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, tabLabel, defaults, priceRecordTiming, isDefault, blockedBrands }),
+      body: JSON.stringify({
+        name,
+        tabLabel,
+        defaults,
+        priceRecordTiming,
+        isDefault,
+        blockedBrands,
+        salsifyListId: listId,
+        salsifyPriceProperty: priceProperty,
+      }),
     });
     setSaving(false);
     if (res.ok) {
       const updated = await res.json();
       setChannel(updated);
+      setListId(updated.salsifyListId ?? "");
+      setPriceProperty(updated.salsifyPriceProperty ?? "");
+      if (!updated.salsifyListId) setChannelProductCount(0);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setSaveError(data.error || "Failed to save changes");
     }
   }
 
@@ -140,6 +167,7 @@ export default function ChannelSettingsPage() {
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-sm text-green-600">Saved</span>}
+          {saveError && <span className="text-sm text-red-600">{saveError}</span>}
           {!isDefault && (
             <ChannelDeleteButton
               customerId={customerId}
@@ -180,6 +208,20 @@ export default function ChannelSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <SalsifyListCard
+        customerId={customerId}
+        channelId={channelId}
+        listId={listId}
+        onListIdChange={setListId}
+        priceProperty={priceProperty}
+        onPricePropertyChange={setPriceProperty}
+        savedListId={channel.salsifyListId}
+        savedPriceProperty={channel.salsifyPriceProperty}
+        syncedAt={channel.salsifyListSyncedAt}
+        productCount={channelProductCount}
+        onSynced={load}
+      />
 
       <Card className="mb-4">
         <CardHeader className="pb-2">

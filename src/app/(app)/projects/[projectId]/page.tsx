@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { loadProductRows } from "@/lib/db/load-product-rows";
+import { loadChannelProductIds } from "@/lib/db/channel-products";
 import { getPermissions, canAccessCustomer } from "@/lib/permissions";
 import type { BrandRoyaltyTable, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
@@ -78,7 +79,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     })),
   ];
 
+  const channelProductIds = await loadChannelProductIds(customer.channels);
+
   const channelsData = customer.channels.map((ch) => ({
+    channelProductIds: channelProductIds[ch.id],
     id: ch.id,
     name: ch.name,
     tabLabel: ch.tabLabel,

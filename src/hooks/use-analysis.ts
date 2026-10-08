@@ -39,6 +39,8 @@ interface ChannelWithDb {
   hasAsin: boolean;
   defaults: Record<string, unknown>;
   blockedBrands: string[];
+  /** Product ids sold on this channel (from its Salsify list); null = no restriction. */
+  channelProductIds?: string[] | null;
 }
 
 function toChannelConfig(ch: ChannelWithDb): ChannelConfig {
@@ -103,14 +105,22 @@ export function useAnalysis(
     return m;
   }, [channels]);
 
+  const allowedProducts = useMemo(() => {
+    const m: Record<string, Set<string> | null> = {};
+    for (const ch of channels) m[ch.id] = ch.channelProductIds ? new Set(ch.channelProductIds) : null;
+    return m;
+  }, [channels]);
+
   const results = useMemo(() => {
     const all: Record<string, AnalysisResult[]> = {};
     for (const cfg of configs) {
       const settings = settingsMap[cfg.id] as unknown as ChannelDefaults;
       const blocked = blockedBrands[cfg.id];
+      const allowed = allowedProducts[cfg.id];
       const committed = committedPrices[cfg.id];
       all[cfg.id] = products
         .filter((p) => !blocked?.has(brandKey(p.brand)))
+        .filter((p) => !allowed || (p.productId != null && allowed.has(p.productId)))
         .map((p) => {
           let row = p;
           if (committed?.[p.sku] != null) {
@@ -124,7 +134,7 @@ export function useAnalysis(
         });
     }
     return all;
-  }, [configs, products, settingsMap, overrides, brandRoyalties, blockedBrands, committedPrices, royaltyRules]);
+  }, [configs, products, settingsMap, overrides, brandRoyalties, blockedBrands, allowedProducts, committedPrices, royaltyRules]);
 
   const allBrands = useMemo(() => {
     const set = new Set<string>();
