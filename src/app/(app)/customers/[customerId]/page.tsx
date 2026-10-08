@@ -42,7 +42,10 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{customer.name}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {customer.channels.length} channels &middot; {customer._count.customerProducts} products
+            {customer.channels.length} channels &middot;{" "}
+            <Link href={`/customers/${customerId}/products`} className="hover:text-blue-600 hover:underline">
+              {customer._count.customerProducts} products
+            </Link>
           </p>
         </div>
         <div className="flex gap-2">
@@ -64,7 +67,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
               Salsify Mapping
             </Button>
           </Link>
-          <Link href="/products">
+          <Link href={`/customers/${customerId}/products`}>
             <Button variant="outline">
               <Package className="h-4 w-4 mr-2" />
               Products

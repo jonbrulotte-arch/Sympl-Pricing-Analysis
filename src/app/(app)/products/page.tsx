@@ -6,8 +6,8 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { ProductsTable, type ProductTableRow } from "@/components/products/products-table";
 import { Search, ChevronLeft, ChevronRight, Upload, FileSpreadsheet, RefreshCw, Package, DollarSign, AlertTriangle, Truck } from "lucide-react";
 import { PageSizeSelect } from "@/components/products/page-size-select";
 import { McfFreightImport } from "@/components/products/mcf-freight-import";
@@ -91,6 +91,26 @@ export default async function ProductsPage({
 
   const costMap = new Map(latestCosts.map((c) => [c.productId, { cost: Number(c.cost), at: c.recordedAt }]));
   const freightMap = new Map(latestMcfFreight.map((f) => [f.productId, Number(f.amount)]));
+
+  const rows: ProductTableRow[] = products.map((p) => {
+    const costEntry = costMap.get(p.id);
+    return {
+      id: p.id,
+      sku: p.sku,
+      name: p.name,
+      brand: p.brand,
+      inventoryStatus: p.inventoryStatus,
+      cost: costEntry?.cost ?? null,
+      costDate: costEntry ? costEntry.at.toLocaleDateString() : null,
+      freight: freightMap.get(p.id) ?? null,
+      records: p._count.costHistories + p._count.priceHistories + p._count.productPrices + p._count.shippingCostHistories,
+      customerCount: p._count.customers,
+    };
+  });
+
+  const assignCustomers = isAdmin && permissions.has("customers:edit")
+    ? await prisma.customer.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } })
+    : null;
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -246,88 +266,17 @@ export default async function ProductsPage({
         </div>
       </div>
 
-      <Card>
-        <CardContent className="py-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-2 text-gray-600 font-medium">SKU</th>
-                  <th className="text-left py-3 px-2 text-gray-600 font-medium">Name</th>
-                  <th className="text-left py-3 px-2 text-gray-600 font-medium">Brand</th>
-                  <th className="text-left py-3 px-2 text-gray-600 font-medium">Status</th>
-                  <th className="text-right py-3 px-2 text-gray-600 font-medium">Cost</th>
-                  <th className="text-right py-3 px-2 text-gray-600 font-medium">MCF Freight</th>
-                  <th className="text-right py-3 px-2 text-gray-600 font-medium">Last Updated</th>
-                  <th className="text-right py-3 px-2 text-gray-600 font-medium">Records</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((p) => {
-                  const costEntry = costMap.get(p.id);
-                  const freight = freightMap.get(p.id);
-                  return (
-                    <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                      <td className="py-2 px-2">
-                        <div className="flex items-center gap-1.5">
-                          <Link
-                            href={`/products/${p.id}`}
-                            className="font-mono text-xs text-blue-600 hover:underline"
-                          >
-                            {p.sku}
-                          </Link>
-                          {p._count.customers === 0 && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Unassigned</Badge>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2 px-2 text-gray-700 max-w-xs truncate">{p.name || "-"}</td>
-                      <td className="py-2 px-2 text-gray-600">{p.brand || "-"}</td>
-                      <td className="py-2 px-2">
-                        {p.inventoryStatus?.toLowerCase() === "discontinued" ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
-                            <AlertTriangle className="h-3 w-3" />
-                            DC&apos;d
-                          </span>
-                        ) : p.inventoryStatus?.toLowerCase() === "sales inventory" ? (
-                          <span className="inline-flex items-center text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 text-xs">-</span>
-                        )}
-                      </td>
-                      <td className="py-2 px-2 text-right font-mono text-gray-900">
-                        {costEntry ? `$${costEntry.cost.toFixed(2)}` : "-"}
-                      </td>
-                      <td className="py-2 px-2 text-right font-mono text-gray-900">
-                        {freight != null ? `$${freight.toFixed(2)}` : "-"}
-                      </td>
-                      <td className="py-2 px-2 text-right text-gray-500 text-xs">
-                        {costEntry ? costEntry.at.toLocaleDateString() : "-"}
-                      </td>
-                      <td className="py-2 px-2 text-right text-gray-600">
-                        {p._count.costHistories + p._count.priceHistories + p._count.productPrices + p._count.shippingCostHistories}
-                      </td>
-                    </tr>
-                  );
-                })}
-                {products.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="py-8 text-center text-gray-500">
-                      {q
-                        ? "No products match your search."
-                        : unassignedOnly
-                          ? "Every product is assigned to a customer."
-                          : "No products yet. Import data to get started."}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <ProductsTable
+        rows={rows}
+        emptyMessage={
+          q
+            ? "No products match your search."
+            : unassignedOnly
+              ? "Every product is assigned to a customer."
+              : "No products yet. Import data to get started."
+        }
+        assign={assignCustomers ? { customers: assignCustomers, unassignedOnly, totalCount, q } : undefined}
+      />
 
       {totalCount > 0 && (
         <div className="flex items-center justify-between mt-4">
