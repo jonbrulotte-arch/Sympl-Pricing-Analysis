@@ -380,8 +380,9 @@ model SalsifyStaged {
   sku          String
   channelId    String
   channel      SalesChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  newPrice     Decimal      @db.Decimal(10, 4)
+  newPrice     Decimal?     @db.Decimal(10, 4) // null = shipping-only change
   oldPrice     Decimal?     @db.Decimal(10, 4)
+  shippingChanges Json?     // { shipping?, mcfShip?, mcfFreight?, fbaFee? } per-unit amounts, recorded on publish
   oldNetMargin Decimal?     @db.Decimal(10, 4)
   newNetMargin Decimal?     @db.Decimal(10, 4)
   stagedAt     DateTime     @default(now())

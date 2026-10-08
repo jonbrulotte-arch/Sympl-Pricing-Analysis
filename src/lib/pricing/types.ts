@@ -188,6 +188,8 @@ export interface AnalysisResult {
   mcfFreight?: number | null;
   shipping?: number | null;
   hasShippingData: boolean;
+  /** A shipping cost component used by this channel has an uncommitted edit. */
+  shipEdited?: boolean;
 }
 
 export interface VerificationCheck {

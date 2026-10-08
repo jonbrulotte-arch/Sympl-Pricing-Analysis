@@ -82,6 +82,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     sortDir,
     handleSort,
     setOverride,
+    setShipEdit,
     settingsMap,
     commitPrice,
     revertCommittedPrice,
@@ -362,6 +363,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             sortDir={sortDir}
             onSort={handleSort}
             onOverride={(sku, field, value) => setOverride(activeTab, sku, field, value)}
+            onShipEdit={setShipEdit}
             channelId={activeTab}
             onCommit={commitPrice}
             committedSkus={committedSkus[activeTab]}

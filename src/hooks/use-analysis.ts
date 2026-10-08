@@ -14,6 +14,7 @@ import type {
 } from "@/lib/pricing/types";
 import { analyzeProduct } from "@/lib/pricing/engine";
 import { brandKey } from "@/lib/pricing/helpers";
+import { shipComponentsFor, type ShipComponentKey, type ShippingChanges } from "@/lib/pricing/shipping";
 
 export type StatusFilter = "all" | "pass" | "below" | "loss" | "unpriced";
 
@@ -82,6 +83,9 @@ export function useAnalysis(
   const [overrides, setOverrides] = useState<Overrides>({});
   const [committedPrices, setCommittedPrices] = useState<Record<string, Record<string, number>>>({});
   const [committedSkus, setCommittedSkus] = useState<Record<string, Set<string>>>({});
+  // Shipping costs are product-level, so edits apply to every channel tab.
+  const [shipEdits, setShipEdits] = useState<Record<string, ShippingChanges>>({});
+  const [committedShip, setCommittedShip] = useState<Record<string, ShippingChanges>>({});
   const [settingsMap, setSettingsMap] = useState<Record<string, Record<string, unknown>>>(() => {
     const m: Record<string, Record<string, unknown>> = {};
     for (const ch of channels) m[ch.id] = { ...(ch.defaults as Record<string, unknown>) };
@@ -122,19 +126,22 @@ export function useAnalysis(
         .filter((p) => !blocked?.has(brandKey(p.brand)))
         .filter((p) => !allowed || (p.productId != null && allowed.has(p.productId)))
         .map((p) => {
-          let row = p;
+          let row: ProductRow = { ...p, ...committedShip[p.sku], ...shipEdits[p.sku] };
           if (committed?.[p.sku] != null) {
             row = {
-              ...p,
+              ...row,
               [cfg.priceField]: committed[p.sku],
               channelPrices: { ...p.channelPrices, [cfg.id]: committed[p.sku] },
             };
           }
-          return analyzeProduct(row, cfg, settings, overrides, brandRoyalties, royaltyRules);
+          const result = analyzeProduct(row, cfg, settings, overrides, brandRoyalties, royaltyRules);
+          const edits = shipEdits[p.sku];
+          result.shipEdited = !!edits && shipComponentsFor(cfg).some((c) => edits[c.key] != null);
+          return result;
         });
     }
     return all;
-  }, [configs, products, settingsMap, overrides, brandRoyalties, blockedBrands, allowedProducts, committedPrices, royaltyRules]);
+  }, [configs, products, settingsMap, overrides, brandRoyalties, blockedBrands, allowedProducts, committedPrices, royaltyRules, shipEdits, committedShip]);
 
   const allBrands = useMemo(() => {
     const set = new Set<string>();
@@ -237,6 +244,33 @@ export function useAnalysis(
     }
   }, []);
 
+  /** Edit one per-unit shipping cost component for a product; a value equal to the stored one clears the edit. */
+  const setShipEdit = useCallback((sku: string, key: ShipComponentKey, value: number | undefined) => {
+    const product = products.find((p) => p.sku === sku);
+    const stored = committedShip[sku]?.[key] ?? (product?.[key] as number | null | undefined) ?? null;
+    setShipEdits((prev) => {
+      const next = { ...prev, [sku]: { ...prev[sku] } };
+      if (value === undefined || (stored != null && Math.abs(value - stored) < 0.005)) delete next[sku][key];
+      else next[sku][key] = value;
+      if (Object.keys(next[sku]).length === 0) delete next[sku];
+      return next;
+    });
+    if (value !== undefined) {
+      setCommittedSkus((prev) => {
+        let changed = false;
+        const next: Record<string, Set<string>> = {};
+        for (const [ch, set] of Object.entries(prev)) {
+          if (set.has(sku)) {
+            changed = true;
+            next[ch] = new Set(set);
+            next[ch].delete(sku);
+          } else next[ch] = set;
+        }
+        return changed ? next : prev;
+      });
+    }
+  }, [products, committedShip]);
+
   const updateSetting = useCallback((channelId: string, key: string, value: unknown) => {
     setSettingsMap((prev) => ({
       ...prev,
@@ -251,10 +285,13 @@ export function useAnalysis(
     if (!row) return;
 
     const override = overrides[channelId]?.[sku]?.price;
-    const priceToCommit = override ?? row.rec;
-    if (priceToCommit == null || priceToCommit <= 0) return;
+    const shipping = shipEdits[sku];
+    // A shipping-only edit commits just the shipping; otherwise commit the edited or recommended price.
+    const priceToCommit = override ?? (row.shipEdited ? null : row.rec);
     const currentPrice = row.basePrice ?? row.price;
-    if (currentPrice > 0 && Math.abs(priceToCommit - currentPrice) < 0.005) return;
+    const priceChanged =
+      priceToCommit != null && priceToCommit > 0 && !(currentPrice > 0 && Math.abs(priceToCommit - currentPrice) < 0.005);
+    if (!priceChanged && !shipping) return;
 
     const res = await fetch(`/api/customers/${customerId}/commit-price`, {
       method: "POST",
@@ -262,18 +299,40 @@ export function useAnalysis(
       body: JSON.stringify({
         sku,
         channelId,
-        price: priceToCommit,
-        oldPrice: (row.basePrice ?? 0) > 0 ? row.basePrice! : undefined,
-        oldNetMargin: row.price > 0 ? row.gm : undefined,
-        newNetMargin: row.recCalc?.gm ?? undefined,
+        ...(priceChanged && {
+          price: priceToCommit,
+          oldPrice: (row.basePrice ?? 0) > 0 ? row.basePrice! : undefined,
+          oldNetMargin: row.price > 0 ? row.gm : undefined,
+          newNetMargin: row.recCalc?.gm ?? undefined,
+        }),
+        ...(shipping && { shipping }),
       }),
     });
 
     if (!res.ok) return;
 
+    if (shipping) {
+      setCommittedShip((prev) => ({ ...prev, [sku]: { ...prev[sku], ...shipping } }));
+      setShipEdits((prev) => {
+        const next = { ...prev };
+        delete next[sku];
+        return next;
+      });
+    }
+    if (!priceChanged) {
+      setCommittedSkus((prev) => {
+        const next = { ...prev, [channelId]: new Set(prev[channelId] ?? []) };
+        next[channelId].add(sku);
+        return next;
+      });
+      setOverride(channelId, sku, "price", undefined);
+      router.refresh();
+      return;
+    }
+
     setCommittedPrices((prev) => ({
       ...prev,
-      [channelId]: { ...prev[channelId], [sku]: priceToCommit },
+      [channelId]: { ...prev[channelId], [sku]: priceToCommit! },
     }));
     setCommittedSkus((prev) => {
       const next = { ...prev };
@@ -284,7 +343,7 @@ export function useAnalysis(
     });
     setOverride(channelId, sku, "price", undefined);
     router.refresh();
-  }, [activeTab, results, overrides, customerId, setOverride, router]);
+  }, [activeTab, results, overrides, shipEdits, customerId, setOverride, router]);
 
   const revertCommittedPrice = useCallback((channelId: string, sku: string, oldPrice: number | null) => {
     setCommittedPrices((prev) => {
@@ -295,6 +354,12 @@ export function useAnalysis(
       if (!ch || !(sku in ch)) return prev;
       const next = { ...prev, [channelId]: { ...ch } };
       delete next[channelId][sku];
+      return next;
+    });
+    setCommittedShip((prev) => {
+      if (!(sku in prev)) return prev;
+      const next = { ...prev };
+      delete next[sku];
       return next;
     });
   }, []);
@@ -333,6 +398,7 @@ export function useAnalysis(
     handleSort,
     overrides,
     setOverride,
+    setShipEdit,
     settingsMap,
     updateSetting,
     commitPrice,

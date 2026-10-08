@@ -250,7 +250,7 @@ export function analyzeProduct(
 
   const ov = overrides?.[cfg.id]?.[row.sku];
   const price = ov?.price ?? (basePrice ?? 0);
-  const edited = ov?.price != null;
+  const edited = ov?.price != null && !(basePrice != null && Math.abs(ov.price - basePrice) < 0.005);
   const ship = ov?.ship ?? computeShipping(row, cfg);
   const baseShip = computeShipping(row, cfg);
   const invalid = cost <= 0;

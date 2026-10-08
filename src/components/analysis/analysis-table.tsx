@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import type { AnalysisResult, ChannelConfig, ChannelDefaults } from "@/lib/pricing/types";
 import { ChevronDown, ChevronUp, ArrowUpDown, Check, BarChart3, AlertTriangle } from "lucide-react";
 import { SkuDetailPanel } from "./sku-detail-panel";
+import { ShipCell } from "./ship-cell";
+import { shipComponentsFor, type ShipComponentKey } from "@/lib/pricing/shipping";
 
 function isCommittable(r: AnalysisResult): boolean {
-  if (r.edited) return true;
+  if (r.edited || r.shipEdited) return true;
   if (r.invalid || r.rec == null) return false;
   if (r.unpriced) return r.rec > 0;
   return r.rec !== r.price;
@@ -21,6 +23,7 @@ interface Props {
   sortDir: "asc" | "desc";
   onSort: (key: string) => void;
   onOverride: (sku: string, field: "price" | "ship", value: number | undefined) => void;
+  onShipEdit?: (sku: string, key: ShipComponentKey, value: number | undefined) => void;
   channelId: string;
   onCommit?: (sku: string) => Promise<void>;
   committedSkus?: Set<string>;
@@ -41,7 +44,7 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "second
   invalid: { label: "Invalid", variant: "outline" },
 };
 
-export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, channelId, onCommit, committedSkus, cfg, settings, onShowMath, selectedSkus, onSelectSku, onSelectAll, canViewCost = true }: Props) {
+export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, onShipEdit, channelId, onCommit, committedSkus, cfg, settings, onShowMath, selectedSkus, onSelectSku, onSelectAll, canViewCost = true }: Props) {
   const [expandedSku, setExpandedSku] = useState<string | null>(null);
   const [committingSkus, setCommittingSkus] = useState<Set<string>>(new Set());
   const hasSelection = !!(onCommit && selectedSkus && onSelectSku && onSelectAll);
@@ -148,7 +151,15 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
                     onChange={(v) => onOverride(r.sku, "price", v)}
                   />
                 </td>
-                <td className="py-1.5 px-2 text-right text-xs text-gray-600">{r.hasShippingData ? `$${r.ship.toFixed(2)}` : "-"}</td>
+                <td className="py-1.5 px-2 text-right text-xs text-gray-600">
+                  {cfg && onShipEdit && shipComponentsFor(cfg).length > 0 ? (
+                    <ShipCell result={r} components={shipComponentsFor(cfg)} onEdit={(key, v) => onShipEdit(r.sku, key, v)} />
+                  ) : r.hasShippingData ? (
+                    `$${r.ship.toFixed(2)}`
+                  ) : (
+                    "-"
+                  )}
+                </td>
                 <td className={`py-1.5 px-2 text-right text-xs font-medium ${gmColor(r.gm, r.goalUsed)}`}>
                   {r.price > 0 ? `${(r.gm * 100).toFixed(1)}%` : "-"}
                 </td>
@@ -164,8 +175,12 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, c
                 <td className="py-1.5 px-2 text-center">
                   <div className="flex items-center justify-center gap-1">
                     <Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>
-                    {r.edited && (
-                      <Badge variant="warning" className="text-[10px]" title="Price edited but not yet committed">
+                    {(r.edited || r.shipEdited) && (
+                      <Badge
+                        variant="warning"
+                        className="text-[10px]"
+                        title={`${[r.edited && "Price", r.shipEdited && "Shipping"].filter(Boolean).join(" and ")} edited but not yet committed`}
+                      >
                         Edited
                       </Badge>
                     )}
@@ -261,8 +276,9 @@ function EditableCell({
         onBlur={() => {
           setEditing(false);
           const v = parseFloat(draft);
-          if (isFinite(v) && v > 0) onChange(v);
-          else if (draft === "") onChange(undefined);
+          if (isFinite(v) && v > 0) {
+            if (Math.abs(v - value) >= 0.005) onChange(v);
+          } else if (draft === "") onChange(undefined);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();

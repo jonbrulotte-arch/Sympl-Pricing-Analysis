@@ -6,6 +6,8 @@ import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
 import { updateSalsifyProducts, type SalsifyProductUpdate } from "@/lib/salsify/client";
 import { logActivity } from "@/lib/activity-log";
 import { canAccessCustomer } from "@/lib/permissions";
+import { parseShippingChanges } from "@/lib/pricing/shipping";
+import { recordShippingChanges } from "@/lib/db/record-shipping";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -51,8 +53,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
 
   const updatesBySku = new Map<string, Record<string, unknown>>();
   const unmapped: string[] = [];
+  const priceEntries = staged.filter((e) => e.newPrice != null);
+  const shippingOnly = staged.filter((e) => e.newPrice == null);
 
-  for (const entry of staged) {
+  for (const entry of priceEntries) {
     const priceField = entry.channel.priceField;
     const salsifyPropId = fieldMap.get(priceField);
 
@@ -66,7 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
     updatesBySku.set(entry.sku, existing);
   }
 
-  if (updatesBySku.size === 0) {
+  if (updatesBySku.size === 0 && shippingOnly.length === 0) {
     return NextResponse.json({
       error: `No Salsify field mappings found for: ${[...new Set(unmapped)].join(", ")}. Configure mappings in Admin > Salsify Field Mapping.`,
     }, { status: 400 });
@@ -77,22 +81,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
     updates.push({ sku, skuPropertyId, properties });
   }
 
-  const result = await updateSalsifyProducts(organizationId, apiKey, updates);
+  const result = updates.length > 0
+    ? await updateSalsifyProducts(organizationId, apiKey, updates)
+    : { succeeded: [] as string[], failed: [] as { sku: string; error: string }[] };
 
+  // Shipping-only entries never go to Salsify; they're recorded locally on publish.
   const publishedSkus = new Set(result.succeeded);
-  const publishedIds = staged
-    .filter((e) => publishedSkus.has(e.sku))
-    .map((e) => e.id);
+  const publishedEntries = [
+    ...priceEntries.filter((e) => publishedSkus.has(e.sku)),
+    ...shippingOnly,
+  ];
+  const publishedIds = publishedEntries.map((e) => e.id);
+  let shippingRecorded = 0;
 
   if (publishedIds.length > 0) {
-    const publishedEntries = staged.filter((e) => publishedSkus.has(e.sku));
     const channelIds = [...new Set(publishedEntries.map((e) => e.channelId))];
     const channelRows = await prisma.salesChannel.findMany({
       where: { id: { in: channelIds } },
+      select: { id: true, priceRecordTiming: true },
     });
-    const channelTimingMap = new Map(
-      channelRows.map((ch) => [ch.id, ((ch as Record<string, unknown>).priceRecordTiming as string) ?? "at_commit"]),
-    );
+    const channelTimingMap = new Map(channelRows.map((ch) => [ch.id, ch.priceRecordTiming]));
 
     for (const entry of publishedEntries) {
       if (channelTimingMap.get(entry.channelId) !== "at_publish") continue;
@@ -100,7 +108,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
         where: { sku: entry.sku, customers: { some: { customerId } } },
         select: { id: true },
       });
-      if (product) {
+      if (!product) continue;
+      if (entry.newPrice != null) {
         await prisma.priceHistory.create({
           data: {
             id: randomUUID(),
@@ -110,6 +119,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
           },
         });
       }
+      const shipping = parseShippingChanges(entry.shippingChanges);
+      if (shipping) shippingRecorded += await recordShippingChanges(product.id, shipping);
     }
 
     await prisma.salsifyStaged.deleteMany({
@@ -132,6 +143,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
 
   return NextResponse.json({
     published: result.succeeded.length,
+    shippingRecorded,
     failed: result.failed,
     unmappedFields: [...new Set(unmapped)],
     removedIds: publishedIds,

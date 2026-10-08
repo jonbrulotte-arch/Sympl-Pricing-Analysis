@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
 import { fetchSalsifyProductsByIds } from "@/lib/salsify/client";
 import { canAccessCustomer } from "@/lib/permissions";
+import { parseShippingChanges } from "@/lib/pricing/shipping";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -47,11 +48,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
     }, { status: 400 });
   }
 
-  const uniqueSkus = [...new Set(staged.map((e) => e.sku))];
+  const uniqueSkus = [...new Set(staged.filter((e) => e.newPrice != null).map((e) => e.sku))];
 
   let salsifyProducts;
   try {
-    salsifyProducts = await fetchSalsifyProductsByIds(organizationId, apiKey, uniqueSkus);
+    salsifyProducts = uniqueSkus.length > 0
+      ? await fetchSalsifyProductsByIds(organizationId, apiKey, uniqueSkus)
+      : new Map();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: `Failed to fetch Salsify data: ${message}` }, { status: 502 });
@@ -69,7 +72,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
 
   const unmapped: string[] = [];
 
+  const shippingChanges = staged
+    .map((e) => ({ sku: e.sku, channelLabel: e.channel.tabLabel, changes: parseShippingChanges(e.shippingChanges) }))
+    .filter((e) => e.changes);
+
   for (const entry of staged) {
+    if (entry.newPrice == null) continue;
     const priceField = entry.channel.priceField;
     const salsifyPropId = fieldMap.get(priceField);
 
@@ -97,5 +105,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
     changes,
     unmappedFields: [...new Set(unmapped)],
     skuCount: uniqueSkus.length,
+    shippingChanges,
   });
 }

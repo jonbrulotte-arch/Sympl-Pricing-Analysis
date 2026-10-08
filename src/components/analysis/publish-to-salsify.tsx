@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Loader2, CheckCircle, AlertTriangle, Undo2, Download, ArrowLeft, ArrowRight } from "lucide-react";
 import * as XLSX from "xlsx";
+import { SHIP_COMPONENTS } from "@/lib/pricing/shipping";
 
 interface StagedEntry {
   id: string;
   sku: string;
   channelId: string;
-  newPrice: string;
+  newPrice: string | null;
   oldPrice: string | null;
+  shippingChanges: Record<string, number> | null;
   oldNetMargin: string | null;
   newNetMargin: string | null;
   stagedAt: string;
@@ -46,7 +48,13 @@ interface Props {
 
 type ViewState =
   | { step: "list" }
-  | { step: "preview"; ids: string[]; changes: PreviewChange[]; unmappedFields: string[] }
+  | {
+      step: "preview";
+      ids: string[];
+      changes: PreviewChange[];
+      unmappedFields: string[];
+      shippingChanges: { sku: string; channelLabel: string; changes: Record<string, number> }[];
+    }
   | { step: "success"; publishedCount: number; failedCount: number };
 
 export function PublishToSalsify({ customerId, onRevert }: Props) {
@@ -154,6 +162,7 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
         ids,
         changes: data.changes ?? [],
         unmappedFields: data.unmappedFields ?? [],
+        shippingChanges: data.shippingChanges ?? [],
       });
     } finally {
       setPreviewing(false);
@@ -272,6 +281,12 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Change Report");
     XLSX.writeFile(wb, `salsify-change-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  function formatShipping(changes: Record<string, number>): string {
+    return SHIP_COMPONENTS.filter((c) => changes[c.key] != null)
+      .map((c) => `${c.label} $${changes[c.key].toFixed(2)}`)
+      .join(", ");
   }
 
   function fmt(val: string | number | null | undefined): string {
@@ -417,6 +432,24 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
           </div>
         )}
 
+        {view.shippingChanges.length > 0 && (
+          <div className="px-4 py-3 rounded-md mb-4 text-sm bg-blue-50 text-gray-700 border border-blue-200">
+            <p className="font-medium mb-1">
+              {view.shippingChanges.length} shipping cost change(s) will be recorded in the product database (not sent to Salsify):
+            </p>
+            <ul className="text-xs space-y-0.5">
+              {view.shippingChanges.map((s) => (
+                <li key={`${s.sku}-${s.channelLabel}`}>
+                  <span className="font-mono">{s.sku}</span> ({s.channelLabel}): {formatShipping(s.changes)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {view.changes.length === 0 ? (
+          <p className="text-sm text-gray-500 py-4 text-center">No price changes to send to Salsify.</p>
+        ) : (
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -476,6 +509,7 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
             </tbody>
           </table>
         </div>
+        )}
 
         <div className="flex items-center justify-end mt-4 gap-2">
           <Button
@@ -638,9 +672,16 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
                     )}
                   </td>
                   <td className="py-2 px-3">
-                    <Badge variant="secondary" className="text-xs">
-                      {entry.channel.tabLabel}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Badge variant="secondary" className="text-xs">
+                        {entry.channel.tabLabel}
+                      </Badge>
+                      {entry.shippingChanges && (
+                        <Badge variant="warning" className="text-[10px]" title={formatShipping(entry.shippingChanges)}>
+                          Shipping
+                        </Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="py-2 px-3 text-right font-mono text-gray-500">
                     {fmt(entry.oldPrice)}
@@ -648,8 +689,8 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
                   <td className="py-2 px-3 text-right font-mono text-gray-500">
                     {fmtPct(entry.oldNetMargin)}
                   </td>
-                  <td className={`py-2 px-3 text-right font-mono font-medium ${deltaColor(entry.oldPrice, entry.newPrice)}`}>
-                    {fmt(entry.newPrice)}
+                  <td className={`py-2 px-3 text-right font-mono font-medium ${entry.newPrice == null ? "text-gray-400" : deltaColor(entry.oldPrice, entry.newPrice)}`}>
+                    {entry.newPrice == null ? <span className="text-xs font-sans">shipping only</span> : fmt(entry.newPrice)}
                   </td>
                   <td className={`py-2 px-3 text-right font-mono font-medium ${deltaColor(entry.oldNetMargin, entry.newNetMargin ?? "")}`}>
                     {fmtPct(entry.newNetMargin)}
