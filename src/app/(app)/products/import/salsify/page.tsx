@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { RefreshCw, Check, ArrowLeft, AlertCircle, Settings } from "lucide-react";
+import { RefreshCw, Check, ArrowLeft, AlertCircle, Settings, Download } from "lucide-react";
+import * as XLSX from "xlsx";
+import { SUPPLEMENTAL_IMPORT_FIELDS } from "@/lib/pricing/constants";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -14,6 +16,17 @@ interface SyncResult {
   skipped: number;
   duplicates: number;
   totalRows: number;
+  createdProducts: { sku: string; name: string | null }[];
+}
+
+function downloadSupplementalSheet(products: { sku: string; name: string | null }[]) {
+  const headers = [...SUPPLEMENTAL_IMPORT_FIELDS.map((f) => f.label), "Item name"];
+  const rows = products.map((p) => [p.sku, null, null, p.name ?? ""]);
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws["!cols"] = headers.map((h, i) => ({ wch: i === headers.length - 1 ? 40 : Math.max(h.length + 2, 16) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Supplemental");
+  XLSX.writeFile(wb, `supplemental-new-skus-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 function sleep(ms: number) {
@@ -64,6 +77,7 @@ export default function SalsifySyncPage() {
             skipped: e.skipped ?? 0,
             duplicates: e.duplicates ?? 0,
             totalRows: e.totalRows ?? 0,
+            createdProducts: Array.isArray(e.createdProducts) ? e.createdProducts : [],
           });
           break;
         }
@@ -112,6 +126,27 @@ export default function SalsifySyncPage() {
             )}
             {result.duplicates > 0 && (
               <p className="text-amber-700 mb-1">{result.duplicates} duplicate SKU rows merged</p>
+            )}
+            {result.createdProducts.length > 0 && (
+              <div className="mt-6 mx-auto max-w-md rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-left">
+                <p className="text-sm text-gray-700">
+                  {result.createdProducts.length} new product(s) need cost and MCF freight data. Download a
+                  Supplemental Data sheet pre-filled with their SKUs, fill it in, then upload it on the{" "}
+                  <Link href="/products/import/supplemental" className="text-blue-600 hover:underline">
+                    Supplemental Data
+                  </Link>{" "}
+                  page.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 bg-white"
+                  onClick={() => downloadSupplementalSheet(result.createdProducts)}
+                >
+                  <Download className="h-3.5 w-3.5 mr-1.5" />
+                  Download Supplemental Sheet ({result.createdProducts.length} SKUs)
+                </Button>
+              </div>
             )}
             <div className="flex gap-3 justify-center mt-6">
               <Button onClick={() => router.push("/products")}>

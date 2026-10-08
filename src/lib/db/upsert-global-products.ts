@@ -35,6 +35,7 @@ export interface GlobalUpsertResult {
   updated: number;
   unchanged: number;
   duplicates: number;
+  createdProducts: { sku: string; name: string | null }[];
 }
 
 const same = (a: number, b: number) => a.toFixed(4) === b.toFixed(4);
@@ -61,6 +62,7 @@ export async function upsertGlobalProducts(
     updated: 0,
     unchanged: 0,
     duplicates: inputRows.length - rows.length,
+    createdProducts: [],
   };
 
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
@@ -108,6 +110,7 @@ export async function upsertGlobalProducts(
     if (newProducts.length > 0) {
       await prisma.product.createMany({ data: newProducts });
       result.created += newProducts.length;
+      for (const p of newProducts) result.createdProducts.push({ sku: p.sku, name: p.name ?? null });
     }
 
     const existingIds = existing.map((p) => p.id);

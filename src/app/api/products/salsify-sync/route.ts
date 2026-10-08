@@ -98,7 +98,7 @@ async function runSalsifySync(
     const totalRows = sheet.data.length;
     const skipped = totalRows - rows.length;
 
-    const { created, updated, unchanged, duplicates } = await upsertGlobalProducts(importId, rows, (processed) =>
+    const { created, updated, unchanged, duplicates, createdProducts } = await upsertGlobalProducts(importId, rows, (processed) =>
       prisma.import.update({ where: { id: importId }, data: { rowCount: processed } }).then(() => {}),
     );
     const productCount = created + updated + unchanged;
@@ -110,7 +110,7 @@ async function runSalsifySync(
         rowCount: productCount,
         columnMap: columnMap as Record<string, number>,
         sheetName: sheet.name,
-        errors: { created, updated, unchanged, skipped, duplicates, totalRows },
+        errors: { created, updated, unchanged, skipped, duplicates, totalRows, createdProducts },
       },
     });
 
