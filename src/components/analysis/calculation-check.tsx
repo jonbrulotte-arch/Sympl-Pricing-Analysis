@@ -109,7 +109,11 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
             {canViewCost && <InputRow label="Cost" value={`$${(selected.cost ?? 0).toFixed(2)}`} />}
             <InputRow label="Units" value={selected.units.toString()} />
             <InputRow label="Shipping" value={`$${selected.ship.toFixed(2)}`} />
-            <InputRow label="Commission" value={`${(selected.commR * 100).toFixed(2)}%`} from={selected.commFrom} />
+            <InputRow
+              label="Commission"
+              value={`${(selected.commR * 100).toFixed(2)}%`}
+              from={selected.commFrom === "itemType" ? `item type: ${selected.amzItemType}` : selected.commFrom}
+            />
             <InputRow label="Royalty rate" value={`${(selected.royRate * 100).toFixed(2)}%`} from={selected.royFrom} />
             <InputRow label="Royalty flat" value={`$${selected.royFlat.toFixed(2)}`} />
             <InputRow label="PPC" value={`$${selected.ppcUsed.toFixed(2)}`} />

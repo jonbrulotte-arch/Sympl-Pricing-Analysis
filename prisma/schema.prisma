@@ -66,6 +66,20 @@ model Customer {
   salsifyFieldMappings SalsifyFieldMapping[]
   salsifyStaged        SalsifyStaged[]
   activityLogs         ActivityLog[]
+  itemTypeCommissions  ItemTypeCommission[]
+}
+
+// Amazon category commission overrides by product Item Type, shared by a customer's Amazon-style channels.
+model ItemTypeCommission {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  itemType    String   // as displayed
+  itemTypeKey String   // lowercased/trimmed for matching
+  commission  Decimal  @db.Decimal(6, 3) // percent, e.g. 8.000
+  updatedAt   DateTime @updatedAt
+
+  @@unique([customerId, itemTypeKey])
 }
 
 model CustomerUser {

@@ -11,6 +11,7 @@ import type {
   Overrides,
   ChannelFlags,
   RoyaltyRuleEntry,
+  ItemTypeCommissionTable,
 } from "@/lib/pricing/types";
 import { analyzeProduct } from "@/lib/pricing/engine";
 import { brandKey } from "@/lib/pricing/helpers";
@@ -77,6 +78,7 @@ export function useAnalysis(
   brandRoyalties: BrandRoyaltyTable,
   customerId: string,
   royaltyRules: RoyaltyRuleEntry[] = [],
+  itemTypeCommissions?: ItemTypeCommissionTable,
 ) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>(channels[0]?.id ?? "");
@@ -134,14 +136,14 @@ export function useAnalysis(
               channelPrices: { ...p.channelPrices, [cfg.id]: committed[p.sku] },
             };
           }
-          const result = analyzeProduct(row, cfg, settings, overrides, brandRoyalties, royaltyRules);
+          const result = analyzeProduct(row, cfg, settings, overrides, brandRoyalties, royaltyRules, itemTypeCommissions);
           const edits = shipEdits[p.sku];
           result.shipEdited = !!edits && shipComponentsFor(cfg).some((c) => edits[c.key] != null);
           return result;
         });
     }
     return all;
-  }, [configs, products, settingsMap, overrides, brandRoyalties, blockedBrands, allowedProducts, committedPrices, royaltyRules, shipEdits, committedShip]);
+  }, [configs, products, settingsMap, overrides, brandRoyalties, blockedBrands, allowedProducts, committedPrices, royaltyRules, itemTypeCommissions, shipEdits, committedShip]);
 
   const allBrands = useMemo(() => {
     const set = new Set<string>();

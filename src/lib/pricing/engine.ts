@@ -9,6 +9,7 @@ import type {
   BrandRoyaltyTable,
   Overrides,
   RoyaltyRuleEntry,
+  ItemTypeCommissionTable,
 } from "./types";
 import { parseNum, parseStatus, roundUp, roundStep, brandKey } from "./helpers";
 
@@ -208,13 +209,23 @@ function resolveCommission(
   row: ProductRow,
   cfg: ChannelConfig,
   r: RateTuple,
-): { commR: number; commFrom: "channel" | "sheet" } {
+  itemTypeCommissions?: ItemTypeCommissionTable,
+): { commR: number; commFrom: AnalysisResult["commFrom"] } {
   if (cfg.flags.commSku && row.amzCommission != null) {
     let v = parseNum(row.amzCommission);
     if (v > 1) v /= 100;
     return { commR: v, commFrom: "sheet" };
   }
+  if (cfg.flags.commSku && itemTypeCommissions && row.amzItemType) {
+    const pct = itemTypeCommissions[itemTypeKey(row.amzItemType)];
+    if (pct != null) return { commR: pct / 100, commFrom: "itemType" };
+  }
   return { commR: r.comm, commFrom: "channel" };
+}
+
+/** Normalized key used to match a product's Amazon Item Type to an override. */
+export function itemTypeKey(itemType: string): string {
+  return itemType.trim().toLowerCase();
 }
 
 export function analyzeProduct(
@@ -224,6 +235,7 @@ export function analyzeProduct(
   overrides?: Overrides,
   brandRoyalty?: BrandRoyaltyTable,
   royaltyRules?: RoyaltyRuleEntry[],
+  itemTypeCommissions?: ItemTypeCommissionTable,
 ): AnalysisResult {
   const r = computeRates(cfg, settings);
   const cost = parseNum(row.cost);
@@ -257,7 +269,7 @@ export function analyzeProduct(
   const unpriced = price <= 0 && !invalid;
 
   const { royRate, royFlat, royFrom } = resolveRoyalty(row, cfg, settings, brandRoyalty, royaltyRules);
-  const { commR, commFrom } = resolveCommission(row, cfg, r);
+  const { commR, commFrom } = resolveCommission(row, cfg, r, itemTypeCommissions);
 
   const ppcUsed = cfg.flags.ppc ? parseNum(row.ppc ?? settings.ppc ?? 0) : 0;
   const fvfFixedUsed = cfg.flags.fvf ? parseNum(row.fvfFixed ?? settings.fvf ?? 0) : 0;

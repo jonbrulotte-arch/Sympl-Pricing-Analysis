@@ -138,7 +138,10 @@ export function SkuDetailPanel({ result: r, cfg, settings, onShowMath, canViewCo
                 <LedgerRow label="Sold price (fee base, includes tax)" value={cur.sold} bold />
               </>
             )}
-            <LedgerRow label={`Category commission (${(r.commR * 100).toFixed(2)}%)`} value={-cur.comm} />
+            <LedgerRow
+              label={`Category commission (${(r.commR * 100).toFixed(2)}%${r.commFrom === "itemType" ? ", item type override" : ""})`}
+              value={-cur.comm}
+            />
             {cfg.flags.tsd && (
               <LedgerRow label={`Top seller discount (${(rates.tsd * 100).toFixed(1)}% of the fee, credited back)`} value={cur.tsd} />
             )}

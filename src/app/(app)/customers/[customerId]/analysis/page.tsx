@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
 import { loadProductRows } from "@/lib/db/load-product-rows";
 import { loadChannelProductIds } from "@/lib/db/channel-products";
+import { loadItemTypeCommissions } from "@/lib/db/item-type-commissions";
 import { getPermissions } from "@/lib/permissions";
 import type { BrandRoyaltyTable, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
@@ -148,6 +149,7 @@ export default async function AnalysisPage({
         brandRoyalties={brandRoyalties}
         customerId={customerId}
         royaltyRules={royaltyRules}
+        itemTypeCommissions={await loadItemTypeCommissions(customerId)}
         canViewCost={canViewCost}
       />
     </div>

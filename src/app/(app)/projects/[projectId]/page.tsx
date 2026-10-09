@@ -7,6 +7,7 @@ import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { loadProductRows } from "@/lib/db/load-product-rows";
 import { loadChannelProductIds } from "@/lib/db/channel-products";
+import { loadItemTypeCommissions } from "@/lib/db/item-type-commissions";
 import { getPermissions, canAccessCustomer } from "@/lib/permissions";
 import type { BrandRoyaltyTable, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
@@ -170,6 +171,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           brandRoyalties={brandRoyalties}
           customerId={project.customerId}
           royaltyRules={royaltyRules}
+          itemTypeCommissions={await loadItemTypeCommissions(project.customerId)}
           canViewCost={canViewCost}
         />
       )}

@@ -9,7 +9,7 @@ import { PublishToSalsify } from "./publish-to-salsify";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { ProductRow, BrandRoyaltyTable, ChannelDefaults, RoyaltyRuleEntry } from "@/lib/pricing/types";
+import type { ProductRow, BrandRoyaltyTable, ChannelDefaults, RoyaltyRuleEntry, ItemTypeCommissionTable } from "@/lib/pricing/types";
 import { exportChangeReport, exportFullAnalysis } from "@/lib/export/change-report";
 import { Search, Download, ChevronDown, ChevronLeft, ChevronRight, Tag, CheckSquare } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -46,6 +46,7 @@ interface Props {
   brandRoyalties: BrandRoyaltyTable;
   customerId: string;
   royaltyRules?: RoyaltyRuleEntry[];
+  itemTypeCommissions?: ItemTypeCommissionTable;
   canViewCost?: boolean;
 }
 
@@ -57,7 +58,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "unpriced", label: "Unpriced" },
 ];
 
-export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], canViewCost = true }: Props) {
+export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, canViewCost = true }: Props) {
   const {
     configs,
     activeTab,
@@ -87,7 +88,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     commitPrice,
     revertCommittedPrice,
     committedSkus,
-  } = useAnalysis(channels, products, brandRoyalties, customerId, royaltyRules);
+  } = useAnalysis(channels, products, brandRoyalties, customerId, royaltyRules, itemTypeCommissions);
 
   const isCalcCheck = activeTab === "__calc_check__";
   const isPublishSalsify = activeTab === "__publish_salsify__";

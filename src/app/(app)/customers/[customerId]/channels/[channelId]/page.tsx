@@ -11,6 +11,7 @@ import type { ChannelFlags, ChannelDefaults } from "@/lib/pricing/types";
 import { ChannelDeleteButton } from "@/components/channels/channel-delete-button";
 import { brandKey } from "@/lib/pricing/helpers";
 import { SalsifyListCard } from "@/components/channels/salsify-list-card";
+import { ItemTypeCommissionCard } from "@/components/channels/item-type-commission-card";
 
 interface ChannelData {
   id: string;
@@ -269,6 +270,8 @@ export default function ChannelSettingsPage() {
           </label>
         </CardContent>
       </Card>
+
+      {channel.hasPerSkuCommission && <ItemTypeCommissionCard customerId={customerId} />}
 
       {SECTIONS.map((sec) => {
         const fields = FIELDS_UI.filter((f) =>

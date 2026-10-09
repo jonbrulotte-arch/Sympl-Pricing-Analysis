@@ -162,7 +162,7 @@ export interface AnalysisResult {
   royFlat: number;
   royFrom: "sku" | "brand" | "sheet" | "default";
   commR: number;
-  commFrom: "channel" | "sheet";
+  commFrom: "channel" | "sheet" | "itemType";
   ppcUsed: number;
   asin?: string;
   fbaClass?: string;
@@ -210,6 +210,9 @@ export interface Overrides {
     };
   };
 }
+
+/** Commission percent (e.g. 8 = 8%) keyed by normalized Amazon Item Type. */
+export type ItemTypeCommissionTable = Record<string, number>;
 
 export interface BrandRoyaltyTable {
   [brandKey: string]: number;
