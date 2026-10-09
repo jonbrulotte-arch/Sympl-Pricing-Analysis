@@ -64,8 +64,8 @@ export const PRICE_FIELDS = [
 
 export const SHIPPING_MODES = [
   { value: "std", label: "Standard", description: "Shipping cost per unit from the spreadsheet" },
-  { value: "mcf", label: "MCF (Multi-Channel Fulfillment)", description: "MCF shipping + inbound freight costs" },
-  { value: "fba", label: "FBA (Fulfilled by Amazon)", description: "FBA fulfillment cost from spreadsheet or Amazon" },
+  { value: "mcf", label: "MCF (Multi-Channel Fulfillment)", description: "MCF shipping + inbound freight, per unit" },
+  { value: "fba", label: "FBA (Fulfilled by Amazon)", description: "FBA fulfillment fee + inbound freight, per unit" },
 ];
 
 export const COMMERCIAL_SUBTYPES = [

@@ -195,18 +195,19 @@ function ShippingRows({ result: r, cfg }: { result: AnalysisResult; cfg: Channel
 
   if (!r.hasShippingData) return null;
 
-  if (cfg.shippingMode === "fba") {
-    const fbaFee = r.fbaFee ?? 0;
-    return <LedgerRow label={`Shipping cost (FBA fee $${fbaFee.toFixed(2)} × ${r.units})`} value={-r.ship} />;
-  }
-
-  if (cfg.shippingMode === "mcf") {
-    const mcfShip = r.mcfShip ?? 0;
+  if (cfg.shippingMode === "fba" || cfg.shippingMode === "mcf") {
+    const fee = (cfg.shippingMode === "fba" ? r.fbaFee : r.mcfShip) ?? 0;
     const mcfFreight = r.mcfFreight ?? 0;
+    const feeLabel = cfg.shippingMode === "fba" ? "FBA fee" : "MCF fulfillment";
     return (
       <>
-        <LedgerRow label={`MCF fulfillment ($${mcfShip.toFixed(2)} × ${r.units})`} value={-(mcfShip * r.units)} />
-        {mcfFreight > 0 && <LedgerRow label="Freight to MCF" value={-mcfFreight} />}
+        <LedgerRow label={`${feeLabel} ($${fee.toFixed(2)} × ${r.units})`} value={-(fee * r.units)} />
+        {mcfFreight > 0 && (
+          <LedgerRow
+            label={`Inbound freight to Amazon ($${mcfFreight.toFixed(2)} × ${r.units})`}
+            value={-(mcfFreight * r.units)}
+          />
+        )}
       </>
     );
   }

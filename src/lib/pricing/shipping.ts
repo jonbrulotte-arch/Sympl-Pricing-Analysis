@@ -4,7 +4,7 @@ export type ShippingChanges = Partial<Record<ShipComponentKey, number>>;
 export const SHIP_COMPONENTS: { key: ShipComponentKey; shippingType: string; label: string; perUnit: boolean }[] = [
   { key: "shipping", shippingType: "std", label: "Shipping cost", perUnit: true },
   { key: "mcfShip", shippingType: "mcf_ship", label: "MCF shipping", perUnit: true },
-  { key: "mcfFreight", shippingType: "mcf_freight", label: "To-MCF freight", perUnit: false },
+  { key: "mcfFreight", shippingType: "mcf_freight", label: "To-MCF freight", perUnit: true },
   { key: "fbaFee", shippingType: "fba_fee", label: "FBA fee", perUnit: true },
 ];
 
@@ -12,8 +12,8 @@ export const SHIP_COMPONENTS: { key: ShipComponentKey; shippingType: string; lab
 export function shipComponentsFor(cfg: { shippingMode: string; channelType?: string }) {
   if (cfg.channelType === "commercial") return [];
   const keys: ShipComponentKey[] =
-    cfg.shippingMode === "fba" ? ["fbaFee"] : cfg.shippingMode === "mcf" ? ["mcfShip", "mcfFreight"] : ["shipping"];
-  return SHIP_COMPONENTS.filter((c) => keys.includes(c.key));
+    cfg.shippingMode === "fba" ? ["fbaFee", "mcfFreight"] : cfg.shippingMode === "mcf" ? ["mcfShip", "mcfFreight"] : ["shipping"];
+  return keys.map((k) => SHIP_COMPONENTS.find((c) => c.key === k)!);
 }
 
 /** Keeps only known components with finite, non-negative values. Returns null when nothing valid remains. */

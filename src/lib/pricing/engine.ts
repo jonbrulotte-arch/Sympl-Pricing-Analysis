@@ -373,11 +373,12 @@ export function analyzeProduct(
 function computeShipping(row: ProductRow, cfg: ChannelConfig): number {
   if (cfg.channelType === "commercial") return 0;
   const units = Math.max(parseNum(row.units), 1);
+  // Inbound freight to Amazon fulfillment centers applies to both MCF and FBA, per unit.
   if (cfg.shippingMode === "fba") {
-    return parseNum(row.fbaFee) * units;
+    return (parseNum(row.fbaFee) + parseNum(row.mcfFreight)) * units;
   }
   if (cfg.shippingMode === "mcf") {
-    return parseNum(row.mcfShip) * units + parseNum(row.mcfFreight);
+    return (parseNum(row.mcfShip) + parseNum(row.mcfFreight)) * units;
   }
   return parseNum(row.shipping) * units;
 }
