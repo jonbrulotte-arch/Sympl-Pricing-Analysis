@@ -15,6 +15,7 @@ export function BrandingSettings() {
   const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const [removeLogo, setRemoveLogo] = useState(false);
+  const [hideLoginBranding, setHideLoginBranding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -26,6 +27,7 @@ export function BrandingSettings() {
         setName(d.platformName ?? "");
         setDefaultName(d.defaultName ?? "Sympl PA");
         setLogoUrl(d.logoUrl ?? null);
+        setHideLoginBranding(!!d.hideLoginBranding);
       });
   }, []);
 
@@ -55,6 +57,7 @@ export function BrandingSettings() {
     setMessage(null);
     const form = new FormData();
     form.set("platformName", name);
+    form.set("hideLoginBranding", String(hideLoginBranding));
     if (pendingLogo) form.set("logo", pendingLogo);
     else if (removeLogo) form.set("removeLogo", "true");
     const res = await fetch("/api/admin/settings/branding", { method: "POST", body: form });
@@ -66,6 +69,7 @@ export function BrandingSettings() {
     }
     setName(data.platformName ?? "");
     setLogoUrl(data.logoUrl ?? null);
+    setHideLoginBranding(!!data.hideLoginBranding);
     setPendingLogo(null);
     setRemoveLogo(false);
     if (fileRef.current) fileRef.current.value = "";
@@ -145,6 +149,25 @@ export function BrandingSettings() {
             </span>
           )}
         </div>
+      </div>
+
+      <div className="flex items-start gap-3">
+        <span className="text-sm text-gray-700 w-40 shrink-0">Sign-in pages</span>
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={hideLoginBranding}
+            onChange={(e) => setHideLoginBranding(e.target.checked)}
+            className="h-4 w-4 mt-0.5 rounded border-gray-300 text-blue-600"
+          />
+          <span>
+            <span className="text-sm text-gray-900">Hide logo and name on the sign-in pages</span>
+            <span className="block text-xs text-gray-500">
+              Removes the logo, platform name and &ldquo;Pricing Analysis Platform&rdquo; above the login, forgot
+              password and reset password forms. The sidebar, browser tab and emails are unaffected.
+            </span>
+          </span>
+        </label>
       </div>
 
       <div className="flex items-center gap-3">

@@ -377,6 +377,7 @@ model AppSettings {
   logoData            Bytes?
   logoMimeType        String?
   logoUpdatedAt       DateTime?
+  hideLoginBranding   Boolean  @default(false)
   updatedAt           DateTime @updatedAt
 }
 

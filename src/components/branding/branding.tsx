@@ -52,6 +52,7 @@ export function SidebarBrand({ collapsed }: { collapsed: boolean }) {
 /** Centered logo + name block above the login/password cards. */
 export function AuthBrandHeader() {
   const b = useBranding();
+  if (b.hideLoginBranding) return null;
   return (
     <div className="text-center mb-8">
       {b.logoUrl && (

@@ -11,7 +11,7 @@ export const getBranding = cache(async (): Promise<Branding> => {
   try {
     const s = await prisma.appSettings.findUnique({
       where: { id: "singleton" },
-      select: { platformName: true, logoMimeType: true, logoUpdatedAt: true },
+      select: { platformName: true, logoMimeType: true, logoUpdatedAt: true, hideLoginBranding: true },
     });
     const custom = s?.platformName?.trim();
     return {
@@ -19,6 +19,7 @@ export const getBranding = cache(async (): Promise<Branding> => {
       longName: custom || DEFAULT_LONG_NAME,
       isCustom: !!custom,
       logoUrl: s?.logoMimeType && s.logoUpdatedAt ? `/api/branding/logo?v=${s.logoUpdatedAt.getTime()}` : null,
+      hideLoginBranding: s?.hideLoginBranding ?? false,
     };
   } catch {
     return DEFAULT_BRANDING;

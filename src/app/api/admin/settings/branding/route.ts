@@ -26,7 +26,12 @@ function sniffImage(buf: Buffer): string | null {
 
 async function current() {
   const b = await getBranding();
-  return { platformName: b.isCustom ? b.name : "", defaultName: DEFAULT_PLATFORM_NAME, logoUrl: b.logoUrl };
+  return {
+    platformName: b.isCustom ? b.name : "",
+    defaultName: DEFAULT_PLATFORM_NAME,
+    logoUrl: b.logoUrl,
+    hideLoginBranding: b.hideLoginBranding,
+  };
 }
 
 export async function GET() {
@@ -41,7 +46,16 @@ export async function POST(req: NextRequest) {
   if ("error" in ctx) return ctx.error;
 
   const form = await req.formData();
-  const data: { platformName?: string | null; logoData?: Uint8Array<ArrayBuffer> | null; logoMimeType?: string | null; logoUpdatedAt?: Date | null } = {};
+  const data: {
+    platformName?: string | null;
+    logoData?: Uint8Array<ArrayBuffer> | null;
+    logoMimeType?: string | null;
+    logoUpdatedAt?: Date | null;
+    hideLoginBranding?: boolean;
+  } = {};
+
+  const hide = form.get("hideLoginBranding");
+  if (hide === "true" || hide === "false") data.hideLoginBranding = hide === "true";
 
   const name = form.get("platformName");
   if (typeof name === "string") {
@@ -78,7 +92,7 @@ export async function POST(req: NextRequest) {
     category: "admin",
     summary: `Updated platform branding${data.platformName !== undefined ? ` (name: ${data.platformName ?? "default"})` : ""}${
       data.logoMimeType ? ", logo uploaded" : data.logoMimeType === null ? ", logo removed" : ""
-    }`,
+    }${data.hideLoginBranding !== undefined ? `, sign-in page branding ${data.hideLoginBranding ? "hidden" : "shown"}` : ""}`,
     userId: ctx.userId,
   });
 
