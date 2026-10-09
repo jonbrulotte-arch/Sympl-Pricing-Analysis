@@ -79,9 +79,10 @@ export function useAnalysis(
   customerId: string,
   royaltyRules: RoyaltyRuleEntry[] = [],
   itemTypeCommissions?: ItemTypeCommissionTable,
+  initialTab?: string,
 ) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<string>(channels[0]?.id ?? "");
+  const [activeTab, setActiveTab] = useState<string>(initialTab ?? channels[0]?.id ?? "");
   const [overrides, setOverrides] = useState<Overrides>({});
   const [committedPrices, setCommittedPrices] = useState<Record<string, Record<string, number>>>({});
   const [committedSkus, setCommittedSkus] = useState<Record<string, Set<string>>>({});

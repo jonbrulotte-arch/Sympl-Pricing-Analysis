@@ -87,19 +87,21 @@ export default async function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-amber-600" />
+        <Link href="/products?missing=cost" className="block">
+          <Card className="h-full transition-colors hover:border-blue-300">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{missingCost}</p>
+                  <p className="text-sm text-gray-500">Missing Cost Data</p>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{missingCost}</p>
-                <p className="text-sm text-gray-500">Missing Cost Data</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">

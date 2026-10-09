@@ -14,13 +14,13 @@ export default async function AnalysisPage({
   searchParams,
 }: {
   params: Promise<{ customerId: string }>;
-  searchParams: Promise<{ channel?: string }>;
+  searchParams: Promise<{ channel?: string; tab?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
   const { customerId } = await params;
-  const { channel: channelParam } = await searchParams;
+  const { channel: channelParam, tab } = await searchParams;
 
   const permissions = await getPermissions(session.user.role);
   const canViewCost = permissions.has("data:viewCost");
@@ -150,6 +150,7 @@ export default async function AnalysisPage({
         customerId={customerId}
         royaltyRules={royaltyRules}
         itemTypeCommissions={await loadItemTypeCommissions(customerId)}
+        openPublish={tab === "publish"}
         canViewCost={canViewCost}
       />
     </div>

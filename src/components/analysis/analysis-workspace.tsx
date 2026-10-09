@@ -47,6 +47,8 @@ interface Props {
   customerId: string;
   royaltyRules?: RoyaltyRuleEntry[];
   itemTypeCommissions?: ItemTypeCommissionTable;
+  /** Open on the Publish to Salsify tab instead of the first channel. */
+  openPublish?: boolean;
   canViewCost?: boolean;
 }
 
@@ -58,7 +60,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "unpriced", label: "Unpriced" },
 ];
 
-export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, canViewCost = true }: Props) {
+export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true }: Props) {
   const {
     configs,
     activeTab,
@@ -88,7 +90,15 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     commitPrice,
     revertCommittedPrice,
     committedSkus,
-  } = useAnalysis(channels, products, brandRoyalties, customerId, royaltyRules, itemTypeCommissions);
+  } = useAnalysis(
+    channels,
+    products,
+    brandRoyalties,
+    customerId,
+    royaltyRules,
+    itemTypeCommissions,
+    openPublish ? "__publish_salsify__" : undefined,
+  );
 
   const isCalcCheck = activeTab === "__calc_check__";
   const isPublishSalsify = activeTab === "__publish_salsify__";

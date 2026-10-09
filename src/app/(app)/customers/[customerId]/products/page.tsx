@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getPermissions } from "@/lib/permissions";
@@ -17,13 +17,14 @@ export default async function CustomerProductsPage({
   searchParams,
 }: {
   params: Promise<{ customerId: string }>;
-  searchParams: Promise<{ q?: string; page?: string; pageSize?: string; channel?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; pageSize?: string; channel?: string; missing?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
   const { customerId } = await params;
-  const { q, page: pageParam, pageSize: pageSizeParam, channel: channelParam } = await searchParams;
+  const { q, page: pageParam, pageSize: pageSizeParam, channel: channelParam, missing } = await searchParams;
+  const missingCost = missing === "cost";
 
   const permissions = await getPermissions(session.user.role);
   const isAdmin = permissions.has("admin:settings");
@@ -48,6 +49,7 @@ export default async function CustomerProductsPage({
   const where = {
     ...linked,
     ...(channelFilter ? { channels: { some: { channelId: channelFilter.id } } } : {}),
+    ...(missingCost ? { costHistories: { none: {} } } : {}),
     ...(q
       ? {
           OR: [
@@ -124,6 +126,7 @@ export default async function CustomerProductsPage({
     const sp = new URLSearchParams();
     if (q) sp.set("q", q);
     if (channelFilter) sp.set("channel", channelFilter.id);
+    if (missingCost) sp.set("missing", "cost");
     sp.set("page", String(p));
     sp.set("pageSize", String(pageSize));
     return `/customers/${customerId}/products?${sp.toString()}`;
@@ -149,12 +152,23 @@ export default async function CustomerProductsPage({
       <div className="flex items-center justify-between gap-3 mb-4">
         <form className="max-w-sm w-full">
           {channelFilter && <input type="hidden" name="channel" value={channelFilter.id} />}
+          {missingCost && <input type="hidden" name="missing" value="cost" />}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
             <Input name="q" defaultValue={q ?? ""} placeholder="Search SKU, name, or brand..." className="pl-9" />
           </div>
         </form>
         <div className="flex items-center gap-3">
+          {missingCost && (
+            <Link
+              href={`/customers/${customerId}/products${channelFilter ? `?channel=${channelFilter.id}` : ""}`}
+              className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1 text-xs text-blue-700 hover:bg-blue-100"
+              title="Clear filter"
+            >
+              Missing cost
+              <X className="h-3 w-3" />
+            </Link>
+          )}
           {listChannels.length > 0 && (
             <ChannelFilterSelect
               channels={listChannels.map((c) => ({ id: c.id, label: c.tabLabel }))}
@@ -178,7 +192,9 @@ export default async function CustomerProductsPage({
         emptyMessage={
           q
             ? "No products match your search."
-            : channelFilter
+            : missingCost
+              ? "Every product has cost data."
+              : channelFilter
               ? `No products on ${channelFilter.tabLabel} yet. Sync its Salsify list from the channel settings.`
               : "No products assigned yet."
         }

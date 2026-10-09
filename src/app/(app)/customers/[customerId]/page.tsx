@@ -2,12 +2,11 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { BarChart3, Upload, Settings, Plus, Store, Package, Plug } from "lucide-react";
+import { BarChart3, Upload, Settings, Plus, Store, Package, Plug, AlertTriangle, Send, FolderKanban, CheckCircle2, ChevronRight } from "lucide-react";
 import { NavigatingButton } from "@/components/ui/navigating-link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate } from "@/lib/utils";
 import { getPermissions } from "@/lib/permissions";
 import { CustomerActions } from "@/components/customers/customer-actions";
 import { ChannelDeleteButton } from "@/components/channels/channel-delete-button";
@@ -27,12 +26,23 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
     include: {
       channels: { orderBy: { sortOrder: "asc" } },
       _count: { select: { customerProducts: true } },
-      analyses: { orderBy: { createdAt: "desc" }, take: 5, select: { id: true, name: true, createdAt: true } },
+      projects: {
+        where: { status: "active" },
+        orderBy: { updatedAt: "desc" },
+        take: 5,
+        select: { id: true, name: true, _count: { select: { products: true } } },
+      },
       users: { where: { userId }, select: { role: true } },
     },
   });
 
   if (!customer) notFound();
+
+  const [missingCost, stagedCount, activeProjectCount] = await Promise.all([
+    prisma.product.count({ where: { customers: { some: { customerId } }, costHistories: { none: {} } } }),
+    prisma.salsifyStaged.count({ where: { customerId } }),
+    prisma.project.count({ where: { customerId, status: "active" } }),
+  ]);
 
   const isOwner = isAdmin || customer.users[0]?.role === "OWNER";
 
@@ -155,25 +165,52 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
           </Card>
         </div>
 
-        {/* Recent Analyses */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Analyses</CardTitle>
+              <CardTitle>Needs Attention</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <AttentionRow
+                href={`/customers/${customerId}/products?missing=cost`}
+                icon={<AlertTriangle className="h-4 w-4 text-amber-600" />}
+                count={missingCost}
+                label="products missing cost data"
+                done="All products have cost data"
+              />
+              <AttentionRow
+                href={`/customers/${customerId}/analysis?tab=publish`}
+                icon={<Send className="h-4 w-4 text-blue-600" />}
+                count={stagedCount}
+                label="committed changes waiting to publish to Salsify"
+                done="Nothing waiting to publish"
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Projects</CardTitle>
+              <Link href="/projects" className="text-xs text-blue-600 hover:underline">
+                View all{activeProjectCount > customer.projects.length ? ` (${activeProjectCount})` : ""}
+              </Link>
             </CardHeader>
             <CardContent>
-              {customer.analyses.length === 0 ? (
-                <p className="text-sm text-gray-500 py-4 text-center">No analyses yet.</p>
+              {customer.projects.length === 0 ? (
+                <p className="text-sm text-gray-500 py-2 text-center">No active projects.</p>
               ) : (
-                <div className="space-y-3">
-                  {customer.analyses.map((a) => (
+                <div className="space-y-1">
+                  {customer.projects.map((p) => (
                     <Link
-                      key={a.id}
-                      href={`/customers/${customerId}/analysis/${a.id}`}
-                      className="block text-sm hover:text-blue-600 transition-colors"
+                      key={p.id}
+                      href={`/projects/${p.id}`}
+                      className="flex items-center justify-between gap-2 -mx-2 px-2 py-1.5 rounded text-sm hover:bg-gray-50"
                     >
-                      <p className="font-medium text-gray-900">{a.name || "Untitled"}</p>
-                      <p className="text-xs text-gray-500">{formatDate(a.createdAt)}</p>
+                      <span className="flex items-center gap-2 min-w-0">
+                        <FolderKanban className="h-4 w-4 text-gray-400 shrink-0" />
+                        <span className="font-medium text-gray-900 truncate">{p.name}</span>
+                      </span>
+                      <span className="text-xs text-gray-500 shrink-0">{p._count.products} SKUs</span>
                     </Link>
                   ))}
                 </div>
@@ -185,5 +222,37 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
         </div>
       </div>
     </div>
+  );
+}
+
+function AttentionRow({
+  href,
+  icon,
+  count,
+  label,
+  done,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  count: number;
+  label: string;
+  done: string;
+}) {
+  if (count === 0) {
+    return (
+      <div className="flex items-center gap-2 py-1.5 text-sm text-gray-500">
+        <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+        {done}
+      </div>
+    );
+  }
+  return (
+    <Link href={href} className="flex items-center gap-2 -mx-2 px-2 py-1.5 rounded text-sm hover:bg-gray-50 group">
+      <span className="shrink-0">{icon}</span>
+      <span className="flex-1 text-gray-700">
+        <span className="font-semibold text-gray-900">{count.toLocaleString()}</span> {label}
+      </span>
+      <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 shrink-0" />
+    </Link>
   );
 }

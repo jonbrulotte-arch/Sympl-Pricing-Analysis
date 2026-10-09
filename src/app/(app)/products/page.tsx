@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ProductsTable, type ProductTableRow } from "@/components/products/products-table";
-import { Search, ChevronLeft, ChevronRight, Upload, FileSpreadsheet, RefreshCw, Package, DollarSign, AlertTriangle, Truck } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Upload, FileSpreadsheet, RefreshCw, Package, DollarSign, AlertTriangle, Truck, X } from "lucide-react";
 import { PageSizeSelect } from "@/components/products/page-size-select";
 import { McfFreightImport } from "@/components/products/mcf-freight-import";
 
@@ -17,12 +17,13 @@ const PAGE_SIZES = [25, 50, 100];
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; pageSize?: string; assigned?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; pageSize?: string; assigned?: string; missing?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
-  const { q, page: pageParam, pageSize: pageSizeParam, assigned } = await searchParams;
+  const { q, page: pageParam, pageSize: pageSizeParam, assigned, missing: missingParam } = await searchParams;
+  const missing = missingParam === "cost" || missingParam === "freight" ? missingParam : null;
 
   const pageSize = PAGE_SIZES.includes(Number(pageSizeParam)) ? Number(pageSizeParam) : 25;
   const page = Math.max(1, Number(pageParam) || 1);
@@ -36,6 +37,8 @@ export default async function ProductsPage({
   const where = {
     ...baseWhere,
     ...(unassignedOnly ? { customers: { none: {} } } : {}),
+    ...(missing === "cost" ? { costHistories: { none: {} } } : {}),
+    ...(missing === "freight" ? { shippingCostHistories: { none: { shippingType: "mcf_freight" } } } : {}),
     ...(q
       ? {
           OR: [
@@ -120,7 +123,16 @@ export default async function ProductsPage({
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (unassignedOnly) params.set("assigned", "unassigned");
+    if (missing) params.set("missing", missing);
     params.set("page", String(p));
+    params.set("pageSize", String(pageSize));
+    return `/products?${params.toString()}`;
+  }
+
+  function missingHref(kind: "cost" | "freight") {
+    const params = new URLSearchParams();
+    if (unassignedOnly) params.set("assigned", "unassigned");
+    if (missing !== kind) params.set("missing", kind);
     params.set("pageSize", String(pageSize));
     return `/products?${params.toString()}`;
   }
@@ -129,6 +141,7 @@ export default async function ProductsPage({
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (unassigned) params.set("assigned", "unassigned");
+    if (missing) params.set("missing", missing);
     params.set("pageSize", String(pageSize));
     return `/products?${params.toString()}`;
   }
@@ -191,7 +204,8 @@ export default async function ProductsPage({
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Link href={missingHref("cost")} className="block">
+        <Card className={cn("h-full transition-colors hover:border-blue-300", missing === "cost" && "border-blue-500 ring-1 ring-blue-500")}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center">
@@ -204,7 +218,9 @@ export default async function ProductsPage({
             </div>
           </CardContent>
         </Card>
-        <Card>
+        </Link>
+        <Link href={missingHref("freight")} className="block">
+        <Card className={cn("h-full transition-colors hover:border-blue-300", missing === "freight" && "border-blue-500 ring-1 ring-blue-500")}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
@@ -217,12 +233,14 @@ export default async function ProductsPage({
             </div>
           </CardContent>
         </Card>
+        </Link>
       </div>
 
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <form className="max-w-sm w-full">
             {unassignedOnly && <input type="hidden" name="assigned" value="unassigned" />}
+            {missing && <input type="hidden" name="missing" value={missing} />}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
               <Input
@@ -255,6 +273,16 @@ export default async function ProductsPage({
               </Link>
             </div>
           )}
+          {missing && (
+            <Link
+              href={missingHref(missing)}
+              className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1 text-xs text-blue-700 hover:bg-blue-100 shrink-0"
+              title="Clear filter"
+            >
+              {missing === "cost" ? "Missing cost" : "Missing MCF freight"}
+              <X className="h-3 w-3" />
+            </Link>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <p className="text-sm text-gray-600">
@@ -271,7 +299,9 @@ export default async function ProductsPage({
         emptyMessage={
           q
             ? "No products match your search."
-            : unassignedOnly
+            : missing
+              ? `Every product has ${missing === "cost" ? "cost data" : "MCF freight"}.`
+              : unassignedOnly
               ? "Every product is assigned to a customer."
               : "No products yet. Import data to get started."
         }
