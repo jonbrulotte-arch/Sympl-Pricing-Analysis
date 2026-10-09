@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AuthBrandHeader } from "@/components/branding/branding";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -37,12 +38,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white tracking-tight">
-            Sympl <span className="text-blue-400">PA</span>
-          </h1>
-          <p className="text-gray-400 mt-1 text-sm">Pricing Analysis Platform</p>
-        </div>
+        <AuthBrandHeader />
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-6">Sign in to your account</h2>

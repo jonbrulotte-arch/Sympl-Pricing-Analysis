@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { SidebarBrand } from "@/components/branding/branding";
 import {
   LayoutDashboard,
   Building2,
@@ -61,14 +62,7 @@ export function Sidebar({ user, grantedPermissions, salsifyDebugEnabled = false 
     >
       {/* Logo */}
       <div className="flex items-center h-14 px-4 border-b border-gray-700">
-        {!collapsed && (
-          <span className="text-lg font-bold text-white tracking-tight">
-            Sympl <span className="text-blue-400">PA</span>
-          </span>
-        )}
-        {collapsed && (
-          <span className="text-lg font-bold text-white mx-auto">S</span>
-        )}
+        <SidebarBrand collapsed={collapsed} />
       </div>
 
       {/* Nav */}

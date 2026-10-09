@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { randomBytes } from "crypto";
 import { sendEmail } from "@/lib/email";
+import { getBranding, escapeHtml as esc } from "@/lib/branding";
 
 export async function POST(req: NextRequest) {
+  const brand = await getBranding();
   const body = await req.json();
   const email = ((body.email as string) ?? "").trim().toLowerCase();
 
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
   try {
     await sendEmail({
       to: user.email,
-      subject: "Sympl PA — Password Reset",
+      subject: `${brand.name} — Password Reset`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
           <h2 style="color: #111827; margin-bottom: 16px;">Password Reset</h2>
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
             Hi ${user.name},
           </p>
           <p style="color: #374151; line-height: 1.6;">
-            We received a request to reset your password for the Sympl Pricing Analysis Platform. Click the button below to set a new password.
+            We received a request to reset your password for the ${esc(brand.longName)} platform. Click the button below to set a new password.
           </p>
           <div style="text-align: center; margin: 32px 0;">
             <a href="${resetUrl}" style="display: inline-block; background-color: #2563eb; color: #fff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
           </p>
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
           <p style="color: #9ca3af; font-size: 12px;">
-            Sympl Pricing Analysis Platform
+            ${esc(brand.longName)}
           </p>
         </div>
       `,

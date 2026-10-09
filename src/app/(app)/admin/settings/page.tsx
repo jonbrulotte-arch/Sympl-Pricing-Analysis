@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { SalsifySettings } from "@/components/admin/salsify-settings";
 import { EmailSettings } from "@/components/admin/email-settings";
 import { PurgeProductsButton } from "@/components/admin/purge-products";
+import { BrandingSettings } from "@/components/admin/branding-settings";
+import { getBranding } from "@/lib/branding";
 
 export default async function AdminSettingsPage() {
   const session = await auth();
@@ -15,6 +17,7 @@ export default async function AdminSettingsPage() {
   const permissions = await getPermissions(session.user.role);
   if (!permissions.has("admin:settings")) redirect("/dashboard");
 
+  const branding = await getBranding();
   const [userCount, customerCount, productCount, channelCount] = await Promise.all([
     prisma.user.count(),
     prisma.customer.count(),
@@ -37,7 +40,7 @@ export default async function AdminSettingsPage() {
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Name</span>
-              <span className="text-sm font-medium text-gray-900">Sympl Pricing Analysis</span>
+              <span className="text-sm font-medium text-gray-900">{branding.longName}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Version</span>
@@ -97,6 +100,21 @@ export default async function AdminSettingsPage() {
               <span className="text-sm text-gray-600">Trust Host</span>
               <Badge variant="default" className="text-xs bg-green-600">Enabled</Badge>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-6 space-y-6">
+        <h2 className="text-xs font-semibold text-gray-500 tracking-wide uppercase mb-2">Branding</h2>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Platform Name &amp; Logo</CardTitle>
+            <p className="text-xs text-gray-500">
+              Replace &ldquo;Sympl PA&rdquo; with your own name and logo across the platform.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <BrandingSettings />
           </CardContent>
         </Card>
       </div>

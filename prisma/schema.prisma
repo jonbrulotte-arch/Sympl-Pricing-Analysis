@@ -372,6 +372,11 @@ model AppSettings {
   salsifyChannelId    String?
   salsifySyncEnabled  Boolean  @default(false)
   salsifyDebugEnabled Boolean  @default(false)
+  // White-label branding; null name = default "Sympl PA"
+  platformName        String?
+  logoData            Bytes?
+  logoMimeType        String?
+  logoUpdatedAt       DateTime?
   updatedAt           DateTime @updatedAt
 }
 

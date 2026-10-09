@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getPermissions } from "@/lib/permissions";
 import { sendEmail } from "@/lib/email";
+import { getBranding, escapeHtml as esc } from "@/lib/branding";
 import { logActivity } from "@/lib/activity-log";
 
 export async function POST(req: NextRequest) {
+  const brand = await getBranding();
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!(await getPermissions(session.user.role)).has("admin:settings"))
@@ -30,12 +32,12 @@ export async function POST(req: NextRequest) {
   try {
     await sendEmail({
       to,
-      subject: "Sympl PA — Test Email",
+      subject: `${brand.name} — Test Email`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
           <h2 style="color: #111827; margin-bottom: 16px;">Email Configuration Test</h2>
           <p style="color: #374151; line-height: 1.6;">
-            This is a test email from the Sympl Pricing Analysis Platform.
+            This is a test email from the ${esc(brand.longName)} platform.
           </p>
           <p style="color: #374151; line-height: 1.6;">
             If you're reading this, your MS Graph email configuration is working correctly.
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
           <p style="color: #9ca3af; font-size: 12px;">
             Sent from: ${process.env.MS_GRAPH_SENDER_EMAIL}<br/>
-            Sympl Pricing Analysis Platform
+            ${esc(brand.longName)}
           </p>
         </div>
       `,

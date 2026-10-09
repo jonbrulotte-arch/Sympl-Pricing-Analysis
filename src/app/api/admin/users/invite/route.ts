@@ -5,9 +5,11 @@ import { getPermissions } from "@/lib/permissions";
 import { hash } from "bcryptjs";
 import { randomUUID, randomBytes } from "crypto";
 import { sendEmail } from "@/lib/email";
+import { getBranding, escapeHtml as esc } from "@/lib/branding";
 import { logActivity } from "@/lib/activity-log";
 
 export async function POST(req: NextRequest) {
+  const brand = await getBranding();
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!(await getPermissions(session.user.role)).has("admin:users"))
@@ -55,12 +57,12 @@ export async function POST(req: NextRequest) {
   try {
     await sendEmail({
       to: email,
-      subject: "You've been invited to Sympl Pricing Analysis",
+      subject: `You've been invited to ${brand.longName}`,
       html: `
         <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
-          <h2 style="color: #111827; margin-bottom: 16px;">Welcome to Sympl Pricing Analysis</h2>
+          <h2 style="color: #111827; margin-bottom: 16px;">Welcome to ${esc(brand.longName)}</h2>
           <p style="color: #374151; font-size: 14px; line-height: 1.6;">
-            ${session.user.name} has invited you to join the Sympl Pricing Analysis platform.
+            ${esc(session.user.name ?? "")} has invited you to join the ${esc(brand.longName)} platform.
           </p>
           <p style="color: #374151; font-size: 14px; line-height: 1.6;">
             Click the button below to set your password and get started:
