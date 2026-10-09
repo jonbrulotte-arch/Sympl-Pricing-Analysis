@@ -20,7 +20,7 @@ export default async function DashboardPage() {
 
   const baseProductWhere = await productVisibilityWhere(userId, session.user.role);
 
-  const [customers, totalProducts, productsWithCost, productsWithFreight] = await Promise.all([
+  const [customers, totalProducts, productsWithCost] = await Promise.all([
     prisma.customer.findMany({
       where: isAdmin ? {} : { users: { some: { userId } } },
       select: {
@@ -38,12 +38,11 @@ export default async function DashboardPage() {
     }),
     prisma.product.count({ where: baseProductWhere }),
     prisma.product.count({ where: { ...baseProductWhere, costHistories: { some: {} } } }),
-    prisma.product.count({ where: { ...baseProductWhere, shippingCostHistories: { some: { shippingType: "mcf_freight" } } } }),
   ]);
 
   const totalCustomers = customers.length;
   const totalChannels = customers.reduce((sum, c) => sum + c.channels.length, 0);
-  const missingSupplemental = totalProducts - Math.min(productsWithCost, productsWithFreight);
+  const missingCost = totalProducts - productsWithCost;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -95,8 +94,8 @@ export default async function DashboardPage() {
                 <AlertTriangle className="h-5 w-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{missingSupplemental}</p>
-                <p className="text-sm text-gray-500">Missing Supplemental</p>
+                <p className="text-2xl font-bold text-gray-900">{missingCost}</p>
+                <p className="text-sm text-gray-500">Missing Cost Data</p>
               </div>
             </div>
           </CardContent>
