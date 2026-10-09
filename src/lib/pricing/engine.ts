@@ -13,12 +13,21 @@ import type {
 } from "./types";
 import { parseNum, parseStatus, roundUp, roundStep, brandKey } from "./helpers";
 
+/** Amazon's applicable minimum referral fee per unit (USD). */
+export const DEFAULT_REFERRAL_MIN = 0.3;
+
+/** Display name for the marketplace commission: Amazon-style channels call it a referral fee. */
+export function commissionName(cfg: Pick<ChannelConfig, "flags">): string {
+  return cfg.flags.commSku ? "Referral fee" : "Category commission";
+}
+
 export function computeRates(cfg: ChannelConfig, s: ChannelDefaults): RateTuple {
   const f = cfg.flags;
   return {
     c: f.coupon ? (s.coupon ?? 0) / 100 : 0,
     t: f.tax ? (s.tax ?? 0) / 100 : 0,
     comm: f.comm ? (s.comm ?? 0) / 100 : 0,
+    refMin: f.comm && f.commSku ? Math.max(0, s.refMin ?? DEFAULT_REFERRAL_MIN) : 0,
     tsd: f.tsd ? (s.tsd ?? 0) / 100 : 0,
     promo: f.promo ? (s.promo ?? 0) / 100 : 0,
     ccPct: f.cc ? (s.ccPct ?? 0) / 100 : 0,
@@ -49,7 +58,10 @@ export function forwardPass(
   const saleBase = P - coupon;
   const tax = saleBase * r.t;
   const sold = saleBase + tax;
-  const comm = sold * commR;
+  // Amazon charges the greater of the referral fee % or the per-unit minimum.
+  const pctComm = sold * commR;
+  const commMinApplied = r.refMin > 0 && r.refMin > pctComm;
+  const comm = commMinApplied ? r.refMin : pctComm;
   const tsd = comm * r.tsd;
   const fvfRate = comm - tsd;
   const promo = sold * r.promo;
@@ -75,6 +87,7 @@ export function forwardPass(
     tax,
     sold,
     comm,
+    commMinApplied,
     tsd,
     fvfRate,
     fvfFixed,
@@ -111,6 +124,29 @@ export function computeFeeRate(r: RateTuple, commR: number, royRate: number): nu
     saleRate * r.netTerms +
     saleRate * r.otherAlloc
   );
+}
+
+/**
+ * Goal price accounting for the minimum referral fee. Net margin with a max() fee is the lower of the
+ * percentage-fee and minimum-fee cases, so the goal is met at the higher of the two solved prices.
+ */
+export function solveRecommendedPrice(
+  cost: number,
+  units: number,
+  shipping: number,
+  r: RateTuple,
+  commR: number,
+  royRate: number,
+  goal: number,
+  flatUnit: number,
+  flatOrder: number,
+): { price: number; achievable: boolean } {
+  const pct = solveGoalPrice(cost, units, shipping, computeFeeRate(r, commR, royRate), goal, flatUnit, flatOrder);
+  if (!pct.achievable || r.refMin <= 0) return pct;
+  const minFee = r.refMin * (1 - r.tsd);
+  const flat = solveGoalPrice(cost, units, shipping, computeFeeRate(r, 0, royRate), goal, flatUnit + minFee, flatOrder);
+  if (!flat.achievable) return pct;
+  return { price: Math.max(pct.price, flat.price), achievable: true };
 }
 
 export function solveGoalPrice(
@@ -311,7 +347,7 @@ export function analyzeProduct(
 
   const flatUnit = fvfFixedUsed + royFlat;
   const flatOrder = r.ccFlat + ppcUsed;
-  const { price: rawRec, achievable } = solveGoalPrice(cost, units, ship, k, goalUsed, flatUnit, flatOrder);
+  const { price: rawRec, achievable } = solveRecommendedPrice(cost, units, ship, r, commR, royRate, goalUsed, flatUnit, flatOrder);
 
   let rec: number | null = null;
   let recCalc: ForwardPassResult | null = null;

@@ -311,8 +311,8 @@ export default function ChannelSettingsPage() {
                 fields.map((field) => (
                   <FieldRow
                     key={field.key}
-                    field={field}
-                    value={defaults[field.key]}
+                    field={channel.hasPerSkuCommission && field.amazonLabel ? { ...field, label: field.amazonLabel } : field}
+                    value={defaults[field.key] ?? field.defaultValue}
                     onChange={(v) => setVal(field.key, v)}
                   />
                 ))

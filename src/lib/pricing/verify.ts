@@ -1,5 +1,5 @@
 import type { RateTuple, ForwardPassResult, VerificationCheck } from "./types";
-import { computeFeeRate, forwardPass, solveGoalPrice } from "./engine";
+import { computeFeeRate, forwardPass, solveRecommendedPrice } from "./engine";
 
 const TOL = 1e-6;
 const SOLVE_TOL = 1e-9;
@@ -136,10 +136,18 @@ export function verifyAnalysis(
     saleRate * r.otherAlloc;
   checks.push(check("Fee rate k composition", "computeFeeRate()", k, "component sum", kSum));
 
+  // 9b. Referral fee honours the per-unit minimum (Amazon-style channels)
+  if (r.refMin > 0) {
+    const sold = P * (1 - r.c) * (1 + r.t);
+    checks.push(
+      check("Referral fee vs. minimum", "applied referral fee", cur.comm, `max(sold × ${(commR * 100).toFixed(2)}%, $${r.refMin.toFixed(2)})`, Math.max(sold * commR, r.refMin)),
+    );
+  }
+
   // 10. Goal price solves exactly
   const flatUnit = fvfFixed + royFlat;
   const flatOrder = r.ccFlat + ppc;
-  const { price: solvedP, achievable } = solveGoalPrice(cost, units, shipping, k, goalUsed, flatUnit, flatOrder);
+  const { price: solvedP, achievable } = solveRecommendedPrice(cost, units, shipping, r, commR, royRate, goalUsed, flatUnit, flatOrder);
   if (achievable) {
     const solvedCalc = forwardPass(solvedP, r, commR, royRate, royFlat, fvfFixed, ppc, units, shipping, cost);
     checks.push(check("Goal price solves exactly", "solved net margin %", solvedCalc.gm, "goal", goalUsed, SOLVE_TOL));

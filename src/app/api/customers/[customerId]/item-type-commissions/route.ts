@@ -82,7 +82,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   if (invalid.length > 0) {
     return NextResponse.json(
-      { error: `Commission must be a percent between 0 and 100 for: ${invalid.slice(0, 10).join(", ")}${invalid.length > 10 ? "…" : ""}` },
+      { error: `Referral fee must be a percent between 0 and 100 for: ${invalid.slice(0, 10).join(", ")}${invalid.length > 10 ? "…" : ""}` },
       { status: 400 },
     );
   }
@@ -104,7 +104,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     logActivity({
       action: "customer.itemTypeCommissions",
       category: "customer",
-      summary: `Updated Item Type commission overrides: ${upserts.length} set, ${removed.count} removed`,
+      summary: `Updated Item Type referral fee overrides: ${upserts.length} set, ${removed.count} removed`,
       detail: { set: upserts.map((u) => [u.itemType, u.commission]), removed: removed.count },
       customerId,
       userId: session.user.id,

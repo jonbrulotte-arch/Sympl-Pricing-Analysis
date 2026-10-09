@@ -19,7 +19,7 @@ interface ItemTypeInfo {
 }
 
 const ITEM_TYPE_HEADER = "Item Type";
-const COMMISSION_HEADER = "Commission %";
+const COMMISSION_HEADER = "Referral Fee %";
 
 const norm = (s: string) => s.trim().toLowerCase();
 
@@ -101,15 +101,16 @@ export function ItemTypeCommissionCard({ customerId }: { customerId: string }) {
     ws["!cols"] = [{ wch: 48 }, { wch: 10 }, { wch: 14 }];
     const help = XLSX.utils.aoa_to_sheet([
       ["How to use"],
-      ["Fill in Commission % (e.g. 8 for 8%) for item types that need an override."],
-      ["Leave Commission % blank to use the channel's default commission (clears an existing override)."],
+      ["Fill in Referral Fee % (e.g. 8 for 8%) for item types that need an override."],
+      ["Leave Referral Fee % blank to use the channel's default referral fee (clears an existing override)."],
+      ["The per-unit minimum referral fee still applies when it is greater than the percentage."],
       ["Do not rename the column headers. The Products column is for reference and is ignored on import."],
     ]);
     help["!cols"] = [{ wch: 100 }];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Item Type Commissions");
+    XLSX.utils.book_append_sheet(wb, ws, "Item Type Referral Fees");
     XLSX.utils.book_append_sheet(wb, help, "Instructions");
-    XLSX.writeFile(wb, `item-type-commissions-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `item-type-referral-fees-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
   async function importSheet(file: File) {
@@ -120,7 +121,7 @@ export function ItemTypeCommissionCard({ customerId }: { customerId: string }) {
       const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, blankrows: false, defval: null });
       const header = (rows[0] ?? []).map((h) => norm(String(h ?? "")));
       const typeIdx = header.findIndex((h) => h === norm(ITEM_TYPE_HEADER) || h === "itemtype");
-      const pctIdx = header.findIndex((h) => h.startsWith("commission"));
+      const pctIdx = header.findIndex((h) => h.startsWith("referral") || h.startsWith("commission"));
       if (typeIdx < 0 || pctIdx < 0) {
         setMessage({ ok: false, text: `The sheet needs "${ITEM_TYPE_HEADER}" and "${COMMISSION_HEADER}" columns. Export a template to start from.` });
         return;
@@ -137,7 +138,7 @@ export function ItemTypeCommissionCard({ customerId }: { customerId: string }) {
         entries.push({ itemType, commission: blank ? null : (cell as number | string) });
       }
       if (entries.length === 0) {
-        setMessage({ ok: true, text: "No commission values found in the sheet. Nothing changed." });
+        setMessage({ ok: true, text: "No referral fee values found in the sheet. Nothing changed." });
         return;
       }
       await save(entries, "Import complete: {saved} override(s) set, {removed} removed.");
@@ -156,10 +157,10 @@ export function ItemTypeCommissionCard({ customerId }: { customerId: string }) {
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-base">Item Type Category Commission Overrides</CardTitle>
+            <CardTitle className="text-base">Item Type Referral Fee Overrides</CardTitle>
             <p className="text-xs text-gray-500 mt-1">
               Shared by all of this customer&apos;s Amazon-style channels. Products with a matching Amazon Item Type use
-              this commission instead of the channel&apos;s default. A per-SKU commission from an import still takes
+              this referral fee instead of the channel&apos;s default. A per-SKU referral fee from an import still takes
               priority.
             </p>
           </div>
@@ -202,14 +203,14 @@ export function ItemTypeCommissionCard({ customerId }: { customerId: string }) {
         ) : (
           <>
             {overrides.length === 0 ? (
-              <p className="text-sm text-gray-500">No overrides yet. Every product uses the channel&apos;s default commission.</p>
+              <p className="text-sm text-gray-500">No overrides yet. Every product uses the channel&apos;s default referral fee.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
                     <th className="text-left py-2 px-2 text-gray-600 font-medium text-xs">Item Type</th>
                     <th className="text-right py-2 px-2 text-gray-600 font-medium text-xs">Products</th>
-                    <th className="text-right py-2 px-2 text-gray-600 font-medium text-xs">Commission</th>
+                    <th className="text-right py-2 px-2 text-gray-600 font-medium text-xs">Referral Fee</th>
                     <th className="w-8" />
                   </tr>
                 </thead>

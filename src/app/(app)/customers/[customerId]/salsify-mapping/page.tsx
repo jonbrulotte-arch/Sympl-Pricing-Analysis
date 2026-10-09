@@ -163,7 +163,7 @@ export default function SalsifyMappingPage({ params }: { params: Promise<{ custo
           </Card>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-            Fields not carried by Salsify (SKU Cost, To MCF Freight Cost, Royalty, Amazon Category Commission, PPC Fee, FVF Fixed)
+            Fields not carried by Salsify (SKU Cost, To MCF Freight Cost, Royalty, Amazon Referral Fee, PPC Fee, FVF Fixed)
             are brought in separately via a Supplemental Data Import spreadsheet and aren&apos;t mapped here.
           </div>
         </div>

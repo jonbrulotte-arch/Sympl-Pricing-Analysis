@@ -18,6 +18,8 @@ export interface ChannelDefaults {
   coupon?: number;
   tax?: number;
   comm?: number;
+  /** Amazon-style channels: minimum referral fee per unit ($). */
+  refMin?: number;
   tsd?: number;
   promo?: number;
   fvf?: number;
@@ -92,7 +94,8 @@ export interface ProductRow {
 export interface RateTuple {
   c: number;     // coupon rate
   t: number;     // tax rate
-  comm: number;  // commission rate
+  comm: number;  // commission / referral fee rate
+  refMin: number; // minimum referral fee per unit ($), 0 when not applicable
   tsd: number;   // top seller discount rate
   promo: number; // promoted listing rate
   ccPct: number; // card processing rate
@@ -113,6 +116,8 @@ export interface ForwardPassResult {
   tax: number;
   sold: number;
   comm: number;
+  /** True when the per-unit minimum referral fee exceeded the percentage fee. */
+  commMinApplied: boolean;
   tsd: number;
   fvfRate: number;
   fvfFixed: number;

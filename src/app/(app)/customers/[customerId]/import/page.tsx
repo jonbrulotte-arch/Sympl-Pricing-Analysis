@@ -195,7 +195,7 @@ export default function ImportPage() {
       </h1>
       {supplementalMode && (
         <p className="text-sm text-gray-500 -mt-4 mb-6">
-          Bring in the fields Salsify doesn&apos;t carry (SKU cost, MCF freight, royalty, category commission) via a small spreadsheet.
+          Bring in the fields Salsify doesn&apos;t carry (SKU cost, MCF freight, royalty, Amazon referral fee) via a small spreadsheet.
         </p>
       )}
       {!supplementalMode && step === "upload" && (

@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { AnalysisResult, ChannelConfig, ChannelDefaults, RateTuple, VerificationCheck } from "@/lib/pricing/types";
-import { computeRates, computeFeeRate, forwardPass, solveGoalPrice } from "@/lib/pricing/engine";
+import { computeRates, computeFeeRate, forwardPass, solveGoalPrice, commissionName } from "@/lib/pricing/engine";
 import { verifyAnalysis } from "@/lib/pricing/verify";
 import { roundUp } from "@/lib/pricing/helpers";
 import { AlertTriangle } from "lucide-react";
@@ -110,7 +110,7 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
             <InputRow label="Units" value={selected.units.toString()} />
             <InputRow label="Shipping" value={`$${selected.ship.toFixed(2)}`} />
             <InputRow
-              label="Commission"
+              label={commissionName(cfg)}
               value={`${(selected.commR * 100).toFixed(2)}%`}
               from={selected.commFrom === "itemType" ? `item type: ${selected.amzItemType}` : selected.commFrom}
             />
@@ -143,9 +143,19 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
               <Step n={3} label="Sale base (post-coupon)" per={cur.saleBase} units={selected.units} bold />
               {rates.t > 0 && <Step n={4} label={`Sales tax (${(rates.t * 100).toFixed(2)}%)`} per={cur.tax} units={selected.units} />}
               {rates.t > 0 && <Step n={5} label="Sold price (incl. tax)" per={cur.sold} units={selected.units} bold />}
-              <Step n={6} label={`Commission on ${rates.t > 0 ? "sold" : "sale"} (${(selected.commR * 100).toFixed(2)}%)`} per={cur.comm} units={selected.units} neg />
+              <Step
+                n={6}
+                label={
+                  cur.commMinApplied
+                    ? `${commissionName(cfg)}: minimum $${rates.refMin.toFixed(2)}/unit (greater than ${(selected.commR * 100).toFixed(2)}% of ${rates.t > 0 ? "sold" : "sale"})`
+                    : `${commissionName(cfg)} on ${rates.t > 0 ? "sold" : "sale"} (${(selected.commR * 100).toFixed(2)}%)`
+                }
+                per={cur.comm}
+                units={selected.units}
+                neg
+              />
               {rates.tsd > 0 && <Step n={7} label={`Top seller disc (${(rates.tsd * 100).toFixed(1)}%)`} per={cur.tsd} units={selected.units} />}
-              <Step n={8} label="FVF (net commission)" per={cur.fvfRate} units={selected.units} neg />
+              <Step n={8} label={cfg.flags.commSku ? "Referral fee (net)" : "FVF (net commission)"} per={cur.fvfRate} units={selected.units} neg />
               {cur.fvfFixed > 0 && <Step n={9} label="FVF fixed" per={cur.fvfFixed} units={selected.units} neg />}
               {cur.promo > 0 && <Step n={10} label="Promoted listing" per={cur.promo} units={selected.units} neg />}
               {cur.ccVar > 0 && <Step n={11} label="CC processing" per={cur.ccVar} units={selected.units} neg />}
@@ -206,7 +216,7 @@ export function CalculationCheck({ results, configs, settingsMap, initialChannel
             <tbody>
               <KRow label="Coupon" value={rates.c} />
               {rates.t > 0 && <KRow label="Tax amplification factor" value={null} note={`grossUp = ${((1 - rates.c) * (1 + rates.t)).toFixed(6)}`} />}
-              <KRow label="Commission (net of TSD)" value={(1 - rates.c) * (1 + rates.t) * selected.commR * (1 - rates.tsd)} />
+              <KRow label={`${commissionName(cfg)} (net of TSD)`} value={(1 - rates.c) * (1 + rates.t) * selected.commR * (1 - rates.tsd)} />
               {rates.promo > 0 && <KRow label="Promoted listing" value={(1 - rates.c) * (1 + rates.t) * rates.promo} />}
               {selected.royRate > 0 && <KRow label="Royalty %" value={(1 - rates.c) * selected.royRate} />}
               {rates.ccPct > 0 && <KRow label="CC processing" value={(1 - rates.c) * rates.ccPct} />}

@@ -1,5 +1,5 @@
 import type { AnalysisResult, ChannelConfig, ChannelDefaults } from "@/lib/pricing/types";
-import { computeRates } from "@/lib/pricing/engine";
+import { computeRates, commissionName } from "@/lib/pricing/engine";
 import { AlertTriangle } from "lucide-react";
 
 interface Props {
@@ -139,7 +139,11 @@ export function SkuDetailPanel({ result: r, cfg, settings, onShowMath, canViewCo
               </>
             )}
             <LedgerRow
-              label={`Category commission (${(r.commR * 100).toFixed(2)}%${r.commFrom === "itemType" ? ", item type override" : ""})`}
+              label={
+                cur.commMinApplied
+                  ? `${commissionName(cfg)} (minimum $${rates.refMin.toFixed(2)}/unit; ${(r.commR * 100).toFixed(2)}% would be $${(cur.sold * r.commR).toFixed(2)})`
+                  : `${commissionName(cfg)} (${(r.commR * 100).toFixed(2)}%${r.commFrom === "itemType" ? ", item type override" : ""})`
+              }
               value={-cur.comm}
             />
             {cfg.flags.tsd && (

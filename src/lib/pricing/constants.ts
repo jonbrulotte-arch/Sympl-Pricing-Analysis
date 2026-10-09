@@ -30,13 +30,18 @@ export interface FieldUiDef {
   flag?: string;
   opts?: [string, string][];
   commercialOnly?: boolean;
+  /** Label used on Amazon-style channels (per-SKU / item type referral fees). */
+  amazonLabel?: string;
+  /** Value shown and used when the channel hasn't set one. */
+  defaultValue?: number;
 }
 
 export const FIELDS_UI: FieldUiDef[] = [
   { sec: "goal", key: "goal", label: "Goal net margin %", unit: "%" },
   { sec: "market", key: "coupon", label: "Coupon discount", unit: "%", flag: "coupon" },
   { sec: "market", key: "tax", label: "Sales tax collected", hint: "(on the post-coupon price)", unit: "%", flag: "tax" },
-  { sec: "market", key: "comm", label: "Category commission", unit: "%", flag: "comm" },
+  { sec: "market", key: "comm", label: "Category commission", amazonLabel: "Referral fee", unit: "%", flag: "comm" },
+  { sec: "market", key: "refMin", label: "Minimum referral fee", hint: "(per unit; charged when greater than the %)", unit: "$", flag: "commSku", defaultValue: 0.3 },
   { sec: "market", key: "tsd", label: "Top seller discount", hint: "(off the final value fee)", unit: "%", flag: "tsd" },
   { sec: "market", key: "promo", label: "Promoted listing fee", unit: "%", flag: "promo" },
   { sec: "market", key: "fvf", label: "Final value fee, fixed", unit: "$", flag: "fvf" },
@@ -86,7 +91,7 @@ export const IMPORT_FIELDS = [
   { key: "asin", label: "Amazon ASIN", req: false, cand: ["amazonasin", "asin", "amznasin"] },
   { key: "amzCategory", label: "Amazon category", req: false, cand: ["amazoncategory", "amzcategory", "amazonbrowsenode"] },
   { key: "amzItemType", label: "Amazon item type", req: false, cand: ["amazonitemtype", "amzitemtype", "itemtype"] },
-  { key: "amzCommission", label: "Amazon category commission", req: false, cand: ["amazoncategorycommission", "amazoncommission", "amzcommission", "referralfee", "referralfeerate", "categorycommission"] },
+  { key: "amzCommission", label: "Amazon referral fee", req: false, cand: ["amazoncategorycommission", "amazoncommission", "amzcommission", "referralfee", "referralfeerate", "categorycommission"] },
   { key: "brand", label: "Brand", req: false, cand: ["brand", "brandname", "manufacturer", "mfg", "mfr", "vendor", "supplier"] },
   { key: "invStatus", label: "Inventory status (ERP)", req: false, cand: ["inventorystatuserp", "inventorystatus", "erpstatus", "erpinventorystatus", "itemstatus", "lifecycle", "skustatus"] },
   { key: "available", label: "Available inventory", req: false, cand: ["availableinventory", "availableunits", "available", "onhandpickableunits", "pickableunits", "onhandunits", "onhand", "qtyavailable", "quantityavailable", "availableqty"] },
@@ -115,12 +120,12 @@ export const DEFAULT_CHANNELS: Omit<ChannelConfig, "id">[] = [
   {
     name: "Amazon FBA", tabLabel: "Amazon FBA", shippingMode: "fba", priceField: "priceFBA", fallbackPriceField: "priceFBM",
     flags: { coupon: true, tax: false, comm: true, tsd: false, promo: false, fvf: false, cc: false, ppc: false, ad: true, commSku: true, fb: true, asin: true },
-    defaults: { goal: 25, coupon: 0, comm: 15, advertising: 5, roymode: "pct", roy: 6.9, returns: 2, royaltySource: "sheet", hideDisc: false, sellGoal: 0, excludeDisc: true, excludeOOS: true, lowStock: 5, priceFallback: true, round: "99", target: 20 },
+    defaults: { goal: 25, coupon: 0, comm: 15, refMin: 0.3, advertising: 5, roymode: "pct", roy: 6.9, returns: 2, royaltySource: "sheet", hideDisc: false, sellGoal: 0, excludeDisc: true, excludeOOS: true, lowStock: 5, priceFallback: true, round: "99", target: 20 },
   },
   {
     name: "Amazon FBM", tabLabel: "Amazon FBM", shippingMode: "std", priceField: "priceFBM",
     flags: { coupon: true, tax: false, comm: true, tsd: false, promo: false, fvf: false, cc: false, ppc: false, ad: true, commSku: true, fb: false, asin: true },
-    defaults: { goal: 25, coupon: 0, comm: 15, advertising: 5, roymode: "pct", roy: 6.9, returns: 2, royaltySource: "sheet", hideDisc: false, sellGoal: 0, excludeDisc: true, excludeOOS: true, lowStock: 5, round: "99", target: 20 },
+    defaults: { goal: 25, coupon: 0, comm: 15, refMin: 0.3, advertising: 5, roymode: "pct", roy: 6.9, returns: 2, royaltySource: "sheet", hideDisc: false, sellGoal: 0, excludeDisc: true, excludeOOS: true, lowStock: 5, round: "99", target: 20 },
   },
   {
     name: "Shopify Websites", tabLabel: "Shopify", shippingMode: "std", priceField: "priceShopify", fallbackPriceField: "priceJSP",

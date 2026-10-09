@@ -21,10 +21,10 @@ export const CHANNEL_TEMPLATES: ChannelTemplate[] = [
   {
     id: "amazon",
     label: "Amazon-style",
-    description: "Coupon, commission with per-SKU override, advertising percentage",
+    description: "Coupon, referral fee (with $0.30 per-unit minimum and per-SKU / item type overrides), advertising percentage",
     shippingMode: "std",
     flags: { coupon: true, tax: false, comm: true, tsd: false, promo: false, fvf: false, cc: false, ppc: false, ad: true, commSku: true, fb: false, asin: true },
-    defaults: { goal: 25, coupon: 0, comm: 15, advertising: 5, roymode: "pct", roy: 6.9, returns: 2, royaltySource: "sheet", round: "99", target: 20 },
+    defaults: { goal: 25, coupon: 0, comm: 15, refMin: 0.3, advertising: 5, roymode: "pct", roy: 6.9, returns: 2, royaltySource: "sheet", round: "99", target: 20 },
   },
   {
     id: "marketplace",

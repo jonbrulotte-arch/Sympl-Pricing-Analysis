@@ -16,6 +16,7 @@ import {
 } from "@/components/channels/channel-templates";
 import { ROUND_OPTS } from "@/lib/pricing/constants";
 import type { ChannelFlags, ChannelDefaults } from "@/lib/pricing/types";
+import { DEFAULT_REFERRAL_MIN } from "@/lib/pricing/engine";
 
 const FLAG_INFO: { key: keyof ChannelFlags; label: string; hint?: string }[] = [
   { key: "coupon", label: "Coupon discount" },
@@ -24,14 +25,14 @@ const FLAG_INFO: { key: keyof ChannelFlags; label: string; hint?: string }[] = [
     label: "Sales tax collected (eBay-style)",
     hint: "When enabled, sales tax is charged on the post-coupon price. Commission and promoted listing fees are then billed on the sold price (including tax), creating real extra cost. This is how eBay works — it amplifies marketplace fees.",
   },
-  { key: "comm", label: "Category commission" },
+  { key: "comm", label: "Category commission / referral fee" },
   { key: "tsd", label: "Top seller discount" },
   { key: "promo", label: "Promoted listing fee" },
   { key: "fvf", label: "Final value fee (fixed per unit)" },
   { key: "cc", label: "Credit card processing" },
   { key: "ppc", label: "PPC fee per unit" },
   { key: "ad", label: "Advertising (% of sale)" },
-  { key: "commSku", label: "Per-SKU commission override", hint: "Uses the Amazon category commission column from the spreadsheet when available" },
+  { key: "commSku", label: "Amazon-style referral fees", hint: "Calls commission a referral fee, applies the per-unit minimum referral fee, and uses per-SKU and Item Type referral fee overrides" },
   { key: "fb", label: "Fallback pricing", hint: "Use another channel's price when this channel has no price for a SKU" },
   { key: "asin", label: "Amazon ASIN tracking" },
 ];
@@ -384,7 +385,20 @@ export default function NewChannelPage() {
               <NumberField label="Sales tax rate" value={(defaults.tax as number) ?? 0} onChange={(v) => setDefault("tax", v)} suffix="%" />
             )}
             {flags.comm && (
-              <NumberField label="Category commission" value={(defaults.comm as number) ?? 0} onChange={(v) => setDefault("comm", v)} suffix="%" />
+              <NumberField
+                label={flags.commSku ? "Referral fee" : "Category commission"}
+                value={(defaults.comm as number) ?? 0}
+                onChange={(v) => setDefault("comm", v)}
+                suffix="%"
+              />
+            )}
+            {flags.comm && flags.commSku && (
+              <NumberField
+                label="Minimum referral fee (per unit)"
+                value={(defaults.refMin as number) ?? DEFAULT_REFERRAL_MIN}
+                onChange={(v) => setDefault("refMin", v)}
+                prefix="$"
+              />
             )}
             {flags.tsd && (
               <NumberField label="Top seller discount" value={(defaults.tsd as number) ?? 0} onChange={(v) => setDefault("tsd", v)} suffix="%" />
