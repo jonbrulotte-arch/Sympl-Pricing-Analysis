@@ -14,6 +14,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const ALL_CHANNELS = "__all__";
 
 interface Customer {
   id: string;
@@ -29,6 +32,13 @@ interface RoyaltyRule {
   value: number;
   mode: "pct" | "usd";
   customerId?: string | null;
+  channelId?: string | null;
+  channelName?: string | null;
+}
+
+interface Channel {
+  id: string;
+  name: string;
 }
 
 type RuleTarget = "global" | "customer";
@@ -37,6 +47,9 @@ export default function RoyaltyRulesPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [globalRules, setGlobalRules] = useState<RoyaltyRule[]>([]);
   const [customerRules, setCustomerRules] = useState<RoyaltyRule[]>([]);
+  const [customerChannels, setCustomerChannels] = useState<Channel[]>([]);
+  const [channelId, setChannelId] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [loadingGlobal, setLoadingGlobal] = useState(true);
   const [loadingCustomer, setLoadingCustomer] = useState(false);
@@ -74,12 +87,17 @@ export default function RoyaltyRulesPage() {
   const loadCustomerRules = useCallback(async (custId: string) => {
     if (!custId) {
       setCustomerRules([]);
+      setCustomerChannels([]);
       return;
     }
     setLoadingCustomer(true);
     try {
-      const res = await fetch(`/api/customers/${custId}/royalty-rules`);
+      const [res, chRes] = await Promise.all([
+        fetch(`/api/customers/${custId}/royalty-rules`),
+        fetch(`/api/customers/${custId}/channels`),
+      ]);
       if (res.ok) setCustomerRules(await res.json());
+      if (chRes.ok) setCustomerChannels((await chRes.json()).map((c: Channel) => ({ id: c.id, name: c.name })));
     } finally {
       setLoadingCustomer(false);
     }
@@ -102,6 +120,8 @@ export default function RoyaltyRulesPage() {
     setSkusText("");
     setValue("");
     setMode("pct");
+    setChannelId("");
+    setSaveError(null);
     setDialogOpen(true);
   }
 
@@ -113,6 +133,8 @@ export default function RoyaltyRulesPage() {
     setSkusText(rule.skus.join(", "));
     setValue(String(rule.value));
     setMode(rule.mode);
+    setChannelId(rule.channelId ?? "");
+    setSaveError(null);
     setDialogOpen(true);
   }
 
@@ -126,6 +148,7 @@ export default function RoyaltyRulesPage() {
         value: parseFloat(value),
         mode,
       };
+      const customerPayload = { ...payload, channelId: channelId || null };
 
       if (ruleTarget === "global") {
         if (editingRule) {
@@ -144,18 +167,20 @@ export default function RoyaltyRulesPage() {
         await loadGlobalRules();
       } else {
         if (!selectedCustomerId) return;
-        if (editingRule) {
-          await fetch(`/api/customers/${selectedCustomerId}/royalty-rules/${editingRule.id}`, {
-            method: "PATCH",
+        const res = await fetch(
+          editingRule
+            ? `/api/customers/${selectedCustomerId}/royalty-rules/${editingRule.id}`
+            : `/api/customers/${selectedCustomerId}/royalty-rules`,
+          {
+            method: editingRule ? "PATCH" : "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-        } else {
-          await fetch(`/api/customers/${selectedCustomerId}/royalty-rules`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
+            body: JSON.stringify(customerPayload),
+          },
+        );
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setSaveError(data.error || "Failed to save rule");
+          return;
         }
         await loadCustomerRules(selectedCustomerId);
       }
@@ -182,7 +207,8 @@ export default function RoyaltyRulesPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Royalty Rules</h1>
         <p className="text-sm text-gray-500">
-          Global rules apply to all customers. Customer-specific rules override the global defaults.
+          Global rules apply to all customers. Customer overrides replace them for one customer, and can be limited to
+          a single sales channel. Most specific wins: channel override, then customer override, then global rule.
         </p>
       </div>
 
@@ -255,6 +281,7 @@ export default function RoyaltyRulesPage() {
         {selectedCustomerId && !loadingCustomer && customerRules.length > 0 && (
           <RulesTable
             rules={customerRules}
+            showChannel
             onEdit={(r) => openEdit(r, "customer")}
             onDelete={(id) => handleDelete(id, "customer")}
           />
@@ -271,7 +298,7 @@ export default function RoyaltyRulesPage() {
             <DialogDescription>
               {ruleTarget === "global"
                 ? "This rule applies to all customers unless overridden."
-                : "This rule overrides the global setting for the selected customer."}
+                : "This rule overrides the global setting for the selected customer, on all of its channels or just one."}
             </DialogDescription>
           </DialogHeader>
 
@@ -301,6 +328,23 @@ export default function RoyaltyRulesPage() {
                 </button>
               </div>
             </div>
+
+            {ruleTarget === "customer" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Applies to</label>
+                <Select value={channelId || ALL_CHANNELS} onValueChange={(v) => setChannelId(v === ALL_CHANNELS ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_CHANNELS}>All channels</SelectItem>
+                    {customerChannels.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name} only</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {scope === "brand" ? (
               <div>
@@ -362,6 +406,8 @@ export default function RoyaltyRulesPage() {
             </div>
           </div>
 
+          {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
@@ -378,10 +424,12 @@ export default function RoyaltyRulesPage() {
 
 function RulesTable({
   rules,
+  showChannel,
   onEdit,
   onDelete,
 }: {
   rules: RoyaltyRule[];
+  showChannel?: boolean;
   onEdit: (rule: RoyaltyRule) => void;
   onDelete: (ruleId: string) => void;
 }) {
@@ -391,6 +439,7 @@ function RulesTable({
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200">
             <th className="text-left py-2.5 px-4 text-gray-600 font-medium">Scope</th>
+            {showChannel && <th className="text-left py-2.5 px-4 text-gray-600 font-medium">Channel</th>}
             <th className="text-left py-2.5 px-4 text-gray-600 font-medium">Brand / SKUs</th>
             <th className="text-right py-2.5 px-4 text-gray-600 font-medium">Value</th>
             <th className="text-center py-2.5 px-4 text-gray-600 font-medium">Mode</th>
@@ -405,6 +454,11 @@ function RulesTable({
                   {rule.scope === "brand" ? "Brand" : "SKU"}
                 </Badge>
               </td>
+              {showChannel && (
+                <td className="py-2 px-4 text-gray-700 text-xs">
+                  {rule.channelName ?? <span className="text-gray-400">All channels</span>}
+                </td>
+              )}
               <td className="py-2 px-4 text-gray-700">
                 {rule.scope === "brand" ? (
                   rule.brandName ?? rule.brandKey ?? "-"

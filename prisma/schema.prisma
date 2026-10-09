@@ -142,6 +142,7 @@ model SalesChannel {
   analysisResults AnalysisResult[]
   salsifyStaged   SalsifyStaged[]
   channelProducts ChannelProduct[]
+  royaltyRules    RoyaltyRule[]
 
   @@unique([customerId, slug])
 }
@@ -329,6 +330,9 @@ model RoyaltyRule {
   id         String    @id @default(uuid())
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  // Optional: limit a customer override to one of the customer's channels
+  channelId  String?
+  channel    SalesChannel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
   scope      String    // "brand" or "sku"
   brandKey   String?
   brandName  String?

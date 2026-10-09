@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { brandKey } from "@/lib/pricing/helpers";
 import { canAccessCustomer } from "@/lib/permissions";
+import { resolveChannelId, serializeRule } from "../shared";
 
 export async function PATCH(
   req: NextRequest,
@@ -30,21 +31,19 @@ export async function PATCH(
     update.brandKey = brandKey(body.brandName) ?? null;
   }
   if (body.skus !== undefined) update.skus = body.skus;
+  if (body.channelId !== undefined) {
+    const channel = await resolveChannelId(customerId, body.channelId);
+    if (channel === false) return NextResponse.json({ error: "Channel not found for this customer" }, { status: 400 });
+    update.channelId = channel;
+  }
 
   const rule = await prisma.royaltyRule.update({
     where: { id: ruleId },
     data: update,
+    include: { channel: { select: { name: true } } },
   });
 
-  return NextResponse.json({
-    id: rule.id,
-    scope: rule.scope,
-    brandKey: rule.brandKey,
-    brandName: rule.brandName,
-    skus: rule.skus,
-    value: Number(rule.value),
-    mode: rule.mode,
-  });
+  return NextResponse.json(serializeRule(rule));
 }
 
 export async function DELETE(

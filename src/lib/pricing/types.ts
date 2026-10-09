@@ -227,4 +227,6 @@ export interface RoyaltyRuleEntry {
   value: number;
   mode: "pct" | "usd";
   customerId?: string | null;
+  /** Set on customer overrides limited to one channel. */
+  channelId?: string | null;
 }

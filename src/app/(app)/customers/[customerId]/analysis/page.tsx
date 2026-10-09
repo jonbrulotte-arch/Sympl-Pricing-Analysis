@@ -81,6 +81,7 @@ export default async function AnalysisPage({
       value: Number(r.value),
       mode: r.mode as "pct" | "usd",
       customerId: r.customerId,
+      channelId: r.channelId,
     })),
   ];
 

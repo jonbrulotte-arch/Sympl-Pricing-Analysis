@@ -136,13 +136,22 @@ function resolveRoyalty(
   royaltyRules?: RoyaltyRuleEntry[],
 ): { royRate: number; royFlat: number; royFrom: "sku" | "brand" | "sheet" | "default" } {
   if (royaltyRules && royaltyRules.length > 0) {
-    const customerRules = royaltyRules.filter((r) => r.customerId != null);
+    // Most specific wins: this channel's overrides, then customer-wide overrides, then global rules.
+    const channelRules = royaltyRules.filter((r) => r.customerId != null && r.channelId === cfg.id);
+    const customerRules = royaltyRules.filter((r) => r.customerId != null && !r.channelId);
     const globalRules = royaltyRules.filter((r) => r.customerId == null);
+    const bk = brandKey(row.brand);
+
+    const chanSkuRule = channelRules.find((r) => r.scope === "sku" && r.skus.includes(row.sku));
+    if (chanSkuRule) return applyRuleValue(chanSkuRule.value, chanSkuRule.mode, "sku");
+    if (bk) {
+      const chanBrandRule = channelRules.find((r) => r.scope === "brand" && r.brandKey === bk);
+      if (chanBrandRule) return applyRuleValue(chanBrandRule.value, chanBrandRule.mode, "brand");
+    }
 
     const custSkuRule = customerRules.find((r) => r.scope === "sku" && r.skus.includes(row.sku));
     if (custSkuRule) return applyRuleValue(custSkuRule.value, custSkuRule.mode, "sku");
 
-    const bk = brandKey(row.brand);
     if (bk) {
       const custBrandRule = customerRules.find((r) => r.scope === "brand" && r.brandKey === bk);
       if (custBrandRule) return applyRuleValue(custBrandRule.value, custBrandRule.mode, "brand");

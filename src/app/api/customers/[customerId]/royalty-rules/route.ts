@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { brandKey } from "@/lib/pricing/helpers";
 import { logActivity } from "@/lib/activity-log";
 import { canAccessCustomer } from "@/lib/permissions";
+import { resolveChannelId, serializeRule } from "./shared";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -16,18 +17,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cust
 
   const rules = await prisma.royaltyRule.findMany({
     where: { customerId },
+    include: { channel: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(rules.map((r) => ({
-    id: r.id,
-    scope: r.scope,
-    brandKey: r.brandKey,
-    brandName: r.brandName,
-    skus: r.skus,
-    value: Number(r.value),
-    mode: r.mode,
-  })));
+  return NextResponse.json(rules.map(serializeRule));
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
@@ -40,6 +34,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
 
   const body = await req.json();
   const { scope, brandName, skus, value, mode } = body;
+  const channel = await resolveChannelId(customerId, body.channelId);
+  if (channel === false) return NextResponse.json({ error: "Channel not found for this customer" }, { status: 400 });
 
   if (!scope || !["brand", "sku"].includes(scope))
     return NextResponse.json({ error: "scope must be 'brand' or 'sku'" }, { status: 400 });
@@ -66,25 +62,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
       skus: scope === "sku" ? skuList : [],
       value,
       mode,
+      channelId: channel,
     },
+    include: { channel: { select: { name: true } } },
   });
 
   logActivity({
     action: "royaltyRule.create",
     category: "royalty",
     summary: `Created ${scope}-scope royalty rule (${mode} ${value})${scope === "brand" ? ` for "${brandName}"` : ` for ${skuList.length} SKU(s)`}`,
-    detail: { customerId, ruleId: rule.id, scope, brandName, skuCount: skuList.length, value, mode },
+    detail: { customerId, ruleId: rule.id, scope, brandName, skuCount: skuList.length, value, mode, channelId: channel },
     customerId,
     userId: session.user.id,
   });
 
-  return NextResponse.json({
-    id: rule.id,
-    scope: rule.scope,
-    brandKey: rule.brandKey,
-    brandName: rule.brandName,
-    skus: rule.skus,
-    value: Number(rule.value),
-    mode: rule.mode,
-  }, { status: 201 });
+  return NextResponse.json(serializeRule(rule), { status: 201 });
 }
