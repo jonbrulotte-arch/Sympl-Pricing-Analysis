@@ -6,7 +6,8 @@ interface Props {
   result: AnalysisResult;
   cfg: ChannelConfig;
   settings: ChannelDefaults;
-  onShowMath: () => void;
+  /** Omitted when the Calculation Check is unavailable (users without data:viewCost). */
+  onShowMath?: () => void;
   canViewCost?: boolean;
 }
 
@@ -113,12 +114,14 @@ export function SkuDetailPanel({ result: r, cfg, settings, onShowMath, canViewCo
           </div>
         )}
 
-        <button
-          onClick={onShowMath}
-          className="mt-3 text-xs px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
-        >
-          Show the math for this SKU
-        </button>
+        {onShowMath && (
+          <button
+            onClick={onShowMath}
+            className="mt-3 text-xs px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+          >
+            Show the math for this SKU
+          </button>
+        )}
       </div>
 
       {/* Right: fee ledger */}

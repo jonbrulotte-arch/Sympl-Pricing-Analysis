@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAnalysis, type StatusFilter } from "@/hooks/use-analysis";
+import { useAnalysis, type ServerComputeScope, type StatusFilter } from "@/hooks/use-analysis";
 import { KpiCards } from "./kpi-cards";
 import { AnalysisTable } from "./analysis-table";
 import { CalculationCheck } from "./calculation-check";
@@ -51,6 +51,8 @@ interface Props {
   openPublish?: boolean;
   canViewCost?: boolean;
   canExport?: boolean;
+  /** Set for users without data:viewCost: the analysis is computed on the server and cost never reaches the browser. */
+  serverCompute?: ServerComputeScope | null;
 }
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -61,7 +63,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "unpriced", label: "Unpriced" },
 ];
 
-export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true, canExport = true }: Props) {
+export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true, canExport = true, serverCompute = null }: Props) {
   const {
     configs,
     activeTab,
@@ -91,6 +93,8 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     commitPrice,
     revertCommittedPrice,
     committedSkus,
+    computing,
+    computeError,
   } = useAnalysis(
     channels,
     products,
@@ -99,7 +103,10 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     royaltyRules,
     itemTypeCommissions,
     openPublish ? "__publish_salsify__" : undefined,
+    serverCompute,
   );
+  // The Calculation Check re-runs the math in the browser, which needs cost.
+  const showCalcCheck = !serverCompute;
 
   const isCalcCheck = activeTab === "__calc_check__";
   const isPublishSalsify = activeTab === "__publish_salsify__";
@@ -201,6 +208,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             {cfg.tabLabel}
           </button>
         ))}
+        {showCalcCheck && (
         <button
           onClick={() => { setActiveTab("__calc_check__"); setSelectedSkus(new Set()); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
@@ -211,6 +219,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
         >
           Calculation Check
         </button>
+        )}
         <button
           onClick={() => { setActiveTab("__publish_salsify__"); setSelectedSkus(new Set()); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
@@ -223,7 +232,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
         </button>
       </div>
 
-      {isCalcCheck ? (
+      {isCalcCheck && showCalcCheck ? (
         <CalculationCheck
           results={results}
           configs={configs}
@@ -237,7 +246,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
       ) : (
         <>
           {/* KPIs */}
-          <KpiCards kpis={kpis} />
+          <KpiCards kpis={kpis} loading={computing && kpis.total === 0} />
 
           {/* Toolbar */}
           <div className="flex items-center gap-3 mb-4">
@@ -336,7 +345,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
                 </Button>
               )}
               <span className="text-xs text-gray-500">
-                {filteredResults.length} of {kpis.total} SKUs
+                {computing ? "Calculating..." : `${filteredResults.length} of ${kpis.total} SKUs`}
               </span>
               {canExport && (
               <div className="relative">
@@ -371,6 +380,10 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             </div>
           </div>
 
+          {computeError && (
+            <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{computeError}</div>
+          )}
+
           {/* Table */}
           <AnalysisTable
             results={pagedResults}
@@ -384,7 +397,8 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             committedSkus={committedSkus[activeTab]}
             cfg={activeCfg}
             settings={activeSettings}
-            onShowMath={handleShowMath}
+            onShowMath={showCalcCheck ? handleShowMath : undefined}
+            emptyMessage={computing && filteredResults.length === 0 ? "Calculating..." : undefined}
             selectedSkus={selectedSkus}
             onSelectSku={handleSelectSku}
             onSelectAll={handleSelectAll}
