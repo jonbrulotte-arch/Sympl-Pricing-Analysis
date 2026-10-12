@@ -25,6 +25,8 @@ export interface ProductTableRow {
 interface Props {
   rows: ProductTableRow[];
   emptyMessage: string;
+  /** Without data:viewCost the Cost and Last Updated (cost date) columns are hidden. */
+  canViewCost: boolean;
   /** Present for admins: enables selection and the assign bar. */
   assign?: {
     customers: { id: string; name: string }[];
@@ -34,7 +36,7 @@ interface Props {
   };
 }
 
-export function ProductsTable({ rows, emptyMessage, assign }: Props) {
+export function ProductsTable({ rows, emptyMessage, canViewCost, assign }: Props) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customerId, setCustomerId] = useState("");
@@ -141,9 +143,9 @@ export function ProductsTable({ rows, emptyMessage, assign }: Props) {
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Name</th>
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Brand</th>
                   <th className="text-left py-3 px-2 text-gray-600 font-medium">Status</th>
-                  <th className="text-right py-3 px-2 text-gray-600 font-medium">Cost</th>
+                  {canViewCost && <th className="text-right py-3 px-2 text-gray-600 font-medium">Cost</th>}
                   <th className="text-right py-3 px-2 text-gray-600 font-medium">MCF Freight</th>
-                  <th className="text-right py-3 px-2 text-gray-600 font-medium">Last Updated</th>
+                  {canViewCost && <th className="text-right py-3 px-2 text-gray-600 font-medium">Last Updated</th>}
                   <th className="text-right py-3 px-2 text-gray-600 font-medium">Records</th>
                 </tr>
               </thead>
@@ -187,19 +189,21 @@ export function ProductsTable({ rows, emptyMessage, assign }: Props) {
                         <span className="text-gray-400 text-xs">-</span>
                       )}
                     </td>
-                    <td className="py-2 px-2 text-right font-mono text-gray-900">
-                      {p.cost != null ? `$${p.cost.toFixed(2)}` : "-"}
-                    </td>
+                    {canViewCost && (
+                      <td className="py-2 px-2 text-right font-mono text-gray-900">
+                        {p.cost != null ? `$${p.cost.toFixed(2)}` : "-"}
+                      </td>
+                    )}
                     <td className="py-2 px-2 text-right font-mono text-gray-900">
                       {p.freight != null ? `$${p.freight.toFixed(2)}` : "-"}
                     </td>
-                    <td className="py-2 px-2 text-right text-gray-500 text-xs">{p.costDate ?? "-"}</td>
+                    {canViewCost && <td className="py-2 px-2 text-right text-gray-500 text-xs">{p.costDate ?? "-"}</td>}
                     <td className="py-2 px-2 text-right text-gray-600">{p.records}</td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={selectable ? 9 : 8} className="py-8 text-center text-gray-500">
+                    <td colSpan={(selectable ? 9 : 8) - (canViewCost ? 0 : 2)} className="py-8 text-center text-gray-500">
                       {emptyMessage}
                     </td>
                   </tr>

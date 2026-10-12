@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity-log";
-import { canAccessCustomer } from "@/lib/permissions";
+import { canAccessCustomer, getPermissions } from "@/lib/permissions";
 
 async function verifyProjectAccess(projectId: string, userId: string, role: string) {
   const project = await prisma.project.findUnique({
@@ -25,6 +25,7 @@ export async function GET(
   const project = await verifyProjectAccess(projectId, session.user.id, session.user.role);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const canViewCost = (await getPermissions(session.user.role)).has("data:viewCost");
   const full = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
@@ -34,7 +35,7 @@ export async function GET(
         include: {
           product: {
             include: {
-              costHistories: { orderBy: { recordedAt: "desc" }, take: 1 },
+              ...(canViewCost ? { costHistories: { orderBy: { recordedAt: "desc" as const }, take: 1 } } : {}),
               shippingCostHistories: { orderBy: { recordedAt: "desc" }, take: 4 },
             },
           },

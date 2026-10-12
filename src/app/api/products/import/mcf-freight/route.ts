@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { logActivity } from "@/lib/activity-log";
+import { getPermissions } from "@/lib/permissions";
 import * as XLSX from "xlsx";
 
 const FBA_COST_URL =
@@ -40,6 +41,8 @@ export async function POST() {
   const session = await auth();
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await getPermissions(session.user.role)).has("import:upload"))
+    return NextResponse.json({ error: "You don't have permission to import data" }, { status: 403 });
 
   const importId = randomUUID();
 

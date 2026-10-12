@@ -65,12 +65,14 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
             channelCount={customer.channels.length}
             isOwner={isOwner}
           />
-          <Link href={`/customers/${customerId}/import`}>
-            <Button>
-              <Upload className="h-4 w-4 mr-2" />
-              Import Data
-            </Button>
-          </Link>
+          {permissions.has("import:upload") && (
+            <Link href={`/customers/${customerId}/import`}>
+              <Button>
+                <Upload className="h-4 w-4 mr-2" />
+                Import Data
+              </Button>
+            </Link>
+          )}
           <Link href={`/customers/${customerId}/salsify-mapping`}>
             <Button variant="outline">
               <Plug className="h-4 w-4 mr-2" />
