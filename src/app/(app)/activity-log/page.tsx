@@ -10,6 +10,7 @@ export default async function ActivityLogPage() {
 
   const permissions = await getPermissions(session.user.role);
   const isAdmin = permissions.has("admin:settings");
+  if (!isAdmin && !permissions.has("module:activityLog")) redirect("/dashboard");
 
   const customers = await prisma.customer.findMany({
     where: isAdmin ? {} : { users: { some: { userId: session.user.id } } },

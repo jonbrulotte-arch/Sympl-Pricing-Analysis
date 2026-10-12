@@ -50,6 +50,7 @@ export default function RoyaltyRulesPage() {
   const [customerChannels, setCustomerChannels] = useState<Channel[]>([]);
   const [channelId, setChannelId] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [loadingGlobal, setLoadingGlobal] = useState(true);
   const [loadingCustomer, setLoadingCustomer] = useState(false);
@@ -150,40 +151,29 @@ export default function RoyaltyRulesPage() {
       };
       const customerPayload = { ...payload, channelId: channelId || null };
 
+      let url: string;
+      let body: unknown = payload;
       if (ruleTarget === "global") {
-        if (editingRule) {
-          await fetch(`/api/royalty-rules/${editingRule.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-        } else {
-          await fetch("/api/royalty-rules", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-        }
-        await loadGlobalRules();
+        url = editingRule ? `/api/royalty-rules/${editingRule.id}` : "/api/royalty-rules";
       } else {
         if (!selectedCustomerId) return;
-        const res = await fetch(
-          editingRule
-            ? `/api/customers/${selectedCustomerId}/royalty-rules/${editingRule.id}`
-            : `/api/customers/${selectedCustomerId}/royalty-rules`,
-          {
-            method: editingRule ? "PATCH" : "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(customerPayload),
-          },
-        );
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          setSaveError(data.error || "Failed to save rule");
-          return;
-        }
-        await loadCustomerRules(selectedCustomerId);
+        url = editingRule
+          ? `/api/customers/${selectedCustomerId}/royalty-rules/${editingRule.id}`
+          : `/api/customers/${selectedCustomerId}/royalty-rules`;
+        body = customerPayload;
       }
+      const res = await fetch(url, {
+        method: editingRule ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSaveError(data.error || "Failed to save rule");
+        return;
+      }
+      if (ruleTarget === "global") await loadGlobalRules();
+      else await loadCustomerRules(selectedCustomerId);
 
       setDialogOpen(false);
     } finally {
@@ -192,14 +182,21 @@ export default function RoyaltyRulesPage() {
   }
 
   async function handleDelete(ruleId: string, target: RuleTarget) {
-    if (target === "global") {
-      await fetch(`/api/royalty-rules/${ruleId}`, { method: "DELETE" });
-      await loadGlobalRules();
-    } else {
-      if (!selectedCustomerId) return;
-      await fetch(`/api/customers/${selectedCustomerId}/royalty-rules/${ruleId}`, { method: "DELETE" });
-      await loadCustomerRules(selectedCustomerId);
+    if (target === "customer" && !selectedCustomerId) return;
+    setDeleteError(null);
+    const res = await fetch(
+      target === "global"
+        ? `/api/royalty-rules/${ruleId}`
+        : `/api/customers/${selectedCustomerId}/royalty-rules/${ruleId}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setDeleteError(data.error || "Failed to delete rule");
+      return;
     }
+    if (target === "global") await loadGlobalRules();
+    else await loadCustomerRules(selectedCustomerId);
   }
 
   return (
@@ -211,6 +208,10 @@ export default function RoyaltyRulesPage() {
           a single sales channel. Most specific wins: channel override, then customer override, then global rule.
         </p>
       </div>
+
+      {deleteError && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{deleteError}</div>
+      )}
 
       {/* Global Rules Section */}
       <div className="mb-10">

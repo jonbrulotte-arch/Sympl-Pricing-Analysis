@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { brandKey } from "@/lib/pricing/helpers";
 import { logActivity } from "@/lib/activity-log";
-import { canAccessCustomer } from "@/lib/permissions";
+import { canAccessCustomer, getPermissions } from "@/lib/permissions";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -34,6 +34,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   const { customerId } = await params;
   if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await getPermissions(session.user.role)).has("royalties:edit"))
+    return NextResponse.json({ error: "You don't have permission to edit royalties" }, { status: 403 });
 
   const body = await req.json();
   const entries = body.entries as { brandName: string; value: number }[];
@@ -76,6 +78,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
   const { customerId } = await params;
   if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await getPermissions(session.user.role)).has("royalties:edit"))
+    return NextResponse.json({ error: "You don't have permission to edit royalties" }, { status: 403 });
 
   const body = await req.json();
   const { brandKey: bk } = body;

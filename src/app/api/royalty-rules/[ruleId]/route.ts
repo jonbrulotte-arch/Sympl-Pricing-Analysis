@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getPermissions } from "@/lib/permissions";
 import { brandKey } from "@/lib/pricing/helpers";
 
 export async function PATCH(
@@ -9,6 +10,9 @@ export async function PATCH(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const perms = await getPermissions(session.user.role);
+  if (!perms.has("royalties:edit") || !perms.has("admin:settings"))
+    return NextResponse.json({ error: "Only admins with royalty edit permission can change global royalty rules" }, { status: 403 });
 
   const { ruleId } = await params;
 
@@ -51,6 +55,9 @@ export async function DELETE(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const perms = await getPermissions(session.user.role);
+  if (!perms.has("royalties:edit") || !perms.has("admin:settings"))
+    return NextResponse.json({ error: "Only admins with royalty edit permission can change global royalty rules" }, { status: 403 });
 
   const { ruleId } = await params;
 
