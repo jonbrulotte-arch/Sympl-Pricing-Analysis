@@ -154,6 +154,13 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     ? allBrands.filter((b) => b.toLowerCase().includes(brandSearch.toLowerCase()))
     : allBrands;
 
+  // Both numbers count every row on the tab; SKUs without cost (left out of the KPIs) are noted separately.
+  const tabResults = results[activeTab] ?? [];
+  const missingCostCount = tabResults.filter((r) => r.invalid).length;
+  const skuCountLabel =
+    `${filteredResults.length} of ${tabResults.length} SKUs` +
+    (missingCostCount > 0 ? ` · ${missingCostCount} missing cost` : "");
+
   const activeCfg = configs.find((c) => c.id === activeTab);
   const activeSettings = settingsMap[activeTab] as unknown as ChannelDefaults | undefined;
 
@@ -345,7 +352,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
                 </Button>
               )}
               <span className="text-xs text-gray-500">
-                {computing ? "Calculating..." : `${filteredResults.length} of ${kpis.total} SKUs`}
+                {computing ? "Calculating..." : skuCountLabel}
               </span>
               {canExport && (
               <div className="relative">

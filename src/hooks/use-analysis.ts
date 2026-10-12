@@ -130,7 +130,7 @@ export function useAnalysis(
     // A whole channel on first view, after a settings change, or when superseding a request in flight;
     // otherwise only the SKUs whose edits changed since the last request.
     let productIds: string[] | undefined;
-    if (prev && !busy && prev.settings === current.settings) {
+    if (prev && !busy && JSON.stringify(prev.settings) === JSON.stringify(current.settings)) {
       const skus = new Set<string>();
       changedKeys(prev.overrides, current.overrides, skus);
       changedKeys(prev.shipEdits, current.shipEdits, skus);
@@ -145,7 +145,8 @@ export function useAnalysis(
       abortRef.current[ch.id]?.abort();
       const controller = new AbortController();
       abortRef.current[ch.id] = controller;
-      sentRef.current[ch.id] = current;
+      // A deep copy, so later edits can't change what we compare against.
+      sentRef.current[ch.id] = structuredClone(current);
       setInFlight((n) => n + 1);
       try {
         const res = await fetch(`/api/customers/${customerId}/analysis`, {
@@ -268,17 +269,15 @@ export function useAnalysis(
   }, [results, activeTab]);
 
   const setOverride = useCallback((channelId: string, sku: string, field: "price" | "ship", value: number | undefined) => {
+    // Copy at every level: server-computed results diff the previous overrides against the new ones.
     setOverrides((prev) => {
-      const next = { ...prev };
-      if (!next[channelId]) next[channelId] = {};
-      if (!next[channelId][sku]) next[channelId][sku] = {};
-      if (value === undefined) {
-        delete next[channelId][sku][field];
-        if (Object.keys(next[channelId][sku]).length === 0) delete next[channelId][sku];
-      } else {
-        next[channelId][sku][field] = value;
-      }
-      return next;
+      const channel = { ...prev[channelId] };
+      const entry = { ...channel[sku] };
+      if (value === undefined) delete entry[field];
+      else entry[field] = value;
+      if (Object.keys(entry).length === 0) delete channel[sku];
+      else channel[sku] = entry;
+      return { ...prev, [channelId]: channel };
     });
     if (field === "price" && value !== undefined) {
       setCommittedSkus((prev) => {
