@@ -23,6 +23,10 @@ export default async function AnalysisPage({
   const { channel: channelParam, tab } = await searchParams;
 
   const permissions = await getPermissions(session.user.role);
+  // data:viewCost is display-only here. The margin math runs in the browser, so product cost is
+  // still sent with the page, and cost can be derived from the margin/fee figures anyway. This is
+  // intentional: roles that analyze pricing need margins. Cost is withheld from Products, the
+  // Dashboard, the project API and exports.
   const canViewCost = permissions.has("data:viewCost");
   const isAdmin = permissions.has("admin:settings");
 
