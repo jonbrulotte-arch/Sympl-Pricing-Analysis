@@ -153,6 +153,7 @@ export default async function AnalysisPage({
         itemTypeCommissions={await loadItemTypeCommissions(customerId)}
         openPublish={tab === "publish"}
         canViewCost={canViewCost}
+        canExport={permissions.has("analysis:export")}
       />
     </div>
   );

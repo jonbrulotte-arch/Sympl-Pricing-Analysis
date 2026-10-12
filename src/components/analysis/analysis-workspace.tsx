@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ProductRow, BrandRoyaltyTable, ChannelDefaults, RoyaltyRuleEntry, ItemTypeCommissionTable } from "@/lib/pricing/types";
-import { exportChangeReport, exportFullAnalysis } from "@/lib/export/change-report";
+import { exportChangeReport, exportFullAnalysis, safeFileName } from "@/lib/export/change-report";
 import { Search, Download, ChevronDown, ChevronLeft, ChevronRight, Tag, CheckSquare } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -50,6 +50,7 @@ interface Props {
   /** Open on the Publish to Salsify tab instead of the first channel. */
   openPublish?: boolean;
   canViewCost?: boolean;
+  canExport?: boolean;
 }
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -60,7 +61,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "unpriced", label: "Unpriced" },
 ];
 
-export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true }: Props) {
+export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true, canExport = true }: Props) {
   const {
     configs,
     activeTab,
@@ -156,14 +157,15 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
 
   function handleExport(type: "change" | "full") {
     setExportOpen(false);
+    if (!canExport) return;
     const cfg = configs.find((c) => c.id === activeTab);
     if (!cfg) return;
     const channelResults = results[activeTab] ?? [];
     const settings = settingsMap[activeTab] as unknown as ChannelDefaults;
     const wb = type === "change"
-      ? exportChangeReport(channelResults, cfg.name, settings)
-      : exportFullAnalysis(channelResults, cfg.name);
-    XLSX.writeFile(wb, `${cfg.name.replace(/\s+/g, "_")}_${type === "change" ? "changes" : "full"}.xlsx`);
+      ? exportChangeReport(channelResults, cfg.name, settings, canViewCost)
+      : exportFullAnalysis(channelResults, cfg.name, canViewCost);
+    XLSX.writeFile(wb, `${safeFileName(cfg.name)}_${type === "change" ? "changes" : "full"}.xlsx`);
   }
 
   if (channels.length === 0) {
@@ -336,6 +338,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
               <span className="text-xs text-gray-500">
                 {filteredResults.length} of {kpis.total} SKUs
               </span>
+              {canExport && (
               <div className="relative">
                 <Button
                   variant="outline"
@@ -364,6 +367,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
 

@@ -174,6 +174,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           royaltyRules={royaltyRules}
           itemTypeCommissions={await loadItemTypeCommissions(project.customerId)}
           canViewCost={canViewCost}
+          canExport={permissions.has("analysis:export")}
         />
       )}
     </div>
