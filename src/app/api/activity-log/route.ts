@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccessCustomer, getAccessibleCustomerIds, getPermissions } from "@/lib/permissions";
+import { loadActivityChanges, redactCost } from "@/lib/db/activity-changes";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -56,8 +57,15 @@ export async function GET(req: NextRequest) {
     prisma.activityLog.count({ where }),
   ]);
 
+  const canViewCost = permissions.has("data:viewCost");
+  const changes = await loadActivityChanges(logs, { canViewCost });
+
   return NextResponse.json({
-    logs,
+    logs: logs.map((l) => ({
+      ...l,
+      detail: canViewCost ? l.detail : redactCost(l.action, l.detail),
+      changes: changes.get(l.id) ?? null,
+    })),
     total,
     page,
     totalPages: Math.ceil(total / limit),
