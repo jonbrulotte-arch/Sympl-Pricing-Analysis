@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
 export interface ProductTableRow {
   id: string;
@@ -197,7 +198,7 @@ export function ProductsTable({ rows, emptyMessage, canViewCost, assign }: Props
                     <td className="py-2 px-2 text-right font-mono text-gray-900">
                       {p.freight != null ? `$${p.freight.toFixed(2)}` : "-"}
                     </td>
-                    {canViewCost && <td className="py-2 px-2 text-right text-gray-500 text-xs">{p.costDate ?? "-"}</td>}
+                    {canViewCost && <td className="py-2 px-2 text-right text-gray-500 text-xs">{p.costDate ? <LocalDateTime value={p.costDate} dateOnly /> : "-"}</td>}
                     <td className="py-2 px-2 text-right text-gray-600">{p.records}</td>
                   </tr>
                 ))}

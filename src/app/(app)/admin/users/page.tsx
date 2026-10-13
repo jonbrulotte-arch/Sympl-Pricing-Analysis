@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { getPermissions } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate } from "@/lib/utils";
 import { AddUserButton, EditUserButton, DeleteUserButton, InviteUserButton } from "@/components/admin/user-actions";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
 export default async function AdminUsersPage() {
   const session = await auth();
@@ -72,8 +72,8 @@ export default async function AdminUsersPage() {
                         ? "-"
                         : u.customers.map((c) => c.customer.name).join(", ")}
                     </td>
-                    <td className="py-2 px-2 text-right text-gray-500">{u.lastLoginAt ? formatDate(u.lastLoginAt) : "Never"}</td>
-                    <td className="py-2 px-2 text-right text-gray-500">{formatDate(u.createdAt)}</td>
+                    <td className="py-2 px-2 text-right text-gray-500">{u.lastLoginAt ? <LocalDateTime value={u.lastLoginAt} dateOnly /> : "Never"}</td>
+                    <td className="py-2 px-2 text-right text-gray-500"><LocalDateTime value={u.createdAt} dateOnly /></td>
                     <td className="py-2 px-2 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <EditUserButton userId={u.id} userName={u.name} userEmail={u.email} userRole={u.role} />

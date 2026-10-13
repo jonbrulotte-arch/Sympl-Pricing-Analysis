@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime } from "@/lib/utils";
 import { getPermissions, getAccessibleCustomerIds, productVisibilityWhere } from "@/lib/permissions";
 import { ProductEditor } from "@/components/products/product-editor";
 import { ProductDelete } from "@/components/products/product-delete";
@@ -13,6 +12,7 @@ import { loadPriceHistory } from "@/lib/db/price-history";
 import { loadCostAndShippingHistory, type CostRecordDetail } from "@/lib/db/cost-history";
 import { ExpandableHistoryTable } from "@/components/products/expandable-history-table";
 import { AlertTriangle } from "lucide-react";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
 /** Change from the previous record; increases are red because these are costs. */
 function ChangeAmount({ value, previous }: { value: number; previous: number | null }) {
@@ -249,7 +249,7 @@ export default async function ProductDetailPage({
                 rows={costHistory.map((ch) => ({
                   id: ch.id,
                   cells: [
-                    <span key="d" className="text-gray-700">{formatDateTime(ch.recordedAt)}</span>,
+                    <span key="d" className="text-gray-700"><LocalDateTime value={ch.recordedAt} /></span>,
                     <span key="v" className="font-mono">${ch.cost.toFixed(2)}</span>,
                     <ChangeAmount key="c" value={ch.cost} previous={ch.detail.previous} />,
                   ],
@@ -309,7 +309,7 @@ export default async function ProductDetailPage({
                 rows={shippingHistory.map((sh) => ({
                   id: sh.id,
                   cells: [
-                    <span key="d" className="text-gray-700">{formatDateTime(sh.recordedAt)}</span>,
+                    <span key="d" className="text-gray-700"><LocalDateTime value={sh.recordedAt} /></span>,
                     <Badge key="t" variant="secondary" className="text-xs">
                       {shippingTypeLabels[sh.shippingType] || sh.shippingType}
                     </Badge>,

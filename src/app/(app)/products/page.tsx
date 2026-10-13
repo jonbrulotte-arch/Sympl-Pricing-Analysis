@@ -105,7 +105,7 @@ export default async function ProductsPage({
       brand: p.brand,
       inventoryStatus: p.inventoryStatus,
       cost: costEntry?.cost ?? null,
-      costDate: costEntry ? costEntry.at.toLocaleDateString() : null,
+      costDate: costEntry ? costEntry.at.toISOString() : null,
       freight: freightMap.get(p.id) ?? null,
       records: p._count.costHistories + p._count.priceHistories + p._count.productPrices + p._count.shippingCostHistories,
       customerCount: p._count.customers,

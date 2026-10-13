@@ -6,8 +6,9 @@ import { Trash2, Loader2, ChevronRight } from "lucide-react";
 import { PriceHistoryChart } from "./price-history-chart";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn, formatDateTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { PriceRecordDetail } from "@/lib/db/price-history";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
 interface PriceRecord {
   id: string;
@@ -102,7 +103,7 @@ export function PriceHistorySection({ data, canDelete = false, productId }: Prop
                   <td className="py-1.5 text-gray-400">
                     <ChevronRight className={cn("h-4 w-4 shrink-0 transition-transform", expanded && "rotate-90")} />
                   </td>
-                  <td className="py-1.5 text-gray-700">{formatDateTime(new Date(pr.recordedAt))}</td>
+                  <td className="py-1.5 text-gray-700"><LocalDateTime value={pr.recordedAt} /></td>
                   <td className="py-1.5">
                     <Badge variant="secondary" className="text-xs">{pr.label}</Badge>
                   </td>

@@ -7,7 +7,8 @@ import { Building2, Upload, BarChart3, Plus, FileSpreadsheet, Package, DollarSig
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NavigatingButton } from "@/components/ui/navigating-link";
-import { cn, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -199,7 +200,7 @@ export default async function DashboardPage() {
                           <>
                             <span className="text-xs text-gray-500">&middot;</span>
                             <span className="text-xs text-gray-500">
-                              Last import: {formatDate(customer.imports[0].createdAt)}
+                              Last import: <LocalDateTime value={customer.imports[0].createdAt} dateOnly />
                             </span>
                           </>
                         )}
