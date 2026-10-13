@@ -48,10 +48,22 @@ export async function productVisibilityWhere(userId: string, role: string) {
   return { customers: { some: { customerId: { in: customerIds } } } };
 }
 
-/** Salsify Field Mapping access. Admins always have it, including roles saved before the permission existed. */
-export async function canManageSalsifyMapping(role: string): Promise<boolean> {
+/**
+ * Salsify permissions. Admins always have them, including admin roles saved before these permissions existed.
+ */
+export async function hasSalsifyPermission(role: string, permission: "salsify:mapping" | "salsify:publish"): Promise<boolean> {
   const permissions = await getPermissions(role);
-  return permissions.has("salsify:mapping") || permissions.has("admin:settings");
+  return permissions.has(permission) || permissions.has("admin:settings");
+}
+
+/** Salsify Field Mapping access. */
+export function canManageSalsifyMapping(role: string): Promise<boolean> {
+  return hasSalsifyPermission(role, "salsify:mapping");
+}
+
+/** Publishing staged changes to Salsify, previewing them, and undoing staged commits. */
+export function canPublishToSalsify(role: string): Promise<boolean> {
+  return hasSalsifyPermission(role, "salsify:publish");
 }
 
 export async function canAccessCustomer(customerId: string, userId: string, role: string): Promise<boolean> {

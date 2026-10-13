@@ -113,6 +113,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           canViewCost={canViewCost}
           serverCompute={canViewCost ? null : { projectId }}
           canExport={permissions.has("analysis:export")}
+          canPublish={permissions.has("salsify:publish") || permissions.has("admin:settings")}
         />
       )}
     </div>

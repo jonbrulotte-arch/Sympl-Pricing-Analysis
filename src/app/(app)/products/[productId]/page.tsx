@@ -9,6 +9,7 @@ import { ProductEditor } from "@/components/products/product-editor";
 import { ProductDelete } from "@/components/products/product-delete";
 import { CostHistoryChart, ShippingHistoryChart } from "@/components/products/cost-chart";
 import { PriceHistorySection } from "@/components/products/price-history-section";
+import { loadPriceHistory } from "@/lib/db/price-history";
 import { AlertTriangle } from "lucide-react";
 
 function shippingTypesForMode(mode: string): string[] {
@@ -80,51 +81,10 @@ export default async function ProductDetailPage({
     take: 50,
   });
 
-  const [channelPriceRows, productPriceRows] = await Promise.all([
-    prisma.priceHistory.findMany({
-      where: {
-        productId,
-        ...(!canViewAllPriceHistory ? { channelId: { in: [...userChannelIds] } } : {}),
-      },
-      orderBy: { recordedAt: "desc" },
-      take: 100,
-      include: { channel: { select: { name: true } } },
-    }),
-    prisma.productPrice.findMany({
-      where: {
-        productId,
-        ...(!canViewAllPriceHistory ? { priceField: { in: [...userPriceFields] } } : {}),
-      },
-      orderBy: { recordedAt: "desc" },
-      take: 100,
-    }),
-  ]);
-
-  const priceFieldLabels: Record<string, string> = {
-    priceJSP: "eBay (JSP)",
-    priceMCF: "eBay (MCF)",
-    priceWM: "Walmart",
-    priceShopify: "Shopify",
-    priceFBM: "Amazon FBM",
-    priceFBA: "Amazon FBA",
-  };
-
-  const allPriceRecords = [
-    ...channelPriceRows.map((ph) => ({
-      id: ph.id,
-      label: ph.channel.name,
-      price: Number(ph.price),
-      recordedAt: ph.recordedAt,
-      source: "channel" as const,
-    })),
-    ...productPriceRows.map((pp) => ({
-      id: pp.id,
-      label: priceFieldLabels[pp.priceField] ?? pp.priceField,
-      price: Number(pp.price),
-      recordedAt: pp.recordedAt,
-      source: "product" as const,
-    })),
-  ].sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime());
+  const allPriceRecords = await loadPriceHistory(product, {
+    channelIds: canViewAllPriceHistory ? null : [...userChannelIds],
+    priceFields: canViewAllPriceHistory ? null : [...userPriceFields],
+  });
 
   const shippingHistory = hasShippingChannels
     ? await prisma.shippingCostHistory.findMany({
@@ -301,6 +261,7 @@ export default async function ProductDetailPage({
                 price: pr.price,
                 recordedAt: pr.recordedAt.toISOString(),
                 source: pr.source,
+                detail: pr.detail,
               }))}
               canDelete={permissions.has("admin:settings")}
               productId={productId}

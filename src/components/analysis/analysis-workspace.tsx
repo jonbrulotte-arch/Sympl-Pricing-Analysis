@@ -53,6 +53,8 @@ interface Props {
   canExport?: boolean;
   /** Set for users without data:viewCost: the analysis is computed on the server and cost never reaches the browser. */
   serverCompute?: ServerComputeScope | null;
+  /** salsify:publish — shows the Publish to Salsify tab. */
+  canPublish?: boolean;
 }
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -63,7 +65,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "unpriced", label: "Unpriced" },
 ];
 
-export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true, canExport = true, serverCompute = null }: Props) {
+export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true, canExport = true, serverCompute = null, canPublish = true }: Props) {
   const {
     configs,
     activeTab,
@@ -102,7 +104,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     customerId,
     royaltyRules,
     itemTypeCommissions,
-    openPublish ? "__publish_salsify__" : undefined,
+    openPublish && canPublish ? "__publish_salsify__" : undefined,
     serverCompute,
   );
   // The Calculation Check re-runs the math in the browser, which needs cost.
@@ -227,6 +229,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
           Calculation Check
         </button>
         )}
+        {canPublish && (
         <button
           onClick={() => { setActiveTab("__publish_salsify__"); setSelectedSkus(new Set()); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
@@ -237,6 +240,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
         >
           Publish to Salsify
         </button>
+        )}
       </div>
 
       {isCalcCheck && showCalcCheck ? (
@@ -248,7 +252,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
           initialSku={calcCheckTarget?.sku}
           canViewCost={canViewCost}
         />
-      ) : isPublishSalsify ? (
+      ) : isPublishSalsify && canPublish ? (
         <PublishToSalsify customerId={customerId} onRevert={revertCommittedPrice} />
       ) : (
         <>

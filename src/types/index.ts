@@ -28,7 +28,8 @@ export type Permission =
   | "module:activityLog"
   | "data:viewCost"
   | "data:viewAllPriceHistory"
-  | "salsify:mapping";
+  | "salsify:mapping"
+  | "salsify:publish";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "module:products",
@@ -54,6 +55,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "data:viewCost",
   "data:viewAllPriceHistory",
   "salsify:mapping",
+  "salsify:publish",
 ];
 
 export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission; label: string }[] }[] = [
@@ -108,7 +110,10 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission;
   },
   {
     label: "Salsify",
-    permissions: [{ key: "salsify:mapping", label: "Field Mapping" }],
+    permissions: [
+      { key: "salsify:mapping", label: "Field Mapping" },
+      { key: "salsify:publish", label: "Publish" },
+    ],
   },
   {
     label: "Administration",

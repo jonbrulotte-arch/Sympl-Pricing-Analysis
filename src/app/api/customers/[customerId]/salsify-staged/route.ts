@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { logActivity } from "@/lib/activity-log";
-import { canAccessCustomer } from "@/lib/permissions";
+import { canAccessCustomer, canPublishToSalsify } from "@/lib/permissions";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -12,6 +12,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cus
   const { customerId } = await params;
   if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canPublishToSalsify(session.user.role)))
+    return NextResponse.json({ error: "You don't have permission to publish to Salsify" }, { status: 403 });
 
   const raw = await prisma.salsifyStaged.findMany({
     where: { customerId },
@@ -47,6 +49,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
   const { customerId } = await params;
   if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canPublishToSalsify(session.user.role)))
+    return NextResponse.json({ error: "You don't have permission to publish to Salsify" }, { status: 403 });
 
   const { entries, revert } = await req.json();
   if (!Array.isArray(entries) || entries.length === 0) {
@@ -62,7 +66,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
   if (revert && ids.length > 0) {
     const stagedRows = await prisma.salsifyStaged.findMany({
       where: { id: { in: ids }, customerId },
-      select: { id: true, sku: true, channelId: true, oldPrice: true },
+      select: { id: true, sku: true, channelId: true, oldPrice: true, newPrice: true },
     });
 
     const channelIds = [...new Set(stagedRows.map((r) => r.channelId))];
@@ -92,6 +96,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
           productId: product.id,
           channelId: row.channelId,
           price: row.oldPrice,
+          previousPrice: row.newPrice,
+          recordedById: session.user.id,
+          source: "undo",
         },
       });
       reverted++;

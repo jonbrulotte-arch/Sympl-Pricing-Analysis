@@ -183,7 +183,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
                 done="All products have cost data"
               />
               <AttentionRow
-                href={`/customers/${customerId}/analysis?tab=publish`}
+                href={
+                  permissions.has("salsify:publish") || isAdmin
+                    ? `/customers/${customerId}/analysis?tab=publish`
+                    : `/customers/${customerId}/analysis`
+                }
                 icon={<Send className="h-4 w-4 text-blue-600" />}
                 count={stagedCount}
                 label="committed changes waiting to publish to Salsify"

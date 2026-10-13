@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
 import { updateSalsifyProducts, type SalsifyProductUpdate } from "@/lib/salsify/client";
 import { logActivity } from "@/lib/activity-log";
-import { canAccessCustomer } from "@/lib/permissions";
+import { canAccessCustomer, canPublishToSalsify } from "@/lib/permissions";
 import { parseShippingChanges } from "@/lib/pricing/shipping";
 import { recordShippingChanges } from "@/lib/db/record-shipping";
 
@@ -16,6 +16,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   const { customerId } = await params;
   if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canPublishToSalsify(session.user.role)))
+    return NextResponse.json({ error: "You don't have permission to publish to Salsify" }, { status: 403 });
 
   const { ids } = await req.json();
   if (!Array.isArray(ids) || ids.length === 0) {
@@ -116,6 +118,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
             productId: product.id,
             channelId: entry.channelId,
             price: entry.newPrice,
+            previousPrice: entry.oldPrice,
+            recordedById: session.user.id,
+            source: "publish",
           },
         });
       }

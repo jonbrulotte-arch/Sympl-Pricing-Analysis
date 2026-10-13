@@ -47,7 +47,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   if (!atPublish) {
     if (priceChanged) {
       await prisma.priceHistory.create({
-        data: { id: randomUUID(), productId: product.id, channelId, price: price! },
+        data: {
+          id: randomUUID(),
+          productId: product.id,
+          channelId,
+          price: price!,
+          previousPrice: oldPrice,
+          recordedById: session.user.id,
+          source: "commit",
+        },
       });
     }
     if (shipping) await recordShippingChanges(product.id, shipping);

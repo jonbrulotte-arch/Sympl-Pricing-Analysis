@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
 import { fetchSalsifyProductsByIds } from "@/lib/salsify/client";
-import { canAccessCustomer } from "@/lib/permissions";
+import { canAccessCustomer, canPublishToSalsify } from "@/lib/permissions";
 import { parseShippingChanges } from "@/lib/pricing/shipping";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
@@ -13,6 +13,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   const { customerId } = await params;
   if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canPublishToSalsify(session.user.role)))
+    return NextResponse.json({ error: "You don't have permission to publish to Salsify" }, { status: 403 });
 
   const { ids } = await req.json();
   if (!Array.isArray(ids) || ids.length === 0) {

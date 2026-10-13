@@ -72,6 +72,7 @@ export default async function AnalysisPage({
         openPublish={tab === "publish"}
         canViewCost={canViewCost}
         canExport={permissions.has("analysis:export")}
+        canPublish={permissions.has("salsify:publish") || permissions.has("admin:settings")}
         serverCompute={canViewCost ? null : { singleChannel: !!singleChannel }}
       />
     </div>

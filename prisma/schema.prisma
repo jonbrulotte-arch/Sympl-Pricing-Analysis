@@ -34,6 +34,7 @@ model User {
   salsifyStaged      SalsifyStaged[]
   activityLogs       ActivityLog[]
   passwordResetTokens PasswordResetToken[]
+  priceHistories     PriceHistory[]
 }
 
 model PasswordResetToken {
@@ -212,6 +213,13 @@ model PriceHistory {
   price      Decimal      @db.Decimal(10, 4)
   recordedAt DateTime     @default(now())
   importId   String?
+  /// Price before this change, when known at write time (commits, publishes, undos).
+  previousPrice Decimal?  @db.Decimal(10, 4)
+  /// Who made the change. Imports and syncs leave this null; their Import row records the uploader.
+  recordedById  String?
+  recordedBy    User?     @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  /// "commit" | "publish" | "undo"; null for imports and syncs (see importId).
+  source        String?
 
   @@index([productId, channelId, recordedAt])
 }
