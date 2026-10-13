@@ -27,7 +27,8 @@ export type Permission =
   | "module:royalties"
   | "module:activityLog"
   | "data:viewCost"
-  | "data:viewAllPriceHistory";
+  | "data:viewAllPriceHistory"
+  | "salsify:mapping";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "module:products",
@@ -52,6 +53,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "admin:roles",
   "data:viewCost",
   "data:viewAllPriceHistory",
+  "salsify:mapping",
 ];
 
 export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission; label: string }[] }[] = [
@@ -103,6 +105,10 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission;
       { key: "data:viewCost", label: "View Unit Cost" },
       { key: "data:viewAllPriceHistory", label: "View All Channel Price History" },
     ],
+  },
+  {
+    label: "Salsify",
+    permissions: [{ key: "salsify:mapping", label: "Field Mapping" }],
   },
   {
     label: "Administration",

@@ -73,12 +73,14 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
               </Button>
             </Link>
           )}
-          <Link href={`/customers/${customerId}/salsify-mapping`}>
-            <Button variant="outline">
-              <Plug className="h-4 w-4 mr-2" />
-              Salsify Mapping
-            </Button>
-          </Link>
+          {(permissions.has("salsify:mapping") || isAdmin) && (
+            <Link href={`/customers/${customerId}/salsify-mapping`}>
+              <Button variant="outline">
+                <Plug className="h-4 w-4 mr-2" />
+                Salsify Mapping
+              </Button>
+            </Link>
+          )}
           <Link href={`/customers/${customerId}/products`}>
             <Button variant="outline">
               <Package className="h-4 w-4 mr-2" />

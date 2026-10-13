@@ -48,6 +48,12 @@ export async function productVisibilityWhere(userId: string, role: string) {
   return { customers: { some: { customerId: { in: customerIds } } } };
 }
 
+/** Salsify Field Mapping access. Admins always have it, including roles saved before the permission existed. */
+export async function canManageSalsifyMapping(role: string): Promise<boolean> {
+  const permissions = await getPermissions(role);
+  return permissions.has("salsify:mapping") || permissions.has("admin:settings");
+}
+
 export async function canAccessCustomer(customerId: string, userId: string, role: string): Promise<boolean> {
   const permissions = await getPermissions(role);
   if (permissions.has("admin:settings")) return true;
