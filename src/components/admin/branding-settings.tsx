@@ -163,8 +163,10 @@ export function BrandingSettings() {
           <span>
             <span className="text-sm text-gray-900">Hide logo and name on the sign-in pages</span>
             <span className="block text-xs text-gray-500">
-              Removes the logo, platform name and &ldquo;Pricing Analysis Platform&rdquo; above the login, forgot
-              password and reset password forms. The sidebar, browser tab and emails are unaffected.
+              For anyone not signed in, removes every sign of the platform from the login, forgot password and
+              reset password pages: the logo, name and tagline, the browser tab title (shown as &ldquo;Sign
+              in&rdquo;), the page description and icon, and the logo link. Search engines are asked not to index
+              them. Signed-in users and emails still see your branding.
             </span>
           </span>
         </label>
