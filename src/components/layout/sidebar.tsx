@@ -23,6 +23,7 @@ import {
   Settings as SettingsIcon,
   ClipboardList,
   Shield,
+  Calculator,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useState } from "react";
@@ -33,6 +34,7 @@ const navItems: { href: string; label: string; icon: React.ElementType; permissi
   { href: "/products", label: "Products", icon: Package, permission: "module:products" },
   { href: "/customers", label: "Customers", icon: Building2, permission: "module:customers" },
   { href: "/projects", label: "Projects", icon: FolderKanban, permission: "module:projects" },
+  { href: "/single-sku", label: "Single SKU Analysis", icon: Calculator, permission: "module:singleSku" },
   { href: "/royalty-rules", label: "Royalty Rules", icon: DollarSign, permission: "module:royalties" },
   { href: "/activity-log", label: "Activity Log", icon: ClipboardList, permission: "module:activityLog" },
 ];

@@ -15,6 +15,7 @@ export const WRITE_SOURCE_LABELS: Record<string, string> = {
   commit: "Committed in analysis",
   publish: "Published to Salsify",
   undo: "Undo of a staged commit",
+  "single-sku": "Created in Single SKU Analysis",
 };
 
 /** Activity log entries within this window of a history row are treated as the same change. */

@@ -3,6 +3,12 @@ import type { Permission } from "@/types";
 import { DEFAULT_ADMIN_PERMISSIONS, DEFAULT_ANALYST_PERMISSIONS } from "@/types";
 
 const roleCache = new Map<string, { permissions: Permission[]; ts: number }>();
+
+/**
+ * Permissions added after roles were first set up. Admins (admin:settings) always have them, so admin
+ * roles saved before they existed keep full access without being edited.
+ */
+const ADMIN_IMPLIED: Permission[] = ["salsify:mapping", "salsify:publish", "module:singleSku"];
 const CACHE_TTL = 60_000;
 
 export async function getPermissions(role: string): Promise<Set<Permission>> {
@@ -21,6 +27,9 @@ export async function getPermissions(role: string): Promise<Set<Permission>> {
     permissions = DEFAULT_ANALYST_PERMISSIONS;
   } else {
     permissions = [];
+  }
+  if (permissions.includes("admin:settings")) {
+    permissions = [...new Set([...permissions, ...ADMIN_IMPLIED])];
   }
 
   roleCache.set(role, { permissions, ts: Date.now() });

@@ -73,7 +73,7 @@ function previousFrom(points: HistoryPoint[] | undefined, loggedAt: Date, next: 
  * shipping history. Cost is omitted unless the viewer has data:viewCost.
  */
 export async function loadActivityChanges(logs: LogLike[], opts: { canViewCost: boolean }) {
-  const relevant = logs.filter((l) => l.action === "price.commit" || l.action === "product.update");
+  const relevant = logs.filter((l) => l.action === "price.commit" || l.action === "product.update" || l.action === "product.create");
   const out = new Map<string, ActivityChangeDetail>();
   if (relevant.length === 0) return out;
 
@@ -118,7 +118,26 @@ export async function loadActivityChanges(logs: LogLike[], opts: { canViewCost: 
     const productId = productIdOf(log);
     const changes: LoggedChange[] = [];
 
-    if (log.action === "price.commit") {
+    if (log.action === "product.create") {
+      if (num(detail.cost) != null && opts.canViewCost) {
+        changes.push({ label: "Cost", previous: null, next: num(detail.cost), format: "money", increaseIsCost: true });
+      }
+      const shipping = (detail.shipping ?? {}) as Record<string, unknown>;
+      for (const c of SHIP_COMPONENTS) {
+        if (num(shipping[c.key]) != null) {
+          changes.push({ label: SHIP_LABEL[c.shippingType], previous: null, next: num(shipping[c.key]), format: "money", increaseIsCost: true });
+        }
+      }
+      if (num(detail.newPrice) != null) changes.push({ label: "Price", previous: null, next: num(detail.newPrice), format: "money" });
+      out.set(log.id, {
+        customer: log.customer?.name ?? null,
+        channel: typeof detail.channelName === "string" ? detail.channelName : null,
+        changedBy: log.user?.name ?? null,
+        source: WRITE_SOURCE_LABELS["single-sku"],
+        sku: typeof detail.sku === "string" ? detail.sku : null,
+        changes,
+      });
+    } else if (log.action === "price.commit") {
       if (num(detail.newPrice) != null) {
         changes.push({ label: "Price", previous: num(detail.oldPrice), next: num(detail.newPrice), format: "money" });
         if (num(detail.oldNetMargin) != null || num(detail.newNetMargin) != null) {
@@ -181,8 +200,8 @@ export async function loadActivityChanges(logs: LogLike[], opts: { canViewCost: 
 }
 
 /** Removes cost values from a log entry's raw detail for viewers without data:viewCost. */
-export function redactCost(action: string, detail: unknown): unknown {
-  if (action !== "product.update" || !detail || typeof detail !== "object") return detail;
+export function redactCost(_action: string, detail: unknown): unknown {
+  if (!detail || typeof detail !== "object" || !("cost" in detail)) return detail;
   const { cost: _cost, ...rest } = detail as Record<string, unknown>;
   return rest;
 }
