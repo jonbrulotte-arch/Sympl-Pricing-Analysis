@@ -73,7 +73,14 @@ function previousFrom(points: HistoryPoint[] | undefined, loggedAt: Date, next: 
  * shipping history. Cost is omitted unless the viewer has data:viewCost.
  */
 export async function loadActivityChanges(logs: LogLike[], opts: { canViewCost: boolean }) {
-  const relevant = logs.filter((l) => l.action === "price.commit" || l.action === "product.update" || l.action === "product.create");
+  const relevant = logs.filter(
+    (l) =>
+      l.action === "price.commit" ||
+      l.action === "product.update" ||
+      l.action === "product.create" ||
+      // Single SKU publishes name one SKU; bulk publishes only list SKUs.
+      (l.action === "salsify.publish" && typeof (l.detail as Record<string, unknown> | null)?.sku === "string"),
+  );
   const out = new Map<string, ActivityChangeDetail>();
   if (relevant.length === 0) return out;
 
@@ -118,7 +125,17 @@ export async function loadActivityChanges(logs: LogLike[], opts: { canViewCost: 
     const productId = productIdOf(log);
     const changes: LoggedChange[] = [];
 
-    if (log.action === "product.create") {
+    if (log.action === "salsify.publish") {
+      changes.push({ label: "Price", previous: num(detail.oldPrice), next: num(detail.newPrice), format: "money" });
+      out.set(log.id, {
+        customer: log.customer?.name ?? null,
+        channel: typeof detail.channelName === "string" ? detail.channelName : null,
+        changedBy: log.user?.name ?? null,
+        source: `${WRITE_SOURCE_LABELS.publish} from Single SKU Analysis`,
+        sku: detail.sku as string,
+        changes,
+      });
+    } else if (log.action === "product.create") {
       if (num(detail.cost) != null && opts.canViewCost) {
         changes.push({ label: "Cost", previous: null, next: num(detail.cost), format: "money", increaseIsCost: true });
       }

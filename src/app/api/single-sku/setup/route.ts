@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { loadSingleSkuSetup } from "@/lib/single-sku";
+import { loadSingleSkuSetup, salsifyPublishStatus } from "@/lib/single-sku";
 import { SHIP_COMPONENTS } from "@/lib/pricing/shipping";
 
 /** GET ?customerId=&channelId=&productId= — the channel and starting inputs for the calculator. */
@@ -18,11 +18,14 @@ export async function GET(req: NextRequest) {
   if ("error" in setup) return NextResponse.json({ error: setup.error }, { status: setup.status });
 
   const { channel, row, costHidden, canCommit } = setup;
+  const salsify = await salsifyPublishStatus(session.user, sp.get("customerId") ?? "", channel);
   const price = row ? (row.channelPrices?.[channel.id] ?? null) : null;
   return NextResponse.json({
     channel,
     costHidden,
     canCommit,
+    // The Publish to Salsify button only appears when this is true.
+    canPublish: salsify.ok,
     product: row
       ? {
           id: row.productId,

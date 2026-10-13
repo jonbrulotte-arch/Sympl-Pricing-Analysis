@@ -1,5 +1,9 @@
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { canAccessCustomer, getPermissions, productVisibilityWhere } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity-log";
+import { canAccessCustomer, canPublishToSalsify, getPermissions, productVisibilityWhere } from "@/lib/permissions";
+import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
+import { updateSalsifyProducts } from "@/lib/salsify/client";
 import { loadAnalysisInputs } from "@/lib/db/analysis-inputs";
 import { loadProductRows } from "@/lib/db/load-product-rows";
 import { computeChannelResults, toChannelConfig, type AnalysisContext, type ChannelWithDb } from "@/lib/pricing/compute-results";
@@ -160,4 +164,155 @@ export function computeSingleSku(setup: SingleSkuSetup, inputs: SingleSkuInputs,
   );
   const safe: AnalysisResult = costHidden ? { ...result, cost: null } : result;
   return { result: safe, settings, warnings: warningsFor(channel, row) };
+}
+
+export type SalsifyPublishStatus =
+  | { ok: true; skuPropertyId: string; pricePropertyId: string }
+  | { ok: false; reason: string };
+
+/**
+ * Whether this user can publish this channel's price to Salsify: they have the Salsify Publish permission and an
+ * API key, Salsify is enabled with an org, and the customer's field mapping covers the SKU and this channel's price.
+ */
+export async function salsifyPublishStatus(
+  user: { id: string; role: string },
+  customerId: string,
+  channel: ChannelWithDb,
+): Promise<SalsifyPublishStatus> {
+  if (!(await canPublishToSalsify(user.role))) return { ok: false, reason: "You don't have the Salsify Publish permission." };
+  const [appSettings, dbUser, mappings] = await Promise.all([
+    prisma.appSettings.findUnique({ where: { id: "singleton" }, select: { salsifySyncEnabled: true, salsifyOrgId: true } }),
+    prisma.user.findUnique({ where: { id: user.id }, select: { salsifyApiKeyEncrypted: true } }),
+    prisma.salsifyFieldMapping.findMany({ where: { customerId }, select: { importFieldKey: true, salsifyPropertyId: true } }),
+  ]);
+  if (!appSettings?.salsifySyncEnabled || !appSettings.salsifyOrgId) return { ok: false, reason: "Salsify isn't enabled in Admin Settings." };
+  if (!dbUser?.salsifyApiKeyEncrypted) return { ok: false, reason: "Add your Salsify API key in My Profile." };
+  const map = new Map(mappings.map((m) => [m.importFieldKey, m.salsifyPropertyId]));
+  const skuPropertyId = map.get("sku");
+  const pricePropertyId = channel.priceField && channel.priceField !== "__none__" ? map.get(channel.priceField) : undefined;
+  if (!skuPropertyId || !pricePropertyId) {
+    return { ok: false, reason: "This customer's Salsify Field Mapping doesn't cover the SKU and this channel's price." };
+  }
+  return { ok: true, skuPropertyId, pricePropertyId };
+}
+
+/**
+ * Adds a new SKU to the Product database: creates the product, links it to the customer, and records its cost,
+ * shipping and channel price as created in Single SKU Analysis.
+ */
+export async function createSingleSkuProduct(
+  setup: SingleSkuSetup,
+  userId: string,
+  customerId: string,
+  inputs: SingleSkuInputs,
+): Promise<{ productId: string; sku: string; price: number | null } | (Fail & { productId?: string })> {
+  if (!setup.canCommit) return { error: "You don't have permission to add products", status: 403 };
+  const sku = inputs.sku?.trim();
+  if (!sku) return { error: "SKU is required", status: 400 };
+  if (inputs.cost != null && inputs.cost < 0) return { error: "Cost can't be negative", status: 400 };
+
+  const existing = await prisma.product.findUnique({ where: { sku }, select: { id: true } });
+  if (existing) return { error: `SKU ${sku} already exists in the Product database`, status: 409, productId: existing.id };
+
+  const { channel } = setup;
+  const productId = randomUUID();
+  const meta = { recordedById: userId, source: "single-sku" };
+  const shipping = SHIP_COMPONENTS.flatMap((c) => {
+    const v = inputs.shipping?.[c.key];
+    return v != null && v >= 0 ? [{ shippingType: c.shippingType, key: c.key, amount: v }] : [];
+  });
+  const price = inputs.price != null && inputs.price > 0 ? inputs.price : null;
+
+  await prisma.$transaction([
+    prisma.product.create({
+      data: { id: productId, sku, name: inputs.name || null, brand: inputs.brand || null, amzItemType: inputs.amzItemType || null },
+    }),
+    prisma.customerProduct.create({ data: { customerId, productId } }),
+    ...(inputs.cost != null ? [prisma.costHistory.create({ data: { id: randomUUID(), productId, cost: inputs.cost, ...meta } })] : []),
+    ...shipping.map((x) =>
+      prisma.shippingCostHistory.create({
+        data: { id: randomUUID(), productId, shippingType: x.shippingType, amount: x.amount, channelId: channel.id, ...meta },
+      }),
+    ),
+    ...(price != null ? [prisma.priceHistory.create({ data: { id: randomUUID(), productId, channelId: channel.id, price, ...meta } })] : []),
+  ]);
+
+  logActivity({
+    action: "product.create",
+    category: "product",
+    summary: `Added SKU ${sku} from Single SKU Analysis${price != null ? ` at $${price.toFixed(2)} on ${channel.name}` : ""}`,
+    detail: {
+      productId,
+      sku,
+      name: inputs.name || null,
+      brand: inputs.brand || null,
+      channelId: channel.id,
+      channelName: channel.name,
+      cost: inputs.cost ?? null,
+      newPrice: price,
+      shipping: Object.fromEntries(shipping.map((x) => [x.key, x.amount])),
+    },
+    customerId,
+    userId,
+  });
+
+  return { productId, sku, price };
+}
+
+/**
+ * Publishes a SKU's list price on the channel to Salsify. For an existing SKU the price is then recorded like any
+ * publish (price history with the previous price, and any staged price for this SKU and channel is cleared, since
+ * it's superseded). A new SKU's price was already recorded when it was added, so only the publish is logged.
+ */
+export async function publishSingleSkuPrice(opts: {
+  setup: SingleSkuSetup;
+  user: { id: string; role: string };
+  customerId: string;
+  sku: string;
+  productId: string;
+  price: number;
+  isNew: boolean;
+  status: Extract<SalsifyPublishStatus, { ok: true }>;
+}): Promise<{ ok: true } | Fail> {
+  const { setup, user, customerId, sku, productId, price, isNew, status } = opts;
+  const { channel } = setup;
+  const creds = await resolveSalsifyCredentials(user.id);
+  if (!creds.ok) return { error: creds.error, status: creds.status };
+
+  let failure: string | null = null;
+  try {
+    const result = await updateSalsifyProducts(creds.credentials.organizationId, creds.credentials.apiKey, [
+      { sku, skuPropertyId: status.skuPropertyId, properties: { [status.pricePropertyId]: price } },
+    ]);
+    if (!result.succeeded.includes(sku)) failure = result.failed[0]?.error ?? "Salsify didn't accept the update";
+  } catch (err) {
+    failure = err instanceof Error ? err.message : "Couldn't reach Salsify";
+  }
+  if (failure) return { error: `Publish to Salsify failed: ${failure}`, status: 502 };
+
+  const oldPrice = isNew ? null : (setup.row?.channelPrices?.[channel.id] ?? null);
+  if (!isNew) {
+    if (oldPrice == null || Math.abs(oldPrice - price) >= 0.005) {
+      await prisma.priceHistory.create({
+        data: { id: randomUUID(), productId, channelId: channel.id, price, previousPrice: oldPrice, recordedById: user.id, source: "publish" },
+      });
+    }
+    const staged = await prisma.salsifyStaged.findUnique({
+      where: { customerId_sku_channelId: { customerId, sku, channelId: channel.id } },
+    });
+    if (staged?.newPrice != null) {
+      if (staged.shippingChanges == null) await prisma.salsifyStaged.delete({ where: { id: staged.id } });
+      else await prisma.salsifyStaged.update({ where: { id: staged.id }, data: { newPrice: null, oldPrice: null, oldNetMargin: null, newNetMargin: null } });
+    }
+  }
+
+  logActivity({
+    action: "salsify.publish",
+    category: "publish",
+    summary: `Published ${sku} at $${price.toFixed(2)} on ${channel.name} to Salsify from Single SKU Analysis${isNew ? " (new SKU)" : ""}`,
+    detail: { sku, productId, channelId: channel.id, channelName: channel.name, oldPrice, newPrice: price, source: "single-sku", newSku: isNew },
+    customerId,
+    userId: user.id,
+  });
+  return { ok: true };
 }

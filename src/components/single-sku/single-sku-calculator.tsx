@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, Check, Loader2, RotateCcw, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Loader2, RotateCcw, Save, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,8 @@ interface Setup {
   channel: ChannelWithDb;
   costHidden: boolean;
   canCommit: boolean;
+  /** Salsify is set up for this channel and the user can publish with their own API key. */
+  canPublish: boolean;
   product: SetupProduct | null;
 }
 
@@ -129,6 +131,8 @@ export function SingleSkuCalculator({
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<{ text: string; productId?: string } | null>(null);
   const [committed, setCommitted] = useState<{ productId: string; sku: string } | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [published, setPublished] = useState<{ sku: string; price: number } | null>(null);
 
   const cfg = useMemo(() => (setup ? toChannelConfig(setup.channel) : null), [setup]);
   const fields = useMemo(() => {
@@ -248,6 +252,39 @@ export function SingleSkuCalculator({
     }
   }
 
+  async function publish() {
+    if (!payload || !setup) return;
+    const price = toNum(form.price);
+    const sku = isNew ? form.sku.trim() : setup.product!.sku;
+    if (price == null || price <= 0) return;
+    const message = isNew
+      ? `Add ${sku} to the Product Database and publish it to Salsify at $${price.toFixed(2)} on ${setup.channel.name}?\n\nThis creates ${sku} in Salsify.`
+      : `Publish ${sku} at $${price.toFixed(2)} on ${setup.channel.name} to Salsify?`;
+    if (!confirm(message)) return;
+    setPublishing(true);
+    setCommitError(null);
+    try {
+      const res = await fetch("/api/single-sku/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId, channelId, productId, inputs: payload.inputs }),
+      });
+      const data = await res.json().catch(() => ({}));
+      // A new SKU is added before publishing, so it can be committed even when the publish fails.
+      if (data.committed && data.productId) setCommitted({ productId: data.productId, sku });
+      if (!res.ok) {
+        setCommitError({
+          text: data.committed ? `Added ${sku} to the Product Database, but ${String(data.error).replace(/^Publish/, "the publish")}` : data.error || "Couldn't publish",
+          productId: data.committed ? undefined : data.productId,
+        });
+        return;
+      }
+      setPublished({ sku, price });
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   if (loadError) {
     return (
       <div>
@@ -282,9 +319,20 @@ export function SingleSkuCalculator({
             {committed ? "Start over" : "Discard"}
           </Button>
           {isNew && setup.canCommit && !committed && (
-            <Button size="sm" onClick={commit} disabled={committing || !form.sku.trim()}>
+            <Button size="sm" onClick={commit} disabled={committing || publishing || !form.sku.trim()}>
               {committing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
               Commit to Product Database
+            </Button>
+          )}
+          {setup.canPublish && (isNew ? setup.canCommit && !committed : true) && (
+            <Button
+              size="sm"
+              onClick={publish}
+              disabled={publishing || committing || !(toNum(form.price)! > 0) || (isNew && !form.sku.trim())}
+              title={!(toNum(form.price)! > 0) ? "Enter a list price to publish" : undefined}
+            >
+              {publishing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
+              {isNew ? "Commit & Publish to Salsify" : "Publish to Salsify"}
             </Button>
           )}
         </div>
@@ -297,6 +345,12 @@ export function SingleSkuCalculator({
           <Link href={`/products/${committed.productId}`} className="font-medium underline">
             View product
           </Link>
+        </div>
+      )}
+      {published && (
+        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 flex items-center gap-2">
+          <Check className="h-4 w-4 shrink-0" />
+          Published {published.sku} at ${published.price.toFixed(2)} on {setup.channel.name} to Salsify.
         </div>
       )}
       {commitError && (
