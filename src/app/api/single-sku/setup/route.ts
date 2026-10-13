@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { loadSingleSkuSetup, salsifyPublishStatus } from "@/lib/single-sku";
 import { SHIP_COMPONENTS } from "@/lib/pricing/shipping";
 
@@ -33,6 +34,10 @@ export async function GET(req: NextRequest) {
           name: row.name ?? "",
           brand: row.brand ?? "",
           amzItemType: row.amzItemType ?? "",
+          onCustomer: !!(await prisma.customerProduct.findFirst({
+            where: { customerId: sp.get("customerId") ?? "", productId: row.productId! },
+            select: { productId: true },
+          })),
           // Never sent when hidden; the server keeps using the stored cost.
           cost: costHidden ? null : row.cost,
           price,

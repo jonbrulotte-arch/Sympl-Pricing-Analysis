@@ -23,6 +23,8 @@ interface SetupProduct {
   cost: number | null;
   price: number | null;
   shipping: Record<ShipComponentKey, number | null>;
+  /** Whether the SKU is one of this customer's products (needed to commit its price). */
+  onCustomer: boolean;
 }
 
 interface Setup {
@@ -133,6 +135,8 @@ export function SingleSkuCalculator({
   const [committed, setCommitted] = useState<{ productId: string; sku: string } | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState<{ sku: string; price: number } | null>(null);
+  const [committingPrice, setCommittingPrice] = useState(false);
+  const [priceCommitted, setPriceCommitted] = useState<{ sku: string; price: number | null; atPublish: boolean } | null>(null);
 
   const cfg = useMemo(() => (setup ? toChannelConfig(setup.channel) : null), [setup]);
   const fields = useMemo(() => {
@@ -252,6 +256,50 @@ export function SingleSkuCalculator({
     }
   }
 
+  /** Existing SKU: the list price or a shipping component differs from what's stored. */
+  const hasSavableChange = useMemo(() => {
+    if (isNew || !setup?.product) return false;
+    const p = setup.product;
+    const price = toNum(form.price);
+    if (price != null && price > 0 && !(p.price != null && Math.abs(price - p.price) < 0.005)) return true;
+    return shipComponents.some((c) => {
+      const v = toNum(form.shipping[c.key]);
+      const stored = p.shipping[c.key];
+      return v != null && v >= 0 && !(stored != null && Math.abs(stored - v) < 0.00005);
+    });
+  }, [isNew, setup, form, shipComponents]);
+
+  async function commitPrice() {
+    if (!payload || !setup?.product) return;
+    setCommittingPrice(true);
+    setCommitError(null);
+    try {
+      const res = await fetch("/api/single-sku/commit-price", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId, channelId, productId, inputs: payload.inputs, settings: payload.settings }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCommitError({ text: data.error || "Couldn't commit the price" });
+        return;
+      }
+      // What's stored now matches the committed values.
+      const product = setup.product;
+      setSetup({
+        ...setup,
+        product: {
+          ...product,
+          price: data.priceChanged ? data.price : product.price,
+          shipping: { ...product.shipping, ...(data.shipping ?? {}) },
+        },
+      });
+      setPriceCommitted({ sku: product.sku, price: data.priceChanged ? data.price : null, atPublish: data.atPublish });
+    } finally {
+      setCommittingPrice(false);
+    }
+  }
+
   async function publish() {
     if (!payload || !setup) return;
     const price = toNum(form.price);
@@ -324,6 +372,23 @@ export function SingleSkuCalculator({
               Commit to Product Database
             </Button>
           )}
+          {!isNew && (
+            <Button
+              size="sm"
+              onClick={commitPrice}
+              disabled={committingPrice || publishing || !hasSavableChange || !setup.product?.onCustomer}
+              title={
+                !setup.product?.onCustomer
+                  ? `${setup.product?.sku} isn't one of ${customerName}'s products`
+                  : !hasSavableChange
+                    ? "Change the list price or shipping to commit"
+                    : "Save the list price and shipping for this channel and stage them for Publish to Salsify"
+              }
+            >
+              {committingPrice ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+              Commit Price
+            </Button>
+          )}
           {setup.canPublish && (isNew ? setup.canCommit && !committed : true) && (
             <Button
               size="sm"
@@ -346,6 +411,20 @@ export function SingleSkuCalculator({
             View product
           </Link>
         </div>
+      )}
+      {priceCommitted && (
+        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 flex items-center gap-2">
+          <Check className="h-4 w-4 shrink-0" />
+          Committed {priceCommitted.price != null ? `$${priceCommitted.price.toFixed(2)}` : "shipping"} for {priceCommitted.sku} on{" "}
+          {setup.channel.name}
+          {priceCommitted.price != null ? ". It's staged for Publish to Salsify" : ""}
+          {priceCommitted.atPublish ? " and will be recorded when it's published." : "."}
+        </div>
+      )}
+      {!isNew && !setup.product?.onCustomer && (
+        <p className="mb-4 text-xs text-gray-500">
+          {setup.product?.sku} isn&apos;t one of {customerName}&apos;s products, so its price can be analyzed here but not committed.
+        </p>
       )}
       {published && (
         <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 flex items-center gap-2">
