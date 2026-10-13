@@ -125,7 +125,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
         });
       }
       const shipping = parseShippingChanges(entry.shippingChanges);
-      if (shipping) shippingRecorded += await recordShippingChanges(product.id, shipping);
+      if (shipping) {
+        shippingRecorded += await recordShippingChanges(product.id, shipping, {
+          recordedById: session.user.id,
+          source: "publish",
+          channelId: entry.channelId,
+        });
+      }
     }
 
     await prisma.salsifyStaged.deleteMany({

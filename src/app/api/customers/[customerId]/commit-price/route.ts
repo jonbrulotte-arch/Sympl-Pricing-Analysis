@@ -58,7 +58,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
         },
       });
     }
-    if (shipping) await recordShippingChanges(product.id, shipping);
+    if (shipping) {
+      await recordShippingChanges(product.id, shipping, { recordedById: session.user.id, source: "commit", channelId });
+    }
   }
 
   // Stage for Salsify publish: price changes always; shipping only when it's deferred until publish.

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { WRITE_SOURCE_LABELS, loadImportInfo, num, previousValues, withinLogWindow } from "@/lib/db/history-common";
 
 export interface PriceRecordDetail {
   previousPrice: number | null;
@@ -27,25 +28,6 @@ const PRICE_FIELD_LABELS: Record<string, string> = {
   priceFBM: "Amazon FBM",
   priceFBA: "Amazon FBA",
 };
-
-const IMPORT_SOURCE_LABELS: Record<string, string> = {
-  spreadsheet: "Spreadsheet import",
-  salsify: "Salsify sync",
-  "salsify-list": "Salsify product list sync",
-  supplemental: "Supplemental import",
-  mcf_freight_remote: "MCF freight import",
-};
-
-const WRITE_SOURCE_LABELS: Record<string, string> = {
-  commit: "Committed in analysis",
-  publish: "Published to Salsify",
-  undo: "Undo of a staged commit",
-};
-
-/** Commits logged within this window of a price record are treated as the same change. */
-const LOG_MATCH_MS = 2 * 60 * 1000;
-
-const num = (v: unknown) => (typeof v === "number" && isFinite(v) ? v : null);
 
 /**
  * A product's price history (newest first, up to `take` per source) with details for each record:
@@ -87,39 +69,9 @@ export async function loadPriceHistory(
     }),
   ]);
 
-  const importIds = [
-    ...new Set([...channelRows, ...productRows.slice(0, take)].map((r) => r.importId).filter((id): id is string => !!id)),
-  ];
-  const imports = new Map(
-    (
-      await prisma.import.findMany({
-        where: { id: { in: importIds } },
-        select: { id: true, source: true, fileName: true, uploadedBy: { select: { name: true } } },
-      })
-    ).map((i) => [i.id, i]),
-  );
-  const importHow = (id: string | null) => {
-    const imp = id ? imports.get(id) : undefined;
-    if (!imp) return null;
-    const label = IMPORT_SOURCE_LABELS[imp.source] ?? "Import";
-    const file = imp.fileName?.trim();
-    return file && file.toLowerCase() !== label.toLowerCase() ? `${label} (${file})` : label;
-  };
-
-  // Rows are newest first, so the predecessor of a row is the next one with the same key.
-  const previousBy = <T extends { id: string; price: unknown }>(rows: T[], key: (r: T) => string) => {
-    const prev = new Map<string, number>();
-    const lastSeen = new Map<string, string>();
-    for (const r of rows) {
-      const k = key(r);
-      const newerId = lastSeen.get(k);
-      if (newerId) prev.set(newerId, Number(r.price));
-      lastSeen.set(k, r.id);
-    }
-    return prev;
-  };
-  const prevChannelPrice = previousBy(allChannelPrices, (r) => r.channelId);
-  const prevFieldPrice = previousBy(productRows, (r) => r.priceField);
+  const imports = await loadImportInfo([...channelRows, ...productRows.slice(0, take)].map((r) => r.importId));
+  const prevChannelPrice = previousValues(allChannelPrices, (r) => r.channelId, (r) => Number(r.price));
+  const prevFieldPrice = previousValues(productRows, (r) => r.priceField, (r) => Number(r.price));
 
   /** The latest catalog price for a field recorded before a date — what the channel showed before its first record. */
   const fieldPriceBefore = (field: string, before: Date) =>
@@ -132,7 +84,7 @@ export async function loadPriceHistory(
         d.channelId === channelId &&
         num(d.newPrice) != null &&
         Math.abs(num(d.newPrice)! - price) < 0.005 &&
-        Math.abs(l.createdAt.getTime() - at.getTime()) < LOG_MATCH_MS
+        withinLogWindow(l.createdAt, at)
       );
     });
 
@@ -155,8 +107,8 @@ export async function loadPriceHistory(
           (fieldBefore ? Number(fieldBefore.price) : null),
         customer: r.channel.customer.name,
         channel: r.channel.name,
-        changedBy: r.recordedBy?.name ?? (r.importId ? imports.get(r.importId)?.uploadedBy.name : null) ?? log?.user?.name ?? null,
-        how: (r.source && WRITE_SOURCE_LABELS[r.source]) ?? importHow(r.importId) ?? (log ? WRITE_SOURCE_LABELS.commit : "Unknown"),
+        changedBy: r.recordedBy?.name ?? imports.uploader(r.importId) ?? log?.user?.name ?? null,
+        how: (r.source && WRITE_SOURCE_LABELS[r.source]) || imports.how(r.importId) || (log ? WRITE_SOURCE_LABELS.commit : "Unknown"),
       },
     };
   });
@@ -173,8 +125,8 @@ export async function loadPriceHistory(
         previousPrice: prevFieldPrice.get(p.id) ?? null,
         customer: null,
         channel: label,
-        changedBy: (p.importId ? imports.get(p.importId)?.uploadedBy.name : null) ?? null,
-        how: importHow(p.importId) ?? "Import",
+        changedBy: imports.uploader(p.importId),
+        how: imports.how(p.importId) ?? "Import",
       },
     };
   });
