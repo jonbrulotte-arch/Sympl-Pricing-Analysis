@@ -24,6 +24,7 @@ import {
   ClipboardList,
   Shield,
   Calculator,
+  LifeBuoy,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useState } from "react";
@@ -37,6 +38,7 @@ const navItems: { href: string; label: string; icon: React.ElementType; permissi
   { href: "/single-sku", label: "Single SKU Analysis", icon: Calculator, permission: "module:singleSku" },
   { href: "/royalty-rules", label: "Royalty Rules", icon: DollarSign, permission: "module:royalties" },
   { href: "/activity-log", label: "Activity Log", icon: ClipboardList, permission: "module:activityLog" },
+  { href: "/help", label: "Help & Docs", icon: LifeBuoy, permission: null },
 ];
 
 const adminNavItems: { href: string; label: string; icon: React.ElementType; permission: Permission | null }[] = [
