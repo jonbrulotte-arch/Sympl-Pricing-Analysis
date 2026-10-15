@@ -1,5 +1,5 @@
 import type { AnalysisResult, ChannelConfig, ChannelDefaults } from "@/lib/pricing/types";
-import { computeRates, commissionName } from "@/lib/pricing/engine";
+import { feeLedger } from "@/lib/pricing/ledger";
 import { AlertTriangle } from "lucide-react";
 
 interface Props {
@@ -12,7 +12,6 @@ interface Props {
 }
 
 export function SkuDetailPanel({ result: r, cfg, settings, onShowMath, canViewCost = true }: Props) {
-  const rates = computeRates(cfg, settings);
   const revenue = r.price * r.units;
   const costTotal = (r.cost ?? 0) * r.units;
   const cur = r.cur;
@@ -131,99 +130,38 @@ export function SkuDetailPanel({ result: r, cfg, settings, onShowMath, canViewCo
         </p>
         <table className="w-full text-xs">
           <tbody>
-            <LedgerRow label={`List price × ${r.units} unit${r.units !== 1 ? "s" : ""}`} value={r.price} bold />
-            {cfg.flags.coupon && (
-              <LedgerRow label={`Coupon discount (${(rates.c * 100).toFixed(1)}% of list)`} value={-cur.coupon} />
+            {feeLedger(r, cfg, settings, { includeCost: canViewCost }).map((line, i) =>
+              line.kind === "note" ? (
+                <tr key={i}>
+                  <td colSpan={2} className="py-1 text-gray-400 italic">
+                    {line.label}
+                  </td>
+                </tr>
+              ) : line.kind === "net" ? (
+                <LedgerRow
+                  key={i}
+                  label={line.label}
+                  value={line.value!}
+                  bold
+                  border
+                  valueClassName={cur.net >= 0 ? "text-green-600" : "text-red-600"}
+                  suffix={`${gmPct.toFixed(1)}%`}
+                />
+              ) : (
+                <LedgerRow
+                  key={i}
+                  label={line.label}
+                  value={line.value!}
+                  bold={line.kind === "price" && i === 0 ? true : line.kind === "subtotal"}
+                  border={line.label === "Total fees and allocations"}
+                />
+              ),
             )}
-            {cfg.flags.tax && (
-              <>
-                <LedgerRow label={`Sales tax (${(rates.t * 100).toFixed(2)}%, passed through)`} value={cur.tax} />
-                <LedgerRow label="Sold price (fee base, includes tax)" value={cur.sold} bold />
-              </>
-            )}
-            <LedgerRow
-              label={
-                cur.commMinApplied
-                  ? `${commissionName(cfg)} (minimum $${rates.refMin.toFixed(2)}/unit; ${(r.commR * 100).toFixed(2)}% would be $${(cur.sold * r.commR).toFixed(2)})`
-                  : `${commissionName(cfg)} (${(r.commR * 100).toFixed(2)}%${r.commFrom === "itemType" ? ", item type override" : ""})`
-              }
-              value={-cur.comm}
-            />
-            {cfg.flags.tsd && (
-              <LedgerRow label={`Top seller discount (${(rates.tsd * 100).toFixed(1)}% of the fee, credited back)`} value={cur.tsd} />
-            )}
-            {cur.fvfFixed > 0 && <LedgerRow label="Final value fee, fixed" value={-cur.fvfFixed} />}
-            {cfg.flags.promo && (
-              <LedgerRow label={`Promoted listing fee (${(rates.promo * 100).toFixed(1)}%)`} value={-cur.promo} />
-            )}
-            {cfg.flags.cc && (
-              <>
-                <LedgerRow label={`CC processing (${(rates.ccPct * 100).toFixed(1)}%)`} value={-cur.ccVar} />
-                {cur.ccFlat > 0 && <LedgerRow label="CC flat fee" value={-cur.ccFlat} />}
-              </>
-            )}
-            <LedgerRow label={`Returns and warranty (${(rates.ret * 100).toFixed(1)}% of sale)`} value={-cur.ret} />
-            {cfg.flags.ad && (
-              <LedgerRow label={`Advertising (${(rates.ad * 100).toFixed(1)}%)`} value={-cur.ad} />
-            )}
-            {rates.netTerms > 0 && (
-              <LedgerRow label={`Net Terms (${(rates.netTerms * 100).toFixed(1)}%)`} value={-cur.netTerms} />
-            )}
-            {rates.otherAlloc > 0 && (
-              <LedgerRow label={`Additional allocations (${(rates.otherAlloc * 100).toFixed(1)}%)`} value={-cur.otherAlloc} />
-            )}
-            <LedgerRow label={`Royalty (${r.royFrom})`} value={-cur.roy} />
-            {cfg.flags.ppc && <LedgerRow label="PPC fee" value={-r.ppcUsed} />}
-            <LedgerRow label="Total fees and allocations" value={-cur.alloc} bold border />
-            <ShippingRows result={r} cfg={cfg} />
-            {canViewCost && <LedgerRow label={`SKU cost × ${r.units}`} value={-costTotal} />}
-            <LedgerRow
-              label="Net margin"
-              value={cur.net}
-              bold
-              border
-              valueClassName={cur.net >= 0 ? "text-green-600" : "text-red-600"}
-              suffix={`${gmPct.toFixed(1)}%`}
-            />
           </tbody>
         </table>
       </div>
     </div>
   );
-}
-
-function ShippingRows({ result: r, cfg }: { result: AnalysisResult; cfg: ChannelConfig }) {
-  if (cfg.channelType === "commercial") {
-    return (
-      <tr>
-        <td colSpan={2} className="py-1 text-gray-400 italic">
-          Freight excluded — commercial channel
-        </td>
-      </tr>
-    );
-  }
-
-  if (!r.hasShippingData) return null;
-
-  if (cfg.shippingMode === "fba" || cfg.shippingMode === "mcf") {
-    const fee = (cfg.shippingMode === "fba" ? r.fbaFee : r.mcfShip) ?? 0;
-    const mcfFreight = r.mcfFreight ?? 0;
-    const feeLabel = cfg.shippingMode === "fba" ? "FBA fee" : "MCF fulfillment";
-    return (
-      <>
-        <LedgerRow label={`${feeLabel} ($${fee.toFixed(2)} × ${r.units})`} value={-(fee * r.units)} />
-        {mcfFreight > 0 && (
-          <LedgerRow
-            label={`Inbound freight to Amazon ($${mcfFreight.toFixed(2)} × ${r.units})`}
-            value={-(mcfFreight * r.units)}
-          />
-        )}
-      </>
-    );
-  }
-
-  const perUnit = r.shipping ?? (r.units > 0 ? r.ship / r.units : 0);
-  return <LedgerRow label={`Shipping cost ($${perUnit.toFixed(2)} × ${r.units})`} value={-r.ship} />;
 }
 
 function LedgerRow({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import {
   createSingleSkuProduct,
+  parseChannelPrices,
   loadSingleSkuSetup,
   parseInputs,
   publishSingleSkuPrice,
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     target = { productId, sku: setup.row!.sku };
   } else {
     if (!setup.canCommit) return NextResponse.json({ error: "You don't have permission to add products" }, { status: 403 });
-    const created = await createSingleSkuProduct(setup, session.user.id, customerId, inputs);
+    const created = await createSingleSkuProduct(setup, session.user.id, customerId, inputs, parseChannelPrices(body.channelPrices));
     if ("error" in created) {
       return NextResponse.json({ error: created.error, productId: created.productId }, { status: created.status });
     }

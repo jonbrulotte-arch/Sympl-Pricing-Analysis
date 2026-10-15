@@ -254,7 +254,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
                 ["Returns and warranty", "An allowance taken as a share of the sale."],
                 ["Channel Assumptions & Allocations", "Commercial channels only: net terms and additional allocations."],
                 ["Brand availability", "Untick brands the channel can't sell; they're left out of its analysis."],
-                ["Inventory and lifecycle", "The sell-down goal for discontinued SKUs, keeping discontinued or out-of-stock SKUs out of the change report, and the low-stock flag."],
+                ["Inventory and lifecycle", "Hiding discontinued SKUs from the analysis, their sell-down goal, keeping discontinued or out-of-stock SKUs out of the change report, and the low-stock flag."],
                 ["Repricing rules", "Price fallback, how recommended prices are rounded, and the target profit as a % of cost."],
               ],
             },
@@ -296,7 +296,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         title: "Opening an analysis",
         blocks: [
           { p: "From a customer, choose **Analysis** for every channel (one tab each), or a channel's own **Analysis** button for just that channel. Projects have the same analysis for their products." },
-          { p: "Each tab analyzes the customer's products on that channel, skipping blocked brands and, for channels with a Salsify product list, SKUs not on the list." },
+          { p: "Each tab analyzes the customer's products on that channel, skipping blocked brands, discontinued SKUs if the channel hides them, and, for channels with a Salsify product list, SKUs not on the list." },
         ],
       },
       {
@@ -407,7 +407,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: "single-sku-analysis",
     title: "Single SKU Analysis",
-    summary: "Price one SKU on one channel, try what-ifs, and add new SKUs.",
+    summary: "Price one SKU across a customer's channels, try what-ifs, export a report, and add new SKUs.",
     icon: "Calculator",
     group: "Pricing",
     requires: ["module:singleSku"],
@@ -416,7 +416,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
         id: "steps",
         title: "How it works",
         blocks: [
-          { steps: ["**Customer & Channel**: choose a customer, then one of its channels, then **Next**.", "**SKU**: search for an existing SKU, or choose **Create a new SKU**.", "**Calculator**: adjust the inputs and watch the results update."] },
+          { steps: ["**Customer**: choose a customer, then **Next**.", "**SKU**: search for an existing SKU, or choose **Create a new SKU**.", "**Calculator**: switch between the customer's sales channels with the tabs, adjust the inputs, and watch the results update."] },
+          { p: "The calculator opens on the customer's default channel. Each channel tab shows its net margin once it's been calculated, so you can compare channels at a glance." },
         ],
       },
       {
@@ -424,9 +425,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
         title: "The calculator",
         blocks: [
           { p: "On the left are the inputs: the product's details, **Unit cost**, **List price**, **Units per order**, the channel's shipping costs, and every allocation that applies to the channel (goal, marketplace fees, royalty, returns, commercial allocations, rounding and target profit). They start at the channel's settings." },
+          { p: "**Unit cost, units per order and shipping belong to the product**, so they carry across every channel tab. **The list price and allocations are per channel**, so changing them on one tab doesn't affect the others." },
           { p: "On the right are the results: net margin, net $ per order, the recommended price (choose **Use this price** to try it), the status, and the same price breakdown and fee ledger as the analysis." },
           { note: "Allocation changes are only for this calculation; the channel isn't changed. **Reset allocations to channel** puts them back." },
-          { p: "If the SKU's brand is blocked on the channel, or it isn't on the channel's Salsify product list, a warning explains that it won't appear in that channel's analysis." },
+          { p: "If the SKU's brand is blocked on the channel, it isn't on the channel's Salsify product list, or it's discontinued and the channel hides discontinued SKUs, a warning explains that it won't appear in that channel's analysis." },
           { note: "If your role can't see unit cost, an existing SKU's cost shows as Hidden and its stored cost is used." },
         ],
       },
@@ -438,7 +440,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
             table: {
               head: ["Button", "What it does"],
               rows: [
-                ["Commit to Product Database", "New SKUs: adds the SKU to the database for this customer, with its cost, shipping and price. Needs the Products: Update permission."],
+                ["Commit to Product Database", "New SKUs: adds the SKU to the database for this customer, with its cost, shipping, and the list price you entered on each channel. Needs the Products: Update permission."],
                 ["Commit Price", "Existing SKUs: commits the list price and any shipping changes for this channel, exactly like a commit in the analysis. Cost isn't changed."],
                 ["Publish to Salsify", "Existing SKUs: sends the list price to Salsify and records it."],
                 ["Commit & Publish to Salsify", "New SKUs: adds the SKU to the database, then creates it in Salsify with its SKU and price."],
@@ -446,7 +448,17 @@ export const HELP_ARTICLES: HelpArticle[] = [
               ],
             },
           },
-          { p: "The publish buttons only appear when you can publish to Salsify, you have a Salsify API key, and the customer's field mapping covers the SKU and this channel's price. **Commit Price** only works for SKUs that belong to the selected customer." },
+          { p: "Commit Price and the publish buttons act on the channel tab you're on. The publish buttons only appear when you can publish to Salsify, you have a Salsify API key, and the customer's field mapping covers the SKU and that channel's price. **Commit Price** only works for SKUs that belong to the selected customer." },
+        ],
+      },
+      {
+        id: "export",
+        title: "Exporting a report",
+        requires: ["analysis:export"],
+        blocks: [
+          { p: "**Export Report** downloads a spreadsheet of the calculation. Choose **This channel**, or **All channels** for one sheet per channel plus a summary comparing them." },
+          { p: "Each channel sheet lists the inputs, every allocation (showing the value used, the channel's own setting, and whether you edited it), the results at the list price and at the recommended price, and the fee ledger at both prices." },
+          { note: "If your role can't see unit cost, the report leaves out cost and the fee breakdown." },
         ],
       },
     ],
@@ -662,7 +674,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         id: "missing-product",
         title: "Why isn't a product in my analysis?",
         blocks: [
-          { list: ["It isn't assigned to the customer. Ask an administrator, or use the customer's Products page.", "Its brand is blocked on the channel (Brand availability).", "The channel uses a Salsify product list and the SKU isn't on it."] },
+          { list: ["It isn't assigned to the customer. Ask an administrator, or use the customer's Products page.", "Its brand is blocked on the channel (Brand availability).", "The channel uses a Salsify product list and the SKU isn't on it.", "It's discontinued and the channel hides discontinued SKUs (Inventory and lifecycle)."] },
         ],
       },
       {

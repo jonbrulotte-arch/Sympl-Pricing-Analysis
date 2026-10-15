@@ -156,14 +156,19 @@ export function computeSingleSku(setup: SingleSkuSetup, inputs: SingleSkuInputs,
   }
 
   const settings = { ...channel.defaults, ...settingsOverrides };
+  // Always price the chosen SKU, even if the channel hides discontinued SKUs; that's reported as a warning.
   const [result] = computeChannelResults(
     { ...channel, blockedBrands: [], channelProductIds: null },
     [row],
     context,
-    { settings, overrides: {}, shipEdits: {}, committedShip: {} },
+    { settings: { ...settings, hideDisc: false }, overrides: {}, shipEdits: {}, committedShip: {} },
   );
+  const warnings = warningsFor(channel, row);
+  if (settings.hideDisc && result.disc) {
+    warnings.push("This SKU is discontinued and the channel hides discontinued SKUs, so it's left out of the channel's analysis.");
+  }
   const safe: AnalysisResult = costHidden ? { ...result, cost: null } : result;
-  return { result: safe, settings, warnings: warningsFor(channel, row) };
+  return { result: safe, settings, warnings };
 }
 
 export type SalsifyPublishStatus =
@@ -205,6 +210,8 @@ export async function createSingleSkuProduct(
   userId: string,
   customerId: string,
   inputs: SingleSkuInputs,
+  /** List prices entered on the customer's other channels, by channel id (the active channel's is inputs.price). */
+  otherChannelPrices: Record<string, number> = {},
 ): Promise<{ productId: string; sku: string; price: number | null } | (Fail & { productId?: string })> {
   if (!setup.canCommit) return { error: "You don't have permission to add products", status: 403 };
   const sku = inputs.sku?.trim();
@@ -222,6 +229,14 @@ export async function createSingleSkuProduct(
     return v != null && v >= 0 ? [{ shippingType: c.shippingType, key: c.key, amount: v }] : [];
   });
   const price = inputs.price != null && inputs.price > 0 ? inputs.price : null;
+  const otherIds = Object.keys(otherChannelPrices).filter((id) => id !== channel.id && otherChannelPrices[id] > 0);
+  const otherChannels = otherIds.length
+    ? await prisma.salesChannel.findMany({ where: { id: { in: otherIds }, customerId }, select: { id: true, name: true } })
+    : [];
+  const prices = [
+    ...(price != null ? [{ channelId: channel.id, channelName: channel.name, price }] : []),
+    ...otherChannels.map((c) => ({ channelId: c.id, channelName: c.name, price: otherChannelPrices[c.id] })),
+  ];
 
   await prisma.$transaction([
     prisma.product.create({
@@ -234,13 +249,17 @@ export async function createSingleSkuProduct(
         data: { id: randomUUID(), productId, shippingType: x.shippingType, amount: x.amount, channelId: channel.id, ...meta },
       }),
     ),
-    ...(price != null ? [prisma.priceHistory.create({ data: { id: randomUUID(), productId, channelId: channel.id, price, ...meta } })] : []),
+    ...prices.map((p) =>
+      prisma.priceHistory.create({ data: { id: randomUUID(), productId, channelId: p.channelId, price: p.price, ...meta } }),
+    ),
   ]);
 
   logActivity({
     action: "product.create",
     category: "product",
-    summary: `Added SKU ${sku} from Single SKU Analysis${price != null ? ` at $${price.toFixed(2)} on ${channel.name}` : ""}`,
+    summary: `Added SKU ${sku} from Single SKU Analysis${
+      prices.length ? ` at ${prices.map((p) => `$${p.price.toFixed(2)} on ${p.channelName}`).join(", ")}` : ""
+    }`,
     detail: {
       productId,
       sku,
@@ -250,6 +269,7 @@ export async function createSingleSkuProduct(
       channelName: channel.name,
       cost: inputs.cost ?? null,
       newPrice: price,
+      channelPrices: prices.length > 1 ? Object.fromEntries(prices.map((p) => [p.channelName, p.price])) : undefined,
       shipping: Object.fromEntries(shipping.map((x) => [x.key, x.amount])),
     },
     customerId,
@@ -315,4 +335,14 @@ export async function publishSingleSkuPrice(opts: {
     userId: user.id,
   });
   return { ok: true };
+}
+
+/** { channelId: price } from a request body, keeping positive finite prices only. */
+export function parseChannelPrices(input: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!isRecord(input)) return out;
+  for (const [id, v] of Object.entries(input)) {
+    if (typeof v === "number" && isFinite(v) && v > 0) out[id] = v;
+  }
+  return out;
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, Check, Loader2, RotateCcw, Save, Send, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, ChevronDown, Download, Loader2, RotateCcw, Save, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SkuDetailPanel } from "@/components/analysis/sku-detail-panel";
 import { FIELDS_UI, SECTIONS, type FieldUiDef } from "@/lib/pricing/constants";
 import { toChannelConfig, type ChannelWithDb } from "@/lib/pricing/compute-results";
-import { shipComponentsFor, type ShipComponentKey } from "@/lib/pricing/shipping";
+import { SHIP_COMPONENTS, shipComponentsFor, type ShipComponentKey } from "@/lib/pricing/shipping";
+import { exportSingleSkuReport, type SingleSkuChannelReport } from "@/lib/export/single-sku-report";
+import { cn } from "@/lib/utils";
 import type { AnalysisResult, ChannelDefaults, ChannelFlags } from "@/lib/pricing/types";
 
 interface SetupProduct {
@@ -36,18 +38,19 @@ interface Setup {
   product: SetupProduct | null;
 }
 
-interface Form {
+/** Inputs that belong to the product, shared by every channel. */
+interface Shared {
   sku: string;
   name: string;
   brand: string;
   amzItemType: string;
   cost: string;
   units: string;
-  price: string;
   shipping: Record<ShipComponentKey, string>;
 }
 
 type SettingValue = string | boolean;
+type Computed = { result: AnalysisResult; warnings: string[] };
 
 /** Allocation sections shown in the calculator (brand availability and lifecycle don't apply to one SKU). */
 const CALC_SECTIONS = ["goal", "market", "royalty", "returns", "commercial", "rules"];
@@ -62,13 +65,13 @@ const STATUS: Record<string, { label: string; variant: "success" | "warning" | "
 };
 
 const str = (v: number | null | undefined) => (v != null ? String(Math.round(v * 10000) / 10000) : "");
-const toNum = (v: string) => {
-  if (v.trim() === "") return null;
+const toNum = (v: string | undefined) => {
+  if (v == null || v.trim() === "") return null;
   const n = parseFloat(v);
   return isFinite(n) ? n : null;
 };
 
-function formFrom(p: SetupProduct | null): Form {
+function sharedFrom(p: SetupProduct | null): Shared {
   return {
     sku: p?.sku ?? "",
     name: p?.name ?? "",
@@ -76,14 +79,19 @@ function formFrom(p: SetupProduct | null): Form {
     amzItemType: p?.amzItemType ?? "",
     cost: str(p?.cost),
     units: "1",
-    price: str(p?.price),
-    shipping: {
-      shipping: str(p?.shipping.shipping),
-      mcfShip: str(p?.shipping.mcfShip),
-      mcfFreight: str(p?.shipping.mcfFreight),
-      fbaFee: str(p?.shipping.fbaFee),
-    },
+    shipping: Object.fromEntries(SHIP_COMPONENTS.map((c) => [c.key, str(p?.shipping[c.key])])) as Record<ShipComponentKey, string>,
   };
+}
+
+function fieldsFor(channel: ChannelWithDb): FieldUiDef[] {
+  const cfg = toChannelConfig(channel);
+  return FIELDS_UI.filter(
+    (f) =>
+      CALC_SECTIONS.includes(f.sec) &&
+      !HIDDEN_FIELDS.has(f.key) &&
+      (!f.flag || cfg.flags[f.flag as keyof ChannelFlags]) &&
+      (!f.commercialOnly || channel.channelType === "commercial"),
+  ).map((f) => (channel.hasPerSkuCommission && f.amazonLabel ? { ...f, label: f.amazonLabel } : f));
 }
 
 function settingsFrom(channel: ChannelWithDb, fields: FieldUiDef[]): Record<string, SettingValue> {
@@ -110,103 +118,117 @@ function settingsPayload(values: Record<string, SettingValue>, fields: FieldUiDe
 export function SingleSkuCalculator({
   customerId,
   customerName,
-  channelId,
+  channels,
   productId,
+  canExport,
   onBack,
   onDiscard,
 }: {
   customerId: string;
   customerName: string;
-  channelId: string;
+  channels: { id: string; name: string; isDefault: boolean }[];
   productId: string | null;
+  canExport: boolean;
   onBack: () => void;
   onDiscard: () => void;
 }) {
-  const [setup, setSetup] = useState<Setup | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [form, setForm] = useState<Form>(() => formFrom(null));
-  const [settings, setSettings] = useState<Record<string, SettingValue>>({});
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [warnings, setWarnings] = useState<string[]>([]);
+  const isNew = !productId;
+  const [active, setActive] = useState(() => (channels.find((c) => c.isDefault) ?? channels[0]).id);
+  const [setups, setSetups] = useState<Record<string, Setup>>({});
+  const [loadErrors, setLoadErrors] = useState<Record<string, string>>({});
+  const [shared, setShared] = useState<Shared | null>(null);
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [settingsBy, setSettingsBy] = useState<Record<string, Record<string, SettingValue>>>({});
+  const [computed, setComputed] = useState<Record<string, Computed>>({});
   const [computing, setComputing] = useState(false);
   const [computeError, setComputeError] = useState<string | null>(null);
-  const [committing, setCommitting] = useState(false);
-  const [commitError, setCommitError] = useState<{ text: string; productId?: string } | null>(null);
+  const [busy, setBusy] = useState<"commit" | "publish" | "price" | "export" | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string; productId?: string } | null>(null);
   const [committed, setCommitted] = useState<{ productId: string; sku: string } | null>(null);
-  const [publishing, setPublishing] = useState(false);
-  const [published, setPublished] = useState<{ sku: string; price: number } | null>(null);
-  const [committingPrice, setCommittingPrice] = useState(false);
-  const [priceCommitted, setPriceCommitted] = useState<{ sku: string; price: number | null; atPublish: boolean } | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const loading = useRef(new Set<string>());
 
+  /** Loads a channel's setup once, and seeds its price and allocations (and, first time, the product inputs). */
+  const loadSetup = useCallback(
+    async (channelId: string): Promise<Setup | null> => {
+      const params = new URLSearchParams({ customerId, channelId, ...(productId ? { productId } : {}) });
+      const res = await fetch(`/api/single-sku/setup?${params}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setLoadErrors((e) => ({ ...e, [channelId]: data.error || "Couldn't load this channel" }));
+        return null;
+      }
+      const setup = data as Setup;
+      setSetups((s) => ({ ...s, [channelId]: setup }));
+      setShared((cur) => cur ?? sharedFrom(setup.product));
+      setPrices((p) => (channelId in p ? p : { ...p, [channelId]: str(setup.product?.price) }));
+      setSettingsBy((s) => (channelId in s ? s : { ...s, [channelId]: settingsFrom(setup.channel, fieldsFor(setup.channel)) }));
+      return setup;
+    },
+    [customerId, productId],
+  );
+
+  useEffect(() => {
+    if (setups[active] || loading.current.has(active)) return;
+    loading.current.add(active);
+    loadSetup(active).finally(() => loading.current.delete(active));
+  }, [active, setups, loadSetup]);
+
+  const setup = setups[active];
   const cfg = useMemo(() => (setup ? toChannelConfig(setup.channel) : null), [setup]);
-  const fields = useMemo(() => {
-    if (!setup || !cfg) return [];
-    return FIELDS_UI.filter(
-      (f) =>
-        CALC_SECTIONS.includes(f.sec) &&
-        !HIDDEN_FIELDS.has(f.key) &&
-        (!f.flag || cfg.flags[f.flag as keyof ChannelFlags]) &&
-        (!f.commercialOnly || setup.channel.channelType === "commercial"),
-    ).map((f) => (setup.channel.hasPerSkuCommission && f.amazonLabel ? { ...f, label: f.amazonLabel } : f));
-  }, [setup, cfg]);
+  const fields = useMemo(() => (setup ? fieldsFor(setup.channel) : []), [setup]);
   const shipComponents = cfg ? shipComponentsFor(cfg) : [];
-  const isNew = !productId;
+  const settings = settingsBy[active];
+  const locked = !!committed;
 
+  /** The compute request for a channel, from the shared inputs and that channel's price and allocations. */
+  const payloadFor = useCallback(
+    (channelId: string, s: Setup, chSettings: Record<string, SettingValue>, price: string | undefined) => {
+      if (!shared) return null;
+      const chCfg = toChannelConfig(s.channel);
+      return {
+        customerId,
+        channelId,
+        productId,
+        inputs: {
+          ...(isNew ? { sku: shared.sku, name: shared.name, brand: shared.brand, amzItemType: shared.amzItemType } : {}),
+          ...(s.costHidden ? {} : { cost: toNum(shared.cost) }),
+          units: toNum(shared.units),
+          price: toNum(price),
+          shipping: Object.fromEntries(shipComponentsFor(chCfg).map((c) => [c.key, toNum(shared.shipping[c.key])])),
+        },
+        settings: settingsPayload(chSettings, fieldsFor(s.channel)),
+      };
+    },
+    [shared, customerId, productId, isNew],
+  );
+
+  const payload = useMemo(
+    () => (setup && settings ? payloadFor(active, setup, settings, prices[active]) : null),
+    [active, setup, settings, prices, payloadFor],
+  );
+
+  const compute = useCallback(async (body: NonNullable<typeof payload>, signal?: AbortSignal): Promise<Computed> => {
+    const res = await fetch("/api/single-sku/compute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Couldn't calculate");
+    return { result: data.result, warnings: data.warnings ?? [] };
+  }, []);
+
+  // Recalculate the active channel on the server whenever an input changes.
   useEffect(() => {
-    const params = new URLSearchParams({ customerId, channelId, ...(productId ? { productId } : {}) });
-    fetch(`/api/single-sku/setup?${params}`)
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "Couldn't load this channel");
-        return data as Setup;
-      })
-      .then((data) => {
-        setSetup(data);
-        setForm(formFrom(data.product));
-      })
-      .catch((err: Error) => setLoadError(err.message));
-  }, [customerId, channelId, productId]);
-
-  useEffect(() => {
-    if (setup) setSettings(settingsFrom(setup.channel, fields));
-  }, [setup, fields]);
-
-  const payload = useMemo(() => {
-    if (!setup) return null;
-    return {
-      customerId,
-      channelId,
-      productId,
-      inputs: {
-        ...(isNew ? { sku: form.sku, name: form.name, brand: form.brand, amzItemType: form.amzItemType } : {}),
-        ...(setup.costHidden ? {} : { cost: toNum(form.cost) }),
-        units: toNum(form.units),
-        price: toNum(form.price),
-        shipping: Object.fromEntries(shipComponents.map((c) => [c.key, toNum(form.shipping[c.key])])),
-      },
-      settings: settingsPayload(settings, fields),
-    };
-    // shipComponents is derived from setup
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setup, form, settings, fields, customerId, channelId, productId, isNew]);
-
-  // Recalculate on the server whenever an input changes.
-  useEffect(() => {
-    if (!payload || Object.keys(settings).length === 0) return;
+    if (!payload) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       setComputing(true);
       try {
-        const res = await fetch("/api/single-sku/compute", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "Couldn't calculate");
-        setResult(data.result);
-        setWarnings(data.warnings ?? []);
+        const out = await compute(payload, controller.signal);
+        setComputed((c) => ({ ...c, [active]: out }));
         setComputeError(null);
       } catch (err) {
         if (!controller.signal.aborted) setComputeError(err instanceof Error ? err.message : "Couldn't calculate");
@@ -218,122 +240,188 @@ export function SingleSkuCalculator({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [payload, settings]);
+  }, [payload, active, compute]);
 
   const dirty = useMemo(() => {
-    if (!setup) return false;
-    return JSON.stringify(form) !== JSON.stringify(formFrom(setup.product)) ||
-      JSON.stringify(settings) !== JSON.stringify(settingsFrom(setup.channel, fields));
-  }, [setup, form, settings, fields]);
+    const anySetup = Object.values(setups)[0];
+    if (!shared || !anySetup) return false;
+    if (JSON.stringify(shared) !== JSON.stringify(sharedFrom(anySetup.product))) return true;
+    return Object.entries(setups).some(
+      ([id, s]) =>
+        (prices[id] ?? "") !== str(s.product?.price) ||
+        JSON.stringify(settingsBy[id]) !== JSON.stringify(settingsFrom(s.channel, fieldsFor(s.channel))),
+    );
+  }, [shared, setups, prices, settingsBy]);
 
-  function setField<K extends keyof Form>(key: K, value: Form[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
-  }
+  /** Existing SKU: the active channel's list price or one of its shipping costs differs from what's stored. */
+  const hasSavableChange = useMemo(() => {
+    if (isNew || !setup?.product || !shared) return false;
+    const p = setup.product;
+    const price = toNum(prices[active]);
+    if (price != null && price > 0 && !(p.price != null && Math.abs(price - p.price) < 0.005)) return true;
+    return shipComponents.some((c) => {
+      const v = toNum(shared.shipping[c.key]);
+      const stored = p.shipping[c.key];
+      return v != null && v >= 0 && !(stored != null && Math.abs(stored - v) < 0.00005);
+    });
+  }, [isNew, setup, shared, prices, active, shipComponents]);
+
+  /** New SKU: list prices entered on every channel, so committing records them all. */
+  const channelPrices = () =>
+    Object.fromEntries(
+      Object.entries(prices)
+        .map(([id, v]) => [id, toNum(v)] as const)
+        .filter((e): e is readonly [string, number] => e[1] != null && e[1] > 0),
+    );
 
   function discard() {
     if (dirty && !committed && !confirm(isNew ? "Discard this SKU?" : "Discard your changes?")) return;
     onDiscard();
   }
 
-  async function commit() {
+  async function post(url: string, body: unknown) {
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    return { res, data: await res.json().catch(() => ({})) };
+  }
+
+  async function commitNew() {
     if (!payload) return;
-    setCommitting(true);
-    setCommitError(null);
+    setBusy("commit");
+    setMessage(null);
     try {
-      const res = await fetch("/api/single-sku/commit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerId, channelId, inputs: payload.inputs }),
+      const { res, data } = await post("/api/single-sku/commit", {
+        customerId,
+        channelId: active,
+        inputs: payload.inputs,
+        channelPrices: channelPrices(),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setCommitError({ text: data.error || "Couldn't add the SKU", productId: data.productId });
-        return;
-      }
-      setCommitted({ productId: data.productId, sku: form.sku.trim() });
+      if (!res.ok) return setMessage({ ok: false, text: data.error || "Couldn't add the SKU", productId: data.productId });
+      setCommitted({ productId: data.productId, sku: shared!.sku.trim() });
+      setMessage({ ok: true, text: `Added ${shared!.sku.trim()} to the Product Database for ${customerName}.`, productId: data.productId });
     } finally {
-      setCommitting(false);
+      setBusy(null);
     }
   }
 
-  /** Existing SKU: the list price or a shipping component differs from what's stored. */
-  const hasSavableChange = useMemo(() => {
-    if (isNew || !setup?.product) return false;
-    const p = setup.product;
-    const price = toNum(form.price);
-    if (price != null && price > 0 && !(p.price != null && Math.abs(price - p.price) < 0.005)) return true;
-    return shipComponents.some((c) => {
-      const v = toNum(form.shipping[c.key]);
-      const stored = p.shipping[c.key];
-      return v != null && v >= 0 && !(stored != null && Math.abs(stored - v) < 0.00005);
-    });
-  }, [isNew, setup, form, shipComponents]);
-
   async function commitPrice() {
     if (!payload || !setup?.product) return;
-    setCommittingPrice(true);
-    setCommitError(null);
+    setBusy("price");
+    setMessage(null);
     try {
-      const res = await fetch("/api/single-sku/commit-price", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerId, channelId, productId, inputs: payload.inputs, settings: payload.settings }),
+      const { res, data } = await post("/api/single-sku/commit-price", payload);
+      if (!res.ok) return setMessage({ ok: false, text: data.error || "Couldn't commit the price" });
+      // What's stored now matches what was committed: the channel's price, and shipping on every channel.
+      setSetups((all) =>
+        Object.fromEntries(
+          Object.entries(all).map(([id, s]) => [
+            id,
+            s.product
+              ? {
+                  ...s,
+                  product: {
+                    ...s.product,
+                    price: id === active && data.priceChanged ? data.price : s.product.price,
+                    shipping: { ...s.product.shipping, ...(data.shipping ?? {}) },
+                  },
+                }
+              : s,
+          ]),
+        ),
+      );
+      const what = data.priceChanged ? `$${Number(data.price).toFixed(2)}` : "shipping";
+      setMessage({
+        ok: true,
+        text: `Committed ${what} for ${setup.product.sku} on ${setup.channel.name}.${data.priceChanged ? " It's staged for Publish to Salsify" : ""}${
+          data.priceChanged ? (data.atPublish ? " and will be recorded when it's published." : ".") : ""
+        }`,
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setCommitError({ text: data.error || "Couldn't commit the price" });
-        return;
-      }
-      // What's stored now matches the committed values.
-      const product = setup.product;
-      setSetup({
-        ...setup,
-        product: {
-          ...product,
-          price: data.priceChanged ? data.price : product.price,
-          shipping: { ...product.shipping, ...(data.shipping ?? {}) },
-        },
-      });
-      setPriceCommitted({ sku: product.sku, price: data.priceChanged ? data.price : null, atPublish: data.atPublish });
     } finally {
-      setCommittingPrice(false);
+      setBusy(null);
     }
   }
 
   async function publish() {
     if (!payload || !setup) return;
-    const price = toNum(form.price);
-    const sku = isNew ? form.sku.trim() : setup.product!.sku;
+    const price = toNum(prices[active]);
+    const sku = isNew ? shared!.sku.trim() : setup.product!.sku;
     if (price == null || price <= 0) return;
-    const message = isNew
-      ? `Add ${sku} to the Product Database and publish it to Salsify at $${price.toFixed(2)} on ${setup.channel.name}?\n\nThis creates ${sku} in Salsify.`
+    const others = Object.keys(channelPrices()).filter((id) => id !== active).length;
+    const ask = isNew
+      ? `Add ${sku} to the Product Database${others ? ` (with its prices on ${others + 1} channels)` : ""} and publish it to Salsify at $${price.toFixed(2)} on ${setup.channel.name}?\n\nThis creates ${sku} in Salsify.`
       : `Publish ${sku} at $${price.toFixed(2)} on ${setup.channel.name} to Salsify?`;
-    if (!confirm(message)) return;
-    setPublishing(true);
-    setCommitError(null);
+    if (!confirm(ask)) return;
+    setBusy("publish");
+    setMessage(null);
     try {
-      const res = await fetch("/api/single-sku/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerId, channelId, productId, inputs: payload.inputs }),
-      });
-      const data = await res.json().catch(() => ({}));
+      const { res, data } = await post("/api/single-sku/publish", { ...payload, channelPrices: isNew ? channelPrices() : undefined });
       // A new SKU is added before publishing, so it can be committed even when the publish fails.
       if (data.committed && data.productId) setCommitted({ productId: data.productId, sku });
       if (!res.ok) {
-        setCommitError({
+        return setMessage({
+          ok: false,
           text: data.committed ? `Added ${sku} to the Product Database, but ${String(data.error).replace(/^Publish/, "the publish")}` : data.error || "Couldn't publish",
-          productId: data.committed ? undefined : data.productId,
+          productId: data.committed ? data.productId : undefined,
         });
-        return;
       }
-      setPublished({ sku, price });
+      setMessage({ ok: true, text: `Published ${sku} at $${price.toFixed(2)} on ${setup.channel.name} to Salsify.`, productId: isNew ? data.productId : undefined });
     } finally {
-      setPublishing(false);
+      setBusy(null);
     }
   }
 
-  if (loadError) {
+  /** Builds and downloads the report for the active channel, or for every channel. */
+  async function exportReport(scope: "active" | "all") {
+    setExportOpen(false);
+    if (!shared) return;
+    setBusy("export");
+    setMessage(null);
+    try {
+      const ids = scope === "active" ? [active] : channels.map((c) => c.id);
+      const reports: SingleSkuChannelReport[] = [];
+      for (const id of ids) {
+        const s = setups[id] ?? (await loadSetup(id));
+        if (!s) continue;
+        const chFields = fieldsFor(s.channel);
+        const chSettings = settingsBy[id] ?? settingsFrom(s.channel, chFields);
+        const price = id in prices ? prices[id] : str(s.product?.price);
+        const body = payloadFor(id, s, chSettings, price);
+        if (!body) continue;
+        const out = id === active && computed[id] && !computing ? computed[id] : await compute(body);
+        const chCfg = toChannelConfig(s.channel);
+        const channelValues = settingsFrom(s.channel, chFields);
+        reports.push({
+          cfg: chCfg,
+          result: out.result,
+          settings: { ...s.channel.defaults, ...body.settings } as unknown as ChannelDefaults,
+          allocations: chFields.map((f) => ({ field: f, value: chSettings[f.key], channelValue: channelValues[f.key] })),
+          shipping: shipComponentsFor(chCfg).map((c) => ({ label: c.label, value: toNum(shared.shipping[c.key]) })),
+          warnings: out.warnings,
+        });
+      }
+      const first = setups[active] ?? Object.values(setups)[0];
+      exportSingleSkuReport({
+        customerName,
+        product: {
+          sku: isNew ? shared.sku.trim() || "NEW SKU" : first?.product?.sku ?? "",
+          name: shared.name,
+          brand: shared.brand,
+          itemType: shared.amzItemType,
+          isNew: isNew && !committed,
+        },
+        cost: toNum(shared.cost),
+        includeCost: !first?.costHidden,
+        units: toNum(shared.units) ?? 1,
+        channels: reports,
+      });
+    } catch (err) {
+      setMessage({ ok: false, text: err instanceof Error ? err.message : "Couldn't build the report" });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const loadError = loadErrors[active];
+  if (loadError && !setup) {
     return (
       <div>
         <p className="text-sm text-red-600 mb-4">{loadError}</p>
@@ -344,20 +432,24 @@ export function SingleSkuCalculator({
       </div>
     );
   }
-  if (!setup || !cfg) return <p className="text-sm text-gray-500">Loading...</p>;
+  if (!shared) return <p className="text-sm text-gray-500">Loading...</p>;
 
-  const numericSettings = { ...setup.channel.defaults, ...settingsPayload(settings, fields) } as unknown as ChannelDefaults;
+  const result = computed[active]?.result ?? null;
+  const warnings = computed[active]?.warnings ?? [];
+  const numericSettings =
+    setup && settings ? ({ ...setup.channel.defaults, ...settingsPayload(settings, fields) } as unknown as ChannelDefaults) : null;
   const status = result ? (STATUS[result.status] ?? STATUS.invalid) : null;
-  const locked = !!committed;
+  const price = toNum(prices[active]);
+  const costHidden = !!setup?.costHidden;
+  const productLabel = isNew ? "New SKU" : setup?.product?.sku ?? Object.values(setups)[0]?.product?.sku;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <p className="text-sm text-gray-600">
-          {customerName} · <span className="font-medium text-gray-900">{setup.channel.name}</span> ·{" "}
-          {isNew ? "New SKU" : <span className="font-mono">{setup.product?.sku}</span>}
+          {customerName} · <span className={isNew ? "font-medium text-gray-900" : "font-mono font-medium text-gray-900"}>{productLabel}</span>
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-1.5" />
             Back
@@ -366,17 +458,38 @@ export function SingleSkuCalculator({
             <Trash2 className="h-4 w-4 mr-1.5" />
             {committed ? "Start over" : "Discard"}
           </Button>
-          {isNew && setup.canCommit && !committed && (
-            <Button size="sm" onClick={commit} disabled={committing || publishing || !form.sku.trim()}>
-              {committing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+          {canExport && (
+            <div className="relative">
+              <Button variant="outline" size="sm" onClick={() => setExportOpen((o) => !o)} disabled={busy === "export"}>
+                {busy === "export" ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}
+                Export Report
+                <ChevronDown className="h-3 w-3 ml-1" />
+              </Button>
+              {exportOpen && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-20 py-1 w-56">
+                  <button onClick={() => exportReport("active")} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+                    This channel ({setup?.channel.name ?? "…"})
+                  </button>
+                  {channels.length > 1 && (
+                    <button onClick={() => exportReport("all")} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+                      All {channels.length} channels
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {isNew && setup?.canCommit && !committed && (
+            <Button size="sm" onClick={commitNew} disabled={!!busy || !shared.sku.trim()}>
+              {busy === "commit" ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
               Commit to Product Database
             </Button>
           )}
-          {!isNew && (
+          {!isNew && setup && (
             <Button
               size="sm"
               onClick={commitPrice}
-              disabled={committingPrice || publishing || !hasSavableChange || !setup.product?.onCustomer}
+              disabled={!!busy || !hasSavableChange || !setup.product?.onCustomer}
               title={
                 !setup.product?.onCustomer
                   ? `${setup.product?.sku} isn't one of ${customerName}'s products`
@@ -385,221 +498,231 @@ export function SingleSkuCalculator({
                     : "Save the list price and shipping for this channel and stage them for Publish to Salsify"
               }
             >
-              {committingPrice ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+              {busy === "price" ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
               Commit Price
             </Button>
           )}
-          {setup.canPublish && (isNew ? setup.canCommit && !committed : true) && (
+          {setup?.canPublish && (isNew ? setup.canCommit && !committed : true) && (
             <Button
               size="sm"
               onClick={publish}
-              disabled={publishing || committing || !(toNum(form.price)! > 0) || (isNew && !form.sku.trim())}
-              title={!(toNum(form.price)! > 0) ? "Enter a list price to publish" : undefined}
+              disabled={!!busy || !(price! > 0) || (isNew && !shared.sku.trim())}
+              title={!(price! > 0) ? "Enter a list price to publish" : undefined}
             >
-              {publishing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
+              {busy === "publish" ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
               {isNew ? "Commit & Publish to Salsify" : "Publish to Salsify"}
             </Button>
           )}
         </div>
       </div>
 
-      {committed && (
-        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 flex items-center gap-2">
-          <Check className="h-4 w-4 shrink-0" />
-          Added {committed.sku} to the Product Database for {customerName}.
-          <Link href={`/products/${committed.productId}`} className="font-medium underline">
-            View product
-          </Link>
+      {message && (
+        <div
+          className={cn(
+            "mb-4 rounded-md border px-3 py-2 text-sm flex items-center gap-2",
+            message.ok ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-700",
+          )}
+        >
+          {message.ok ? <Check className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}
+          <span>{message.text}</span>
+          {message.productId && (
+            <Link href={`/products/${message.productId}`} className="font-medium underline">
+              View product
+            </Link>
+          )}
         </div>
       )}
-      {priceCommitted && (
-        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 flex items-center gap-2">
-          <Check className="h-4 w-4 shrink-0" />
-          Committed {priceCommitted.price != null ? `$${priceCommitted.price.toFixed(2)}` : "shipping"} for {priceCommitted.sku} on{" "}
-          {setup.channel.name}
-          {priceCommitted.price != null ? ". It's staged for Publish to Salsify" : ""}
-          {priceCommitted.atPublish ? " and will be recorded when it's published." : "."}
-        </div>
+      {isNew && setup && !setup.canCommit && (
+        <p className="mb-4 text-xs text-gray-500">You can price this SKU, but adding products needs the Products: Update permission.</p>
       )}
-      {!isNew && !setup.product?.onCustomer && (
+      {!isNew && setup && !setup.product?.onCustomer && (
         <p className="mb-4 text-xs text-gray-500">
           {setup.product?.sku} isn&apos;t one of {customerName}&apos;s products, so its price can be analyzed here but not committed.
         </p>
       )}
-      {published && (
-        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 flex items-center gap-2">
-          <Check className="h-4 w-4 shrink-0" />
-          Published {published.sku} at ${published.price.toFixed(2)} on {setup.channel.name} to Salsify.
-        </div>
-      )}
-      {commitError && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {commitError.text}
-          {commitError.productId && (
-            <>
-              {" "}
-              <Link href={`/products/${commitError.productId}`} className="font-medium underline">
-                View it
-              </Link>
-            </>
-          )}
-        </div>
-      )}
-      {isNew && !setup.canCommit && (
-        <p className="mb-4 text-xs text-gray-500">You can price this SKU, but adding products needs the Products: Update permission.</p>
-      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 items-start">
-        {/* Inputs */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Product</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isNew ? (
-                <>
-                  <Row label="SKU">
-                    <Input value={form.sku} onChange={(e) => setField("sku", e.target.value)} disabled={locked} placeholder="Required to commit" />
-                  </Row>
-                  <Row label="Name">
-                    <Input value={form.name} onChange={(e) => setField("name", e.target.value)} disabled={locked} />
-                  </Row>
-                  <Row label="Brand" hint="Drives brand royalty rules">
-                    <Input value={form.brand} onChange={(e) => setField("brand", e.target.value)} disabled={locked} />
-                  </Row>
-                  {setup.channel.hasPerSkuCommission && (
-                    <Row label="Amazon item type" hint="Drives item type referral fees">
-                      <Input value={form.amzItemType} onChange={(e) => setField("amzItemType", e.target.value)} disabled={locked} />
-                    </Row>
-                  )}
-                </>
-              ) : (
-                <dl className="grid grid-cols-2 gap-2 text-sm">
-                  <div><dt className="text-xs text-gray-500">SKU</dt><dd className="font-mono">{setup.product?.sku}</dd></div>
-                  <div><dt className="text-xs text-gray-500">Brand</dt><dd>{setup.product?.brand || "-"}</dd></div>
-                  <div className="col-span-2"><dt className="text-xs text-gray-500">Name</dt><dd>{setup.product?.name || "-"}</dd></div>
-                </dl>
+      {/* Channel switcher */}
+      <div className="flex gap-1 border-b border-gray-200 mb-4 overflow-x-auto" role="tablist" aria-label="Sales channels">
+        {channels.map((c) => {
+          const out = computed[c.id]?.result;
+          return (
+            <button
+              key={c.id}
+              role="tab"
+              aria-selected={c.id === active}
+              onClick={() => setActive(c.id)}
+              className={cn(
+                "px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors",
+                c.id === active ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700",
               )}
-            </CardContent>
-          </Card>
+            >
+              {c.name}
+              {out && out.price > 0 && !out.invalid && (
+                <span className={cn("ml-2 text-xs", out.status === "pass" ? "text-green-600" : out.status === "loss" ? "text-red-600" : "text-amber-600")}>
+                  {(out.gm * 100).toFixed(1)}%
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Cost & Price</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Row label="Unit cost">
-                {setup.costHidden ? (
-                  <p className="text-sm text-gray-500 py-2">Hidden (uses the stored cost)</p>
-                ) : (
-                  <Money value={form.cost} onChange={(v) => setField("cost", v)} disabled={locked} />
-                )}
-              </Row>
-              <Row label="List price">
-                <Money value={form.price} onChange={(v) => setField("price", v)} disabled={locked} />
-              </Row>
-              <Row label="Units per order">
-                <Input type="number" min="1" step="1" value={form.units} onChange={(e) => setField("units", e.target.value)} disabled={locked} />
-              </Row>
-            </CardContent>
-          </Card>
-
-          {shipComponents.length > 0 && (
+      {!setup || !settings || !cfg ? (
+        <p className="text-sm text-gray-500">{loadError ?? "Loading channel..."}</p>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 items-start">
+          {/* Inputs */}
+          <div className="space-y-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Shipping</CardTitle>
+                <CardTitle className="text-base">Product</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {shipComponents.map((c) => (
-                  <Row key={c.key} label={c.label} hint="per unit">
-                    <Money
-                      value={form.shipping[c.key]}
-                      onChange={(v) => setForm((f) => ({ ...f, shipping: { ...f.shipping, [c.key]: v } }))}
-                      disabled={locked}
-                    />
-                  </Row>
-                ))}
+                {isNew ? (
+                  <>
+                    <Row label="SKU">
+                      <Input value={shared.sku} onChange={(e) => setShared({ ...shared, sku: e.target.value })} disabled={locked} placeholder="Required to commit" />
+                    </Row>
+                    <Row label="Name">
+                      <Input value={shared.name} onChange={(e) => setShared({ ...shared, name: e.target.value })} disabled={locked} />
+                    </Row>
+                    <Row label="Brand" hint="Drives brand royalty rules">
+                      <Input value={shared.brand} onChange={(e) => setShared({ ...shared, brand: e.target.value })} disabled={locked} />
+                    </Row>
+                    {setup.channel.hasPerSkuCommission && (
+                      <Row label="Amazon item type" hint="Drives item type referral fees">
+                        <Input value={shared.amzItemType} onChange={(e) => setShared({ ...shared, amzItemType: e.target.value })} disabled={locked} />
+                      </Row>
+                    )}
+                  </>
+                ) : (
+                  <dl className="grid grid-cols-2 gap-2 text-sm">
+                    <div><dt className="text-xs text-gray-500">SKU</dt><dd className="font-mono">{setup.product?.sku}</dd></div>
+                    <div><dt className="text-xs text-gray-500">Brand</dt><dd>{setup.product?.brand || "-"}</dd></div>
+                    <div className="col-span-2"><dt className="text-xs text-gray-500">Name</dt><dd>{setup.product?.name || "-"}</dd></div>
+                  </dl>
+                )}
               </CardContent>
             </Card>
-          )}
 
-          {SECTIONS.filter((sec) => fields.some((f) => f.sec === sec.id)).map((sec) => (
-            <Card key={sec.id}>
+            <Card>
               <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base">{sec.title}</CardTitle>
-                  {sec.id === "goal" && (
-                    <button
-                      onClick={() => setSettings(settingsFrom(setup.channel, fields))}
-                      className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1 shrink-0"
-                      title="Reset every allocation to this channel's settings"
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                      Reset allocations to channel
-                    </button>
-                  )}
-                </div>
+                <CardTitle className="text-base">Cost & Price</CardTitle>
+                <p className="text-xs text-gray-500">Cost, units and shipping apply to every channel; the list price is for {setup.channel.name}.</p>
               </CardHeader>
               <CardContent className="space-y-3">
-                {fields
-                  .filter((f) => f.sec === sec.id)
-                  .map((f) => (
-                    <SettingRow
-                      key={f.key}
-                      field={f}
-                      value={settings[f.key]}
-                      changed={String(settings[f.key] ?? "") !== String(settingsFrom(setup.channel, [f])[f.key])}
-                      onChange={(v) => setSettings((s) => ({ ...s, [f.key]: v }))}
-                      disabled={locked}
-                    />
-                  ))}
+                <Row label="Unit cost">
+                  {costHidden ? (
+                    <p className="text-sm text-gray-500 py-2">Hidden (uses the stored cost)</p>
+                  ) : (
+                    <Money value={shared.cost} onChange={(v) => setShared({ ...shared, cost: v })} disabled={locked} />
+                  )}
+                </Row>
+                <Row label="List price" hint={setup.channel.name}>
+                  <Money value={prices[active] ?? ""} onChange={(v) => setPrices((p) => ({ ...p, [active]: v }))} disabled={locked} />
+                </Row>
+                <Row label="Units per order">
+                  <Input type="number" min="1" step="1" value={shared.units} onChange={(e) => setShared({ ...shared, units: e.target.value })} disabled={locked} />
+                </Row>
               </CardContent>
             </Card>
-          ))}
-          <p className="text-xs text-gray-500">Allocation changes here are only for this calculation; the channel isn&apos;t changed.</p>
-        </div>
 
-        {/* Results */}
-        <div className="space-y-4 lg:sticky lg:top-4">
-          {warnings.map((w) => (
-            <div key={w} className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              {w}
-            </div>
-          ))}
-          {computeError && <p className="text-sm text-red-600">{computeError}</p>}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Stat label="Net margin" value={result && result.price > 0 && !result.invalid ? `${(result.gm * 100).toFixed(1)}%` : "-"} tone={result?.status} />
-            <Stat label="Net $ per order" value={result && result.price > 0 && !result.invalid ? `$${result.net.toFixed(2)}` : "-"} tone={result?.status} />
-            <Stat
-              label={`Recommended (${((result?.goalUsed ?? 0) * 100).toFixed(0)}% goal)`}
-              value={result?.rec != null ? `$${result.rec.toFixed(2)}` : "-"}
-              action={
-                result?.rec != null && !locked && Math.abs(result.rec - (toNum(form.price) ?? 0)) >= 0.005 ? (
-                  <button onClick={() => setField("price", result.rec!.toFixed(2))} className="text-xs text-blue-600 hover:underline">
-                    Use this price
-                  </button>
-                ) : null
-              }
-            />
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-xs text-gray-500">Status</p>
-              <div className="mt-1 flex items-center gap-2">
-                {status && <Badge variant={status.variant}>{status.label}</Badge>}
-                {computing && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
+            {shipComponents.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Shipping</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {shipComponents.map((c) => (
+                    <Row key={c.key} label={c.label} hint="per unit">
+                      <Money
+                        value={shared.shipping[c.key]}
+                        onChange={(v) => setShared({ ...shared, shipping: { ...shared.shipping, [c.key]: v } })}
+                        disabled={locked}
+                      />
+                    </Row>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {SECTIONS.filter((sec) => fields.some((f) => f.sec === sec.id)).map((sec) => (
+              <Card key={sec.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-base">{sec.title}</CardTitle>
+                    {sec.id === "goal" && (
+                      <button
+                        onClick={() => setSettingsBy((s) => ({ ...s, [active]: settingsFrom(setup.channel, fields) }))}
+                        className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1 shrink-0"
+                        title="Reset every allocation to this channel's settings"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Reset allocations to channel
+                      </button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {fields
+                    .filter((f) => f.sec === sec.id)
+                    .map((f) => (
+                      <SettingRow
+                        key={f.key}
+                        field={f}
+                        value={settings[f.key]}
+                        changed={String(settings[f.key] ?? "") !== String(settingsFrom(setup.channel, [f])[f.key])}
+                        onChange={(v) => setSettingsBy((s) => ({ ...s, [active]: { ...s[active], [f.key]: v } }))}
+                        disabled={locked}
+                      />
+                    ))}
+                </CardContent>
+              </Card>
+            ))}
+            <p className="text-xs text-gray-500">Allocation changes here are only for this calculation; the channel isn&apos;t changed.</p>
+          </div>
+
+          {/* Results */}
+          <div className="space-y-4 lg:sticky lg:top-4">
+            {warnings.map((w) => (
+              <div key={w} className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {w}
+              </div>
+            ))}
+            {computeError && <p className="text-sm text-red-600">{computeError}</p>}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Stat label="Net margin" value={result && result.price > 0 && !result.invalid ? `${(result.gm * 100).toFixed(1)}%` : "-"} tone={result?.status} />
+              <Stat label="Net $ per order" value={result && result.price > 0 && !result.invalid ? `$${result.net.toFixed(2)}` : "-"} tone={result?.status} />
+              <Stat
+                label={`Recommended (${((result?.goalUsed ?? 0) * 100).toFixed(0)}% goal)`}
+                value={result?.rec != null ? `$${result.rec.toFixed(2)}` : "-"}
+                action={
+                  result?.rec != null && !locked && Math.abs(result.rec - (price ?? 0)) >= 0.005 ? (
+                    <button onClick={() => setPrices((p) => ({ ...p, [active]: result.rec!.toFixed(2) }))} className="text-xs text-blue-600 hover:underline">
+                      Use this price
+                    </button>
+                  ) : null
+                }
+              />
+              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                <p className="text-xs text-gray-500">Status</p>
+                <div className="mt-1 flex items-center gap-2">
+                  {status && <Badge variant={status.variant}>{status.label}</Badge>}
+                  {computing && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
+                </div>
               </div>
             </div>
+            {result && !result.invalid && numericSettings ? (
+              <SkuDetailPanel result={result} cfg={cfg} settings={numericSettings} canViewCost={!costHidden} />
+            ) : (
+              <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
+                {costHidden ? "This SKU has no cost on file, so it can't be analyzed." : "Enter a unit cost to see the margin breakdown."}
+              </div>
+            )}
           </div>
-          {result && !result.invalid ? (
-            <SkuDetailPanel result={result} cfg={cfg} settings={numericSettings} canViewCost={!setup.costHidden} />
-          ) : (
-            <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
-              {setup.costHidden ? "This SKU has no cost on file, so it can't be analyzed." : "Enter a unit cost to see the margin breakdown."}
-            </div>
-          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

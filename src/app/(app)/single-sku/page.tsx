@@ -17,7 +17,7 @@ export default async function SingleSkuPage() {
     select: {
       id: true,
       name: true,
-      channels: { select: { id: true, name: true, channelType: true }, orderBy: { sortOrder: "asc" } },
+      channels: { select: { id: true, name: true, channelType: true, isDefault: true }, orderBy: { sortOrder: "asc" } },
     },
     orderBy: { name: "asc" },
   });
@@ -27,10 +27,11 @@ export default async function SingleSkuPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Single SKU Analysis</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Price one SKU on one channel. Adjust cost, shipping and the channel&apos;s allocations to see the margin change.
+          Price one SKU across a customer&apos;s channels. Adjust cost, shipping and each channel&apos;s allocations to see the
+          margin change.
         </p>
       </div>
-      <SingleSkuWizard customers={customers} />
+      <SingleSkuWizard customers={customers} canExport={permissions.has("analysis:export")} />
     </div>
   );
 }
