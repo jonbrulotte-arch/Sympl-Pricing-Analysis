@@ -72,19 +72,22 @@ export async function upsertGlobalProducts(
     });
     const existingBySku = new Map(existing.map((p) => [p.sku, p]));
 
-    const newProducts: { id: string; sku: string; name?: string; brand?: string; asin?: string; fbaClass?: string; amzCategory?: string; amzItemType?: string; inventoryStatus?: string }[] = [];
+    const newProducts: { id: string; sku: string; name?: string; brand?: string; asin?: string; fbaClass?: string; amzCategory?: string; amzItemType?: string; inventoryStatus?: string; shippingWeight: number | null }[] = [];
     const productIdBySku = new Map<string, string>();
 
     for (const row of chunk) {
       const prev = existingBySku.get(row.sku);
       if (prev) {
         productIdBySku.set(row.sku, prev.id);
-        const data: Record<string, string> = {};
+        const data: Record<string, string | number> = {};
         for (const [rowKey, col] of TEXT_FIELDS) {
           const v = row[rowKey];
           if (typeof v === "string" && v !== (prev[col] ?? undefined)) data[col] = v;
         }
-        if (Object.keys(data).length > 0) {
+        const weight = positive(row.shippingWeight);
+        const weightChanged = weight != null && (prev.shippingWeight == null || !same(prev.shippingWeight, weight));
+        if (Object.keys(data).length > 0 || weightChanged) {
+          if (weightChanged) data.shippingWeight = weight;
           await prisma.product.update({ where: { id: prev.id }, data });
           result.updated++;
         } else {
@@ -103,6 +106,7 @@ export async function upsertGlobalProducts(
           amzCategory: row.amzCategory,
           amzItemType: row.amzItemType,
           inventoryStatus: row.invStatus,
+          shippingWeight: positive(row.shippingWeight),
         });
       }
     }

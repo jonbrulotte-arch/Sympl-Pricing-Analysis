@@ -73,7 +73,7 @@ export interface ProductRow {
   shipping?: number | null;
   /** Import-only: UPS shipping cost, used instead of `shipping` at or above the weight break point. */
   upsShipping?: number | null;
-  /** Import-only: shipping weight in lb, checked against the weight break point. */
+  /** Shipping weight in lb, checked against the UPS weight break point and saved on the product. */
   shippingWeight?: number | null;
   mcfShip?: number | null;
   mcfFreight?: number | null;

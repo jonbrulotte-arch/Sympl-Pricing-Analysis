@@ -1,10 +1,14 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { getPermissions } from "@/lib/permissions";
+import { getPermissions, productVisibilityWhere } from "@/lib/permissions";
 import { SingleSkuWizard } from "@/components/single-sku/single-sku-wizard";
 
-export default async function SingleSkuPage() {
+export default async function SingleSkuPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ productId?: string | string[] }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
@@ -22,6 +26,22 @@ export default async function SingleSkuPage() {
     orderBy: { name: "asc" },
   });
 
+  // Opened from a product page: start with that SKU picked.
+  const { productId } = await searchParams;
+  const startProduct =
+    typeof productId === "string" && productId
+      ? await prisma.product.findFirst({
+          where: { id: productId, ...(await productVisibilityWhere(session.user.id, session.user.role)) },
+          select: {
+            id: true,
+            sku: true,
+            name: true,
+            brand: true,
+            customers: { where: { customerId: { in: customers.map((c) => c.id) } }, select: { customerId: true } },
+          },
+        })
+      : null;
+
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
       <div className="mb-6">
@@ -31,7 +51,19 @@ export default async function SingleSkuPage() {
           margin change.
         </p>
       </div>
-      <SingleSkuWizard customers={customers} canExport={permissions.has("analysis:export")} />
+      <SingleSkuWizard
+        customers={customers}
+        canExport={permissions.has("analysis:export")}
+        startProduct={
+          startProduct && {
+            id: startProduct.id,
+            sku: startProduct.sku,
+            name: startProduct.name,
+            brand: startProduct.brand,
+            customerIds: startProduct.customers.map((c) => c.customerId),
+          }
+        }
+      />
     </div>
   );
 }

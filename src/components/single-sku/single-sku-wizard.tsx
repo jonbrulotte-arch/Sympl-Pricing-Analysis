@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Plus, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,10 +26,35 @@ interface ProductHit {
 
 const STEPS = ["Customer", "SKU", "Calculator"];
 
-export function SingleSkuWizard({ customers, canExport }: { customers: CustomerOption[]; canExport: boolean }) {
-  const [step, setStep] = useState(0);
-  const [customerId, setCustomerId] = useState("");
-  const [product, setProduct] = useState<ProductHit | null>(null);
+/** A SKU picked before the wizard opened (from a product page), with the customers that carry it. */
+export interface StartProduct {
+  id: string;
+  sku: string;
+  name: string | null;
+  brand: string | null;
+  customerIds: string[];
+}
+
+export function SingleSkuWizard({
+  customers,
+  canExport,
+  startProduct = null,
+}: {
+  customers: CustomerOption[];
+  canExport: boolean;
+  startProduct?: StartProduct | null;
+}) {
+  // When exactly one customer (with channels) carries the SKU, go straight to the calculator.
+  const carriers = startProduct
+    ? customers.filter((c) => startProduct.customerIds.includes(c.id) && c.channels.length > 0)
+    : [];
+  const direct = carriers.length === 1 ? carriers[0] : null;
+  const [pinned, setPinned] = useState<StartProduct | null>(startProduct);
+  const [step, setStep] = useState(direct ? 2 : 0);
+  const [customerId, setCustomerId] = useState(direct?.id ?? "");
+  const [product, setProduct] = useState<ProductHit | null>(
+    direct && startProduct ? { ...startProduct, onCustomer: true } : null,
+  );
   // Bumped to start a fresh calculator when the same selection is reopened.
   const [session, setSession] = useState(0);
 
@@ -60,6 +85,23 @@ export function SingleSkuWizard({ customers, canExport }: { customers: CustomerO
         ))}
       </ol>
 
+      {step === 0 && pinned && (
+        <div className="max-w-xl mb-4 flex items-center justify-between gap-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
+          <p className="text-sm text-gray-700 min-w-0">
+            Analyzing <span className="font-mono text-blue-700">{pinned.sku}</span>
+            {pinned.name && <span className="text-gray-500"> · {pinned.name}</span>}
+          </p>
+          <button
+            onClick={() => setPinned(null)}
+            className="shrink-0 text-gray-500 hover:text-gray-700"
+            aria-label="Choose a different SKU"
+            title="Choose a different SKU"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {step === 0 && (
         <Card className="max-w-xl">
           <CardHeader>
@@ -84,6 +126,7 @@ export function SingleSkuWizard({ customers, canExport }: { customers: CustomerO
                       {customers.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
+                          {pinned?.customerIds.includes(c.id) ? " (carries this SKU)" : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -93,7 +136,14 @@ export function SingleSkuWizard({ customers, canExport }: { customers: CustomerO
                   <p className="text-xs text-gray-500">This customer has no channels set up yet, so there&apos;s nothing to price against.</p>
                 )}
                 <div className="flex justify-end">
-                  <Button onClick={() => setStep(1)} disabled={!customer || customer.channels.length === 0}>
+                  <Button
+                    onClick={() =>
+                      pinned && customer
+                        ? startCalculator({ ...pinned, onCustomer: pinned.customerIds.includes(customer.id) })
+                        : setStep(1)
+                    }
+                    disabled={!customer || customer.channels.length === 0}
+                  >
                     Next
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
@@ -116,7 +166,10 @@ export function SingleSkuWizard({ customers, canExport }: { customers: CustomerO
           channels={customer.channels}
           canExport={canExport}
           productId={product?.id ?? null}
-          onBack={() => setStep(1)}
+          onBack={() => {
+            setPinned(null);
+            setStep(1);
+          }}
           onDiscard={() => {
             setProduct(null);
             setStep(1);

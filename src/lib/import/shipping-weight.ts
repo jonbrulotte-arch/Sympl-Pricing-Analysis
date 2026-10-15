@@ -25,7 +25,7 @@ export async function getUpsWeightBreakpoint(): Promise<number | null> {
 /**
  * Picks each row's per-unit shipping cost by weight: at or above the break point the UPS shipping cost is used,
  * below it the Shipping Cost column stays. Rows without a weight, or heavy rows without a UPS cost, keep their
- * Shipping Cost. Mutates the rows and strips the import-only fields.
+ * Shipping Cost. Mutates the rows; the UPS cost is dropped once used, and the weight stays to be saved on the product.
  */
 export function applyShippingWeightRule(rows: ProductRow[], breakpoint: number | null): ShippingWeightResult {
   let usedUps = 0;
@@ -33,7 +33,6 @@ export function applyShippingWeightRule(rows: ProductRow[], breakpoint: number |
   for (const row of rows) {
     const weight = toNum(row.shippingWeight);
     const ups = toNum(row.upsShipping);
-    delete row.shippingWeight;
     delete row.upsShipping;
     if (breakpoint == null || weight == null || weight < breakpoint) continue;
     if (ups != null && ups > 0) {

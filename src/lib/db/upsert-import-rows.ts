@@ -35,6 +35,7 @@ export async function upsertImportRows(
           ...(row.amzCategory !== undefined && { amzCategory: row.amzCategory }),
           ...(row.amzItemType !== undefined && { amzItemType: row.amzItemType }),
           ...(row.invStatus !== undefined && { inventoryStatus: row.invStatus }),
+          ...(positiveWeight(row.shippingWeight) != null && { shippingWeight: positiveWeight(row.shippingWeight) }),
         },
       });
       updated++;
@@ -51,6 +52,7 @@ export async function upsertImportRows(
           amzCategory: row.amzCategory,
           amzItemType: row.amzItemType,
           inventoryStatus: row.invStatus,
+          shippingWeight: positiveWeight(row.shippingWeight),
         },
       });
       created++;
@@ -117,4 +119,8 @@ export async function upsertImportRows(
   }
 
   return { created, updated };
+}
+
+function positiveWeight(v: unknown): number | null {
+  return typeof v === "number" && isFinite(v) && v > 0 ? v : null;
 }

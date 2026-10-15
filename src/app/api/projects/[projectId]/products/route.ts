@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity-log";
-import { canAccessCustomer } from "@/lib/permissions";
+import { canAccessCustomer, getPermissions } from "@/lib/permissions";
 
 async function verifyProjectAccess(projectId: string, userId: string, role: string) {
   const project = await prisma.project.findUnique({
@@ -20,6 +20,8 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await getPermissions(session.user.role)).has("module:projects"))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { projectId } = await params;
   const project = await verifyProjectAccess(projectId, session.user.id, session.user.role);
@@ -89,6 +91,8 @@ export async function DELETE(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await getPermissions(session.user.role)).has("module:projects"))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { projectId } = await params;
   const project = await verifyProjectAccess(projectId, session.user.id, session.user.role);

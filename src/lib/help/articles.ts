@@ -121,9 +121,27 @@ export const HELP_ARTICLES: HelpArticle[] = [
         id: "product-page",
         title: "A product's page",
         blocks: [
-          { p: "Click a SKU anywhere in the platform to open its page. It shows the product's brand, inventory status, ASIN and FBA class, plus its history." },
+          { p: "Click a SKU anywhere in the platform to open its page. It shows the product's brand, inventory status, ASIN, FBA class and shipping weight, plus its history. Click the ASIN to open the product's Amazon listing in a new tab." },
+          { p: "Shipping weight comes from imports. When it's at or above the UPS weight break point, the card notes that the SKU's shipping cost uses the UPS rate." },
           { p: "If your role can update products, the **Cost & Shipping** card lets you enter a new unit cost or shipping cost. Each save adds a history record; nothing is overwritten." },
           { note: "A red banner marks discontinued SKUs, which are being sold through remaining stock and won't be reordered. Be careful raising prices on them.", tone: "warning" },
+        ],
+      },
+      {
+        id: "product-single-sku",
+        title: "Opening a SKU in Single SKU Analysis",
+        requires: ["module:singleSku"],
+        blocks: [
+          { p: "Click **Single SKU Analysis** at the top of a product's page. If only one of your customers carries the SKU, the calculator opens straight away. Otherwise choose the customer; customers that carry it are marked, and the SKU is already picked." },
+        ],
+      },
+      {
+        id: "product-projects",
+        title: "Adding a SKU to a project",
+        requires: ["module:projects"],
+        blocks: [
+          { steps: ["Click **Add to Project** at the top of a product's page.", "Choose one of your active projects. Projects that already have the SKU are marked and can't be picked again.", "Click **Add to Project**, then follow the link to open the project."] },
+          { note: "If the project's customer doesn't carry the SKU yet, adding it to the project also adds it to that customer's products." },
         ],
       },
       {

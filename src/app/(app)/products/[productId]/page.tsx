@@ -11,8 +11,13 @@ import { PriceHistorySection } from "@/components/products/price-history-section
 import { loadPriceHistory } from "@/lib/db/price-history";
 import { loadCostAndShippingHistory, type CostRecordDetail } from "@/lib/db/cost-history";
 import { ExpandableHistoryTable } from "@/components/products/expandable-history-table";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Calculator, ExternalLink } from "lucide-react";
 import { LocalDateTime } from "@/components/ui/local-date-time";
+import { NavigatingButton } from "@/components/ui/navigating-link";
+import { AddToProject, type ProjectOption } from "@/components/products/add-to-project";
+import { getUpsWeightBreakpoint } from "@/lib/import/shipping-weight";
+
+const ASIN_PATTERN = /^[A-Z0-9]{10}$/i;
 
 /** Change from the previous record; increases are red because these are costs. */
 function ChangeAmount({ value, previous }: { value: number; previous: number | null }) {
@@ -125,6 +130,41 @@ export default async function ProductDetailPage({
     priceFields: canViewAllPriceHistory ? null : [...userPriceFields],
   });
 
+  const canSingleSku = permissions.has("module:singleSku");
+  const canProjects = permissions.has("module:projects");
+  const upsBreakpoint = product.shippingWeight != null ? await getUpsWeightBreakpoint() : null;
+  const usesUps = upsBreakpoint != null && product.shippingWeight != null && product.shippingWeight >= upsBreakpoint;
+
+  let projectOptions: ProjectOption[] = [];
+  if (canProjects) {
+    const [projects, onCustomers] = await Promise.all([
+      prisma.project.findMany({
+        where: { customerId: { in: customerIds }, status: "active" },
+        select: {
+          id: true,
+          name: true,
+          customerId: true,
+          customer: { select: { name: true } },
+          products: { where: { productId }, select: { productId: true } },
+        },
+        orderBy: [{ customer: { name: "asc" } }, { name: "asc" }],
+      }),
+      prisma.customerProduct.findMany({
+        where: { productId, customerId: { in: customerIds } },
+        select: { customerId: true },
+      }),
+    ]);
+    const carried = new Set(onCustomers.map((c) => c.customerId));
+    projectOptions = projects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      customerId: p.customerId,
+      customerName: p.customer.name,
+      contains: p.products.length > 0,
+      onCustomer: carried.has(p.customerId),
+    }));
+  }
+
   const shippingTypeLabels: Record<string, string> = {
     std: "Standard",
     mcf_ship: "MCF Ship",
@@ -152,15 +192,29 @@ export default async function ProductDetailPage({
             </Badge>
           )}
         </div>
-        {canDelete && (
-          <ProductDelete
-            productId={productId}
-            sku={product.sku}
-            costRecords={costHistory.length}
-            priceRecords={allPriceRecords.length}
-            shippingRecords={shippingHistory.length}
-          />
-        )}
+        <div className="flex items-center gap-2">
+          {canSingleSku && (
+            <NavigatingButton
+              href={`/single-sku?productId=${productId}`}
+              variant="outline"
+              size="sm"
+              loadingText="Opening..."
+            >
+              <Calculator className="h-3.5 w-3.5 mr-1.5" />
+              Single SKU Analysis
+            </NavigatingButton>
+          )}
+          {canProjects && <AddToProject productId={productId} sku={product.sku} projects={projectOptions} />}
+          {canDelete && (
+            <ProductDelete
+              productId={productId}
+              sku={product.sku}
+              costRecords={costHistory.length}
+              priceRecords={allPriceRecords.length}
+              shippingRecords={shippingHistory.length}
+            />
+          )}
+        </div>
       </div>
       <p className="text-sm text-gray-600 mb-6">{product.name || "Unnamed product"}</p>
 
@@ -180,7 +234,7 @@ export default async function ProductDetailPage({
       )}
 
       {/* Product info */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4 mb-6">
         <Card>
           <CardContent className="py-4">
             <p className="text-xs text-gray-600">Brand</p>
@@ -203,7 +257,20 @@ export default async function ProductDetailPage({
           <Card>
             <CardContent className="py-4">
               <p className="text-xs text-gray-600">ASIN</p>
-              <p className="text-sm font-mono">{product.asin}</p>
+              {ASIN_PATTERN.test(product.asin) ? (
+                <a
+                  href={`https://www.amazon.com/dp/${encodeURIComponent(product.asin)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open the Amazon listing in a new tab"
+                  className="inline-flex items-center gap-1 text-sm font-mono text-blue-600 hover:underline"
+                >
+                  {product.asin}
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                </a>
+              ) : (
+                <p className="text-sm font-mono">{product.asin}</p>
+              )}
             </CardContent>
           </Card>
         )}
@@ -212,6 +279,17 @@ export default async function ProductDetailPage({
             <CardContent className="py-4">
               <p className="text-xs text-gray-600">FBA Class</p>
               <p className="text-sm">{product.fbaClass}</p>
+            </CardContent>
+          </Card>
+        )}
+        {product.shippingWeight != null && (
+          <Card>
+            <CardContent className="py-4">
+              <p className="text-xs text-gray-600">Shipping Weight</p>
+              <p className="text-sm">{product.shippingWeight.toLocaleString(undefined, { maximumFractionDigits: 2 })} lb</p>
+              {usesUps && (
+                <p className="text-[11px] text-gray-500 mt-0.5">At or over {upsBreakpoint} lb: UPS rate</p>
+              )}
             </CardContent>
           </Card>
         )}
