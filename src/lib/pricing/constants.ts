@@ -95,6 +95,8 @@ export const IMPORT_FIELDS = [
   { key: "brand", label: "Brand", req: false, cand: ["brand", "brandname", "manufacturer", "mfg", "mfr", "vendor", "supplier"] },
   { key: "invStatus", label: "Inventory status (ERP)", req: false, cand: ["inventorystatuserp", "inventorystatus", "erpstatus", "erpinventorystatus", "itemstatus", "lifecycle", "skustatus"] },
   { key: "available", label: "Available inventory", req: false, cand: ["availableinventory", "availableunits", "available", "onhandpickableunits", "pickableunits", "onhandunits", "onhand", "qtyavailable", "quantityavailable", "availableqty"] },
+  { key: "upsShipping", label: "UPS shipping cost", req: false, cand: ["upsshippingcost", "upsshipping", "upscost", "upsfreight"] },
+  { key: "shippingWeight", label: "Shipping weight (lb)", req: false, cand: ["shippingweight", "shipweight", "weightlb", "weightlbs", "weight"] },
 ];
 
 export const SUPPLEMENTAL_IMPORT_FIELDS = IMPORT_FIELDS.filter((f) =>

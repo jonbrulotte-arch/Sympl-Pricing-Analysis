@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import type { ProductRow } from "@/lib/pricing/types";
 import { upsertImportRows } from "@/lib/db/upsert-import-rows";
+import { applyShippingWeightRule, getUpsWeightBreakpoint, weightRuleNote, weightRuleSummary } from "@/lib/import/shipping-weight";
 import { logActivity } from "@/lib/activity-log";
 import { canAccessCustomer, getPermissions } from "@/lib/permissions";
 
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   };
 
   if (!rows?.length) return NextResponse.json({ error: "No rows to import" }, { status: 400 });
+  const weightRule = applyShippingWeightRule(rows, await getUpsWeightBreakpoint());
 
   const importId = randomUUID();
   await prisma.import.create({
@@ -72,8 +74,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   logActivity({
     action: "import.spreadsheet",
     category: "import",
-    summary: `Imported spreadsheet: ${created} created, ${updated} updated (${rows.length} rows)`,
-    detail: { fileName: fileName ?? null, rowCount: rows.length, created, updated, importId },
+    summary: `Imported spreadsheet: ${created} created, ${updated} updated (${rows.length} rows)${weightRuleNote(weightRule)}`,
+    detail: { fileName: fileName ?? null, rowCount: rows.length, created, updated, importId, ...weightRuleSummary(weightRule) },
     customerId,
     userId: session.user.id,
   });

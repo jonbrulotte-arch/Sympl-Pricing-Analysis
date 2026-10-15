@@ -406,6 +406,8 @@ model AppSettings {
   logoMimeType        String?
   logoUpdatedAt       DateTime?
   hideLoginBranding   Boolean  @default(false)
+  // Imports use "UPS Shipping Cost" as the shipping cost for SKUs at or above this weight (lb); null = off
+  upsWeightBreakpoint Float?   @default(14)
   updatedAt           DateTime @updatedAt
 }
 

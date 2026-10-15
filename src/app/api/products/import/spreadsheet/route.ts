@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import type { ProductRow } from "@/lib/pricing/types";
 import { upsertGlobalProducts } from "@/lib/db/upsert-global-products";
+import { applyShippingWeightRule, getUpsWeightBreakpoint, weightRuleNote, weightRuleSummary } from "@/lib/import/shipping-weight";
 import { logActivity } from "@/lib/activity-log";
 import { getPermissions } from "@/lib/permissions";
 
@@ -30,6 +31,7 @@ export async function POST(req: NextRequest) {
         .map((r) => ({ ...r, sku: r.sku.trim() }))
     : [];
   if (rows.length === 0) return NextResponse.json({ error: "No rows to import" }, { status: 400 });
+  const weightRule = applyShippingWeightRule(rows, await getUpsWeightBreakpoint());
 
   const importId = randomUUID();
   await prisma.import.create({
@@ -52,18 +54,18 @@ export async function POST(req: NextRequest) {
 
     await prisma.import.update({
       where: { id: importId },
-      data: { status: "complete", errors: { created, updated, unchanged, duplicates } },
+      data: { status: "complete", errors: { created, updated, unchanged, duplicates, ...weightRuleSummary(weightRule) } },
     });
 
     logActivity({
       action: "import.spreadsheet",
       category: "import",
-      summary: `Imported spreadsheet to product catalog: ${created} created, ${updated} updated, ${unchanged} unchanged (${rows.length} rows)`,
-      detail: { importId, fileName: fileName ?? null, rowCount: rows.length, created, updated, unchanged, duplicates },
+      summary: `Imported spreadsheet to product catalog: ${created} created, ${updated} updated, ${unchanged} unchanged (${rows.length} rows)${weightRuleNote(weightRule)}`,
+      detail: { importId, fileName: fileName ?? null, rowCount: rows.length, created, updated, unchanged, duplicates, ...weightRuleSummary(weightRule) },
       userId: session.user.id,
     });
 
-    return NextResponse.json({ created, updated, unchanged, duplicates, importId });
+    return NextResponse.json({ created, updated, unchanged, duplicates, importId, ...weightRuleSummary(weightRule) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     await prisma.import.update({

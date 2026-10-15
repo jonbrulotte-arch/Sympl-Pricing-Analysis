@@ -191,6 +191,23 @@ export const HELP_ARTICLES: HelpArticle[] = [
         ],
       },
       {
+        id: "shipping-weight",
+        title: "Heavy SKUs and UPS shipping",
+        blocks: [
+          { p: "When a Salsify Sync or spreadsheet import includes **Shipping Weight** and **UPS Shipping Cost**, each SKU's per-unit shipping cost is picked by weight:" },
+          {
+            table: {
+              head: ["Shipping Weight", "Shipping cost used"],
+              rows: [
+                ["At or above the UPS weight break point (14 lb unless an admin changed it)", "UPS Shipping Cost"],
+                ["Below the break point, or no weight given", "Shipping Cost"],
+              ],
+            },
+          },
+          { note: "A heavy SKU with no UPS Shipping Cost keeps its Shipping Cost, and the import summary counts it so you can fill in the missing value." },
+        ],
+      },
+      {
         id: "supplemental",
         title: "Supplemental data",
         blocks: [
@@ -654,7 +671,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
           {
             list: [
               "**Platform Name & Logo**: replace the platform's name and logo everywhere. **Hide logo and name on the sign-in pages** removes every sign of the platform from the sign-in pages for anyone not signed in, including the browser tab title.",
-              "**Salsify Integration**: enable syncing, and set the Organization ID and Channel Export ID. Each user adds their own API key in My Profile.",
+              "**Salsify Integration**: enable syncing, and set the Organization ID and Channel Export ID. Each user adds their own API key in My Profile. The **UPS Weight Break Point** (14 lb by default) sets the weight at which imports use UPS Shipping Cost instead of Shipping Cost; leave it blank to turn that off.",
               "**Email Configuration**: the account used for invitations and password resets. Send a test email to check it.",
               "**Purge Products Database** (Danger Zone): permanently removes all products and their history.",
             ],

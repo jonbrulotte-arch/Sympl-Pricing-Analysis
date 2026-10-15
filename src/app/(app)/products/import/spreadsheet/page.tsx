@@ -26,7 +26,14 @@ export default function SpreadsheetImportPage() {
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [result, setResult] = useState<{ created: number; updated: number; unchanged: number } | null>(null);
+  const [result, setResult] = useState<{
+    created: number;
+    updated: number;
+    unchanged: number;
+    upsWeightBreakpoint?: number | null;
+    usedUpsShipping?: number;
+    missingUpsShipping?: number;
+  } | null>(null);
 
   const processFile = useCallback((file: File) => {
     setFileName(file.name);
@@ -361,7 +368,18 @@ export default function SpreadsheetImportPage() {
             <h2 className="text-xl font-bold text-gray-900 mb-2">Import Complete</h2>
             <p className="text-gray-600 mb-1">{result.created} new products added to the catalog</p>
             <p className="text-gray-600 mb-1">{result.updated} existing products updated</p>
-            <p className="text-gray-600 mb-6">{result.unchanged} products unchanged</p>
+            <p className="text-gray-600 mb-1">{result.unchanged} products unchanged</p>
+            {!!result.usedUpsShipping && (
+              <p className="text-gray-600 mb-1">
+                {result.usedUpsShipping} SKUs at {result.upsWeightBreakpoint} lb or more use the UPS shipping cost
+              </p>
+            )}
+            {!!result.missingUpsShipping && (
+              <p className="text-amber-700 mb-1">
+                {result.missingUpsShipping} SKUs at {result.upsWeightBreakpoint} lb or more have no UPS shipping cost, so they kept Shipping Cost
+              </p>
+            )}
+            <div className="mb-5" />
             <div className="flex gap-3 justify-center">
               <Button onClick={() => router.push("/products")}>
                 View Products

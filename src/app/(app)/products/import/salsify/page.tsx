@@ -17,6 +17,9 @@ interface SyncResult {
   duplicates: number;
   totalRows: number;
   createdProducts: { sku: string; name: string | null }[];
+  upsWeightBreakpoint: number | null;
+  usedUpsShipping: number;
+  missingUpsShipping: number;
 }
 
 function downloadSupplementalSheet(products: { sku: string; name: string | null }[]) {
@@ -78,6 +81,9 @@ export default function SalsifySyncPage() {
             duplicates: e.duplicates ?? 0,
             totalRows: e.totalRows ?? 0,
             createdProducts: Array.isArray(e.createdProducts) ? e.createdProducts : [],
+            upsWeightBreakpoint: e.upsWeightBreakpoint ?? null,
+            usedUpsShipping: e.usedUpsShipping ?? 0,
+            missingUpsShipping: e.missingUpsShipping ?? 0,
           });
           break;
         }
@@ -126,6 +132,16 @@ export default function SalsifySyncPage() {
             )}
             {result.duplicates > 0 && (
               <p className="text-amber-700 mb-1">{result.duplicates} duplicate SKU rows merged</p>
+            )}
+            {result.usedUpsShipping > 0 && (
+              <p className="text-gray-600 mb-1">
+                {result.usedUpsShipping} SKUs at {result.upsWeightBreakpoint} lb or more use the UPS shipping cost
+              </p>
+            )}
+            {result.missingUpsShipping > 0 && (
+              <p className="text-amber-700 mb-1">
+                {result.missingUpsShipping} SKUs at {result.upsWeightBreakpoint} lb or more have no UPS shipping cost, so they kept Shipping Cost
+              </p>
             )}
             {result.createdProducts.length > 0 && (
               <div className="mt-6 mx-auto max-w-md rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-left">

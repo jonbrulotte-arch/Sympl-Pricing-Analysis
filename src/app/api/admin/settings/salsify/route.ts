@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPermissions } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity-log";
+import { DEFAULT_UPS_WEIGHT_BREAKPOINT } from "@/lib/import/shipping-weight";
 
 const SINGLETON_ID = "singleton";
 
@@ -19,6 +20,7 @@ export async function GET() {
     salsifyChannelId: settings?.salsifyChannelId ?? "",
     salsifySyncEnabled: settings?.salsifySyncEnabled ?? false,
     salsifyDebugEnabled: settings?.salsifyDebugEnabled ?? false,
+    upsWeightBreakpoint: settings ? settings.upsWeightBreakpoint : DEFAULT_UPS_WEIGHT_BREAKPOINT,
   });
 }
 
@@ -30,6 +32,18 @@ export async function PATCH(req: NextRequest) {
 
   const body = await req.json();
 
+  let breakpoint: number | null | undefined;
+  if (body.upsWeightBreakpoint !== undefined) {
+    if (body.upsWeightBreakpoint === null || body.upsWeightBreakpoint === "") {
+      breakpoint = null;
+    } else {
+      const n = Number(body.upsWeightBreakpoint);
+      if (!isFinite(n) || n <= 0)
+        return NextResponse.json({ error: "The UPS weight break point must be a weight above 0 lb, or blank to turn it off" }, { status: 400 });
+      breakpoint = n;
+    }
+  }
+
   const settings = await prisma.appSettings.upsert({
     where: { id: SINGLETON_ID },
     update: {
@@ -37,6 +51,7 @@ export async function PATCH(req: NextRequest) {
       ...(body.salsifyChannelId !== undefined && { salsifyChannelId: body.salsifyChannelId || null }),
       ...(body.salsifySyncEnabled !== undefined && { salsifySyncEnabled: !!body.salsifySyncEnabled }),
       ...(body.salsifyDebugEnabled !== undefined && { salsifyDebugEnabled: !!body.salsifyDebugEnabled }),
+      ...(breakpoint !== undefined && { upsWeightBreakpoint: breakpoint }),
     },
     create: {
       id: SINGLETON_ID,
@@ -44,6 +59,7 @@ export async function PATCH(req: NextRequest) {
       salsifyChannelId: body.salsifyChannelId || null,
       salsifySyncEnabled: !!body.salsifySyncEnabled,
       salsifyDebugEnabled: !!body.salsifyDebugEnabled,
+      ...(breakpoint !== undefined && { upsWeightBreakpoint: breakpoint }),
     },
   });
 
@@ -56,6 +72,7 @@ export async function PATCH(req: NextRequest) {
       salsifyChannelId: settings.salsifyChannelId ?? "",
       salsifySyncEnabled: settings.salsifySyncEnabled,
       salsifyDebugEnabled: settings.salsifyDebugEnabled,
+      upsWeightBreakpoint: settings.upsWeightBreakpoint,
     },
     userId: session.user.id,
   });
@@ -65,5 +82,6 @@ export async function PATCH(req: NextRequest) {
     salsifyChannelId: settings.salsifyChannelId ?? "",
     salsifySyncEnabled: settings.salsifySyncEnabled,
     salsifyDebugEnabled: settings.salsifyDebugEnabled,
+    upsWeightBreakpoint: settings.upsWeightBreakpoint,
   });
 }

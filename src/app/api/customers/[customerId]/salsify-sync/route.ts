@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { resolveSalsifyCredentials } from "@/lib/salsify-auth";
 import { fetchAllSalsifyProducts, firstDelimited, type SalsifyProduct } from "@/lib/salsify/client";
 import { upsertImportRows } from "@/lib/db/upsert-import-rows";
+import { applyShippingWeightRule, getUpsWeightBreakpoint, weightRuleNote, weightRuleSummary } from "@/lib/import/shipping-weight";
 import type { ProductRow } from "@/lib/pricing/types";
 import { logActivity } from "@/lib/activity-log";
 
@@ -63,19 +64,20 @@ async function runSalsifySyncInBackground(
       return;
     }
 
+    const weightRule = applyShippingWeightRule(rows, await getUpsWeightBreakpoint());
     await prisma.import.update({ where: { id: importId }, data: { rowCount: rows.length } });
 
     const { created, updated } = await upsertImportRows(customerId, importId, rows, channels);
     await prisma.import.update({
       where: { id: importId },
-      data: { status: "complete", rowCount: rows.length, errors: { created, updated } },
+      data: { status: "complete", rowCount: rows.length, errors: { created, updated, ...weightRuleSummary(weightRule) } },
     });
 
     logActivity({
       action: "import.salsify",
       category: "import",
-      summary: `Salsify sync completed: ${created} created, ${updated} updated (${rows.length} rows)`,
-      detail: { importId, customerId, rowCount: rows.length, created, updated },
+      summary: `Salsify sync completed: ${created} created, ${updated} updated (${rows.length} rows)${weightRuleNote(weightRule)}`,
+      detail: { importId, customerId, rowCount: rows.length, created, updated, ...weightRuleSummary(weightRule) },
       customerId,
     });
   } catch (err) {

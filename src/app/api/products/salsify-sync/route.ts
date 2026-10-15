@@ -6,6 +6,7 @@ import { triggerChannelExport, pollExportStatus, downloadExportFile } from "@/li
 import { parseWorkbook } from "@/lib/import/parse";
 import { autoMapColumns } from "@/lib/import/auto-map";
 import { buildRows } from "@/lib/import/build-rows";
+import { applyShippingWeightRule, getUpsWeightBreakpoint, weightRuleNote, weightRuleSummary } from "@/lib/import/shipping-weight";
 import { upsertGlobalProducts } from "@/lib/db/upsert-global-products";
 import { randomUUID } from "crypto";
 import { logActivity } from "@/lib/activity-log";
@@ -97,6 +98,7 @@ async function runSalsifySync(
 
     const rows = buildRows(sheet.data, columnMap);
     if (rows.length === 0) throw new Error("No valid product rows found in export");
+    const weightRule = applyShippingWeightRule(rows, await getUpsWeightBreakpoint());
 
     const totalRows = sheet.data.length;
     const skipped = totalRows - rows.length;
@@ -113,15 +115,15 @@ async function runSalsifySync(
         rowCount: productCount,
         columnMap: columnMap as Record<string, number>,
         sheetName: sheet.name,
-        errors: { created, updated, unchanged, skipped, duplicates, totalRows, createdProducts },
+        errors: { created, updated, unchanged, skipped, duplicates, totalRows, createdProducts, ...weightRuleSummary(weightRule) },
       },
     });
 
     logActivity({
       action: "import.salsify",
       category: "import",
-      summary: `Salsify sync completed: ${created} created, ${updated} updated, ${unchanged} unchanged (${totalRows} rows)`,
-      detail: { importId, totalRows, created, updated, unchanged, skipped, duplicates },
+      summary: `Salsify sync completed: ${created} created, ${updated} updated, ${unchanged} unchanged (${totalRows} rows)${weightRuleNote(weightRule)}`,
+      detail: { importId, totalRows, created, updated, unchanged, skipped, duplicates, ...weightRuleSummary(weightRule) },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
