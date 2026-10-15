@@ -456,8 +456,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
         title: "Exporting a report",
         requires: ["analysis:export"],
         blocks: [
-          { p: "**Export Report** downloads a spreadsheet of the calculation. Choose **This channel**, or **All channels** for one sheet per channel plus a summary comparing them." },
-          { p: "Each channel sheet lists the inputs, every allocation (showing the value used, the channel's own setting, and whether you edited it), the results at the list price and at the recommended price, and the fee ledger at both prices." },
+          { p: "**Export Report** opens a print-ready preview laid out like the analysis screen. Choose **This channel**, or **All channels** to start with a summary page comparing every channel's margin against its goal." },
+          { p: "Each channel gets an overview page (KPI cards, where the list price goes, and the fee ledger) and a details page (list price vs. recommended price, the inputs, and every allocation, with values you edited shown in blue next to the channel's own setting)." },
+          { steps: ["Click **Save as PDF / Print** in the preview.", "In the print dialog, choose **Save as PDF** as the destination (pages are landscape, letter size).", "Use **Download spreadsheet** instead if you want the raw numbers in Excel.", "Click **Close** or press Esc to return to the calculator."] },
           { note: "If your role can't see unit cost, the report leaves out cost and the fee breakdown." },
         ],
       },

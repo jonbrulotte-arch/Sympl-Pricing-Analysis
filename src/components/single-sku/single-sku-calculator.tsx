@@ -12,7 +12,8 @@ import { SkuDetailPanel } from "@/components/analysis/sku-detail-panel";
 import { FIELDS_UI, SECTIONS, type FieldUiDef } from "@/lib/pricing/constants";
 import { toChannelConfig, type ChannelWithDb } from "@/lib/pricing/compute-results";
 import { SHIP_COMPONENTS, shipComponentsFor, type ShipComponentKey } from "@/lib/pricing/shipping";
-import { exportSingleSkuReport, type SingleSkuChannelReport } from "@/lib/export/single-sku-report";
+import type { SingleSkuChannelReport, SingleSkuReportInput } from "@/lib/export/single-sku-report";
+import { SingleSkuReport } from "./single-sku-report";
 import { cn } from "@/lib/utils";
 import type { AnalysisResult, ChannelDefaults, ChannelFlags } from "@/lib/pricing/types";
 
@@ -146,6 +147,7 @@ export function SingleSkuCalculator({
   const [message, setMessage] = useState<{ ok: boolean; text: string; productId?: string } | null>(null);
   const [committed, setCommitted] = useState<{ productId: string; sku: string } | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [report, setReport] = useState<SingleSkuReportInput | null>(null);
   const loading = useRef(new Set<string>());
 
   /** Loads a channel's setup once, and seeds its price and allocations (and, first time, the product inputs). */
@@ -369,7 +371,7 @@ export function SingleSkuCalculator({
     }
   }
 
-  /** Builds and downloads the report for the active channel, or for every channel. */
+  /** Builds the report for the active channel, or for every channel, and opens its preview. */
   async function exportReport(scope: "active" | "all") {
     setExportOpen(false);
     if (!shared) return;
@@ -399,7 +401,7 @@ export function SingleSkuCalculator({
         });
       }
       const first = setups[active] ?? Object.values(setups)[0];
-      exportSingleSkuReport({
+      setReport({
         customerName,
         product: {
           sku: isNew ? shared.sku.trim() || "NEW SKU" : first?.product?.sku ?? "",
@@ -421,6 +423,7 @@ export function SingleSkuCalculator({
   }
 
   const loadError = loadErrors[active];
+  const closeReport = useCallback(() => setReport(null), []);
   if (loadError && !setup) {
     return (
       <div>
@@ -445,6 +448,7 @@ export function SingleSkuCalculator({
 
   return (
     <div>
+      {report && <SingleSkuReport input={report} onClose={closeReport} />}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <p className="text-sm text-gray-600">
           {customerName} · <span className={isNew ? "font-medium text-gray-900" : "font-mono font-medium text-gray-900"}>{productLabel}</span>
