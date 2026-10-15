@@ -124,5 +124,7 @@ export function computeChannelResults(
       const shipEdit = edits.shipEdits[p.sku];
       result.shipEdited = !!shipEdit && shipComponentsFor(cfg).some((c) => shipEdit[c.key] != null);
       return result;
-    });
+    })
+    // "Hide discontinued SKUs from this analysis" (Inventory and lifecycle).
+    .filter((r) => !(settings.hideDisc && r.disc));
 }
