@@ -3,6 +3,12 @@ import type { Permission } from "@/types";
 import { DEFAULT_ADMIN_PERMISSIONS, DEFAULT_ANALYST_PERMISSIONS } from "@/types";
 
 const roleCache = new Map<string, { permissions: Permission[]; ts: number }>();
+
+/**
+ * Permissions added after roles were first set up. Admins (admin:settings) always have them, so admin
+ * roles saved before they existed keep full access without being edited.
+ */
+const ADMIN_IMPLIED: Permission[] = ["salsify:mapping", "salsify:publish", "module:singleSku"];
 const CACHE_TTL = 60_000;
 
 export async function getPermissions(role: string): Promise<Set<Permission>> {
@@ -21,6 +27,9 @@ export async function getPermissions(role: string): Promise<Set<Permission>> {
     permissions = DEFAULT_ANALYST_PERMISSIONS;
   } else {
     permissions = [];
+  }
+  if (permissions.includes("admin:settings")) {
+    permissions = [...new Set([...permissions, ...ADMIN_IMPLIED])];
   }
 
   roleCache.set(role, { permissions, ts: Date.now() });
@@ -46,6 +55,24 @@ export async function productVisibilityWhere(userId: string, role: string) {
   if (permissions.has("admin:settings")) return {};
   const customerIds = await getAccessibleCustomerIds(userId, role);
   return { customers: { some: { customerId: { in: customerIds } } } };
+}
+
+/**
+ * Salsify permissions. Admins always have them, including admin roles saved before these permissions existed.
+ */
+export async function hasSalsifyPermission(role: string, permission: "salsify:mapping" | "salsify:publish"): Promise<boolean> {
+  const permissions = await getPermissions(role);
+  return permissions.has(permission) || permissions.has("admin:settings");
+}
+
+/** Salsify Field Mapping access. */
+export function canManageSalsifyMapping(role: string): Promise<boolean> {
+  return hasSalsifyPermission(role, "salsify:mapping");
+}
+
+/** Publishing staged changes to Salsify, previewing them, and undoing staged commits. */
+export function canPublishToSalsify(role: string): Promise<boolean> {
+  return hasSalsifyPermission(role, "salsify:publish");
 }
 
 export async function canAccessCustomer(customerId: string, userId: string, role: string): Promise<boolean> {

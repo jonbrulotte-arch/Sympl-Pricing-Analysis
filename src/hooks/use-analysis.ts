@@ -1,75 +1,37 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type {
-  ChannelConfig,
-  ChannelDefaults,
   ProductRow,
   AnalysisResult,
   BrandRoyaltyTable,
   Overrides,
-  ChannelFlags,
   RoyaltyRuleEntry,
   ItemTypeCommissionTable,
 } from "@/lib/pricing/types";
-import { analyzeProduct } from "@/lib/pricing/engine";
 import { brandKey } from "@/lib/pricing/helpers";
-import { shipComponentsFor, type ShipComponentKey, type ShippingChanges } from "@/lib/pricing/shipping";
+import type { ShipComponentKey, ShippingChanges } from "@/lib/pricing/shipping";
+import { computeChannelResults, toChannelConfig, type ChannelWithDb, type ChannelEdits } from "@/lib/pricing/compute-results";
 
 export type StatusFilter = "all" | "pass" | "below" | "loss" | "unpriced";
 
-interface ChannelWithDb {
-  id: string;
-  name: string;
-  tabLabel: string;
-  shippingMode: string;
-  priceField: string;
-  fallbackPriceField?: string | null;
-  channelType?: string;
-  hasCoupon: boolean;
-  hasTax: boolean;
-  hasCommission: boolean;
-  hasTopSellerDisc: boolean;
-  hasPromotedListing: boolean;
-  hasFvfFixed: boolean;
-  hasCardProcessing: boolean;
-  hasPpc: boolean;
-  hasAdvertising: boolean;
-  hasPerSkuCommission: boolean;
-  hasFallback: boolean;
-  hasAsin: boolean;
-  defaults: Record<string, unknown>;
-  blockedBrands: string[];
-  /** Product ids sold on this channel (from its Salsify list); null = no restriction. */
-  channelProductIds?: string[] | null;
+/**
+ * Set for users without data:viewCost: products arrive without cost, and results are computed by
+ * POST /api/customers/[customerId]/analysis instead of in the browser.
+ */
+export interface ServerComputeScope {
+  projectId?: string;
+  singleChannel?: boolean;
 }
 
-function toChannelConfig(ch: ChannelWithDb): ChannelConfig {
-  return {
-    id: ch.id,
-    name: ch.name,
-    tabLabel: ch.tabLabel,
-    shippingMode: ch.shippingMode as "std" | "mcf" | "fba",
-    priceField: ch.priceField,
-    fallbackPriceField: ch.fallbackPriceField ?? undefined,
-    channelType: ch.channelType === "commercial" ? "commercial" : "online",
-    flags: {
-      coupon: ch.hasCoupon,
-      tax: ch.hasTax,
-      comm: ch.hasCommission,
-      tsd: ch.hasTopSellerDisc,
-      promo: ch.hasPromotedListing,
-      fvf: ch.hasFvfFixed,
-      cc: ch.hasCardProcessing,
-      ppc: ch.hasPpc,
-      ad: ch.hasAdvertising,
-      commSku: ch.hasPerSkuCommission,
-      fb: ch.hasFallback,
-      asin: ch.hasAsin,
-    },
-    defaults: ch.defaults as unknown as ChannelDefaults,
-  };
+type SentEdits = Required<Omit<ChannelEdits, "overrides">> & { overrides: Overrides[string] };
+
+/** SKUs whose entry differs between two per-SKU maps. */
+function changedKeys(a: Record<string, unknown>, b: Record<string, unknown>, into: Set<string>) {
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) into.add(k);
+  }
 }
 
 export function useAnalysis(
@@ -80,6 +42,7 @@ export function useAnalysis(
   royaltyRules: RoyaltyRuleEntry[] = [],
   itemTypeCommissions?: ItemTypeCommissionTable,
   initialTab?: string,
+  serverCompute?: ServerComputeScope | null,
 ) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>(initialTab ?? channels[0]?.id ?? "");
@@ -104,47 +67,128 @@ export function useAnalysis(
 
   const configs = useMemo(() => channels.map(toChannelConfig), [channels]);
 
-  const blockedBrands = useMemo(() => {
-    const m: Record<string, Set<string>> = {};
+  const ctx = useMemo(
+    () => ({ brandRoyalties, royaltyRules, itemTypeCommissions }),
+    [brandRoyalties, royaltyRules, itemTypeCommissions],
+  );
+
+  const filters = useMemo(() => {
+    const m: Record<string, { blocked: Set<string>; allowed: Set<string> | null }> = {};
     for (const ch of channels) {
-      m[ch.id] = new Set((ch.blockedBrands ?? []).map((b: string) => brandKey(b)));
+      m[ch.id] = {
+        blocked: new Set((ch.blockedBrands ?? []).map((b: string) => brandKey(b))),
+        allowed: ch.channelProductIds ? new Set(ch.channelProductIds) : null,
+      };
     }
     return m;
   }, [channels]);
 
-  const allowedProducts = useMemo(() => {
-    const m: Record<string, Set<string> | null> = {};
-    for (const ch of channels) m[ch.id] = ch.channelProductIds ? new Set(ch.channelProductIds) : null;
-    return m;
-  }, [channels]);
-
-  const results = useMemo(() => {
+  const localResults = useMemo(() => {
     const all: Record<string, AnalysisResult[]> = {};
-    for (const cfg of configs) {
-      const settings = settingsMap[cfg.id] as unknown as ChannelDefaults;
-      const blocked = blockedBrands[cfg.id];
-      const allowed = allowedProducts[cfg.id];
-      const committed = committedPrices[cfg.id];
-      all[cfg.id] = products
-        .filter((p) => !blocked?.has(brandKey(p.brand)))
-        .filter((p) => !allowed || (p.productId != null && allowed.has(p.productId)))
-        .map((p) => {
-          let row: ProductRow = { ...p, ...committedShip[p.sku], ...shipEdits[p.sku] };
-          if (committed?.[p.sku] != null) {
-            row = {
-              ...row,
-              [cfg.priceField]: committed[p.sku],
-              channelPrices: { ...p.channelPrices, [cfg.id]: committed[p.sku] },
-            };
-          }
-          const result = analyzeProduct(row, cfg, settings, overrides, brandRoyalties, royaltyRules, itemTypeCommissions);
-          const edits = shipEdits[p.sku];
-          result.shipEdited = !!edits && shipComponentsFor(cfg).some((c) => edits[c.key] != null);
-          return result;
-        });
+    if (serverCompute) return all;
+    for (const ch of channels) {
+      all[ch.id] = computeChannelResults(
+        ch,
+        products,
+        ctx,
+        {
+          settings: settingsMap[ch.id],
+          overrides,
+          shipEdits,
+          committedShip,
+          committedPrices: committedPrices[ch.id],
+        },
+        filters[ch.id],
+      );
     }
     return all;
-  }, [configs, products, settingsMap, overrides, brandRoyalties, blockedBrands, allowedProducts, committedPrices, royaltyRules, itemTypeCommissions, shipEdits, committedShip]);
+  }, [serverCompute, channels, products, ctx, filters, settingsMap, overrides, shipEdits, committedShip, committedPrices]);
+
+  // Server-computed results (users without data:viewCost), fetched per channel tab.
+  const [serverResults, setServerResults] = useState<Record<string, AnalysisResult[]>>({});
+  const [computeError, setComputeError] = useState<string | null>(null);
+  const [inFlight, setInFlight] = useState(0);
+  const sentRef = useRef<Record<string, SentEdits>>({});
+  const abortRef = useRef<Record<string, AbortController>>({});
+  const productIdBySku = useMemo(() => new Map(products.map((p) => [p.sku, p.productId])), [products]);
+
+  useEffect(() => {
+    if (!serverCompute) return;
+    const ch = channels.find((c) => c.id === activeTab);
+    if (!ch) return;
+
+    const current: SentEdits = {
+      settings: settingsMap[ch.id],
+      overrides: overrides[ch.id] ?? {},
+      shipEdits,
+      committedShip,
+      committedPrices: committedPrices[ch.id] ?? {},
+    };
+    const prev = sentRef.current[ch.id];
+    const busy = !!abortRef.current[ch.id];
+
+    // A whole channel on first view, after a settings change, or when superseding a request in flight;
+    // otherwise only the SKUs whose edits changed since the last request.
+    let productIds: string[] | undefined;
+    if (prev && !busy && JSON.stringify(prev.settings) === JSON.stringify(current.settings)) {
+      const skus = new Set<string>();
+      changedKeys(prev.overrides, current.overrides, skus);
+      changedKeys(prev.shipEdits, current.shipEdits, skus);
+      changedKeys(prev.committedShip, current.committedShip, skus);
+      changedKeys(prev.committedPrices, current.committedPrices, skus);
+      if (skus.size === 0) return;
+      productIds = [...skus].map((sku) => productIdBySku.get(sku)).filter((id): id is string => !!id);
+      if (productIds.length === 0) return;
+    }
+
+    const timer = setTimeout(async () => {
+      abortRef.current[ch.id]?.abort();
+      const controller = new AbortController();
+      abortRef.current[ch.id] = controller;
+      // A deep copy, so later edits can't change what we compare against.
+      sentRef.current[ch.id] = structuredClone(current);
+      setInFlight((n) => n + 1);
+      try {
+        const res = await fetch(`/api/customers/${customerId}/analysis`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            channelId: ch.id,
+            projectId: serverCompute.projectId,
+            singleChannel: serverCompute.singleChannel,
+            productIds,
+            edits: current,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Failed to calculate the analysis");
+        const fresh = data.results as AnalysisResult[];
+        setServerResults((prevResults) => {
+          if (!productIds) return { ...prevResults, [ch.id]: fresh };
+          const bySku = new Map(fresh.map((r) => [r.sku, r]));
+          return { ...prevResults, [ch.id]: (prevResults[ch.id] ?? []).map((r) => bySku.get(r.sku) ?? r) };
+        });
+        setComputeError(null);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        delete sentRef.current[ch.id]; // recompute the whole channel on the next attempt
+        setComputeError(err instanceof Error ? err.message : "Failed to calculate the analysis");
+      } finally {
+        if (abortRef.current[ch.id] === controller) delete abortRef.current[ch.id];
+        setInFlight((n) => n - 1);
+      }
+    }, productIds ? 150 : 0);
+    return () => clearTimeout(timer);
+  }, [serverCompute, channels, activeTab, customerId, settingsMap, overrides, shipEdits, committedShip, committedPrices, productIdBySku]);
+
+  useEffect(() => {
+    const aborts = abortRef.current;
+    return () => Object.values(aborts).forEach((c) => c.abort());
+  }, []);
+
+  const results = serverCompute ? serverResults : localResults;
+  const computing = !!serverCompute && (inFlight > 0 || (channels.some((c) => c.id === activeTab) && !serverResults[activeTab]));
 
   const allBrands = useMemo(() => {
     const set = new Set<string>();
@@ -225,17 +269,15 @@ export function useAnalysis(
   }, [results, activeTab]);
 
   const setOverride = useCallback((channelId: string, sku: string, field: "price" | "ship", value: number | undefined) => {
+    // Copy at every level: server-computed results diff the previous overrides against the new ones.
     setOverrides((prev) => {
-      const next = { ...prev };
-      if (!next[channelId]) next[channelId] = {};
-      if (!next[channelId][sku]) next[channelId][sku] = {};
-      if (value === undefined) {
-        delete next[channelId][sku][field];
-        if (Object.keys(next[channelId][sku]).length === 0) delete next[channelId][sku];
-      } else {
-        next[channelId][sku][field] = value;
-      }
-      return next;
+      const channel = { ...prev[channelId] };
+      const entry = { ...channel[sku] };
+      if (value === undefined) delete entry[field];
+      else entry[field] = value;
+      if (Object.keys(entry).length === 0) delete channel[sku];
+      else channel[sku] = entry;
+      return { ...prev, [channelId]: channel };
     });
     if (field === "price" && value !== undefined) {
       setCommittedSkus((prev) => {
@@ -407,5 +449,7 @@ export function useAnalysis(
     commitPrice,
     revertCommittedPrice,
     committedSkus,
+    computing,
+    computeError,
   };
 }

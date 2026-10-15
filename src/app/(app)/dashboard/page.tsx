@@ -7,7 +7,8 @@ import { Building2, Upload, BarChart3, Plus, FileSpreadsheet, Package, DollarSig
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NavigatingButton } from "@/components/ui/navigating-link";
-import { formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -17,6 +18,7 @@ export default async function DashboardPage() {
   const customerIds = await getAccessibleCustomerIds(userId, session.user.role);
   const permissions = await getPermissions(session.user.role);
   const isAdmin = permissions.has("admin:settings");
+  const canViewCost = permissions.has("data:viewCost");
 
   const baseProductWhere = await productVisibilityWhere(userId, session.user.role);
 
@@ -60,7 +62,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Product Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+      <div className={cn("grid grid-cols-1 gap-4 mb-4", canViewCost ? "md:grid-cols-4" : "md:grid-cols-2")}>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -74,6 +76,8 @@ export default async function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+        {canViewCost && (
+        <>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -102,6 +106,8 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </Link>
+        </>
+        )}
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -194,7 +200,7 @@ export default async function DashboardPage() {
                           <>
                             <span className="text-xs text-gray-500">&middot;</span>
                             <span className="text-xs text-gray-500">
-                              Last import: {formatDate(customer.imports[0].createdAt)}
+                              Last import: <LocalDateTime value={customer.imports[0].createdAt} dateOnly />
                             </span>
                           </>
                         )}
@@ -214,12 +220,14 @@ export default async function DashboardPage() {
               <CardTitle className="text-base">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Link href="/products/import" className="block">
-                <Button variant="outline" className="w-full justify-start h-9 text-sm">
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Import Products
-                </Button>
-              </Link>
+              {permissions.has("import:upload") && (
+                <Link href="/products/import" className="block">
+                  <Button variant="outline" className="w-full justify-start h-9 text-sm">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Import Products
+                  </Button>
+                </Link>
+              )}
               <Link href="/customers/new" className="block">
                 <Button variant="outline" className="w-full justify-start h-9 text-sm">
                   <Plus className="h-4 w-4 mr-2" />

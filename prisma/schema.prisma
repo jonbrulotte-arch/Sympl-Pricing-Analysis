@@ -34,6 +34,9 @@ model User {
   salsifyStaged      SalsifyStaged[]
   activityLogs       ActivityLog[]
   passwordResetTokens PasswordResetToken[]
+  priceHistories     PriceHistory[]
+  costHistories      CostHistory[]
+  shippingCostHistories ShippingCostHistory[]
 }
 
 model PasswordResetToken {
@@ -143,6 +146,7 @@ model SalesChannel {
   salsifyStaged   SalsifyStaged[]
   channelProducts ChannelProduct[]
   royaltyRules    RoyaltyRule[]
+  shippingCostHistories ShippingCostHistory[]
 
   @@unique([customerId, slug])
 }
@@ -199,6 +203,11 @@ model CostHistory {
   cost       Decimal  @db.Decimal(10, 4)
   recordedAt DateTime @default(now())
   importId   String?
+  /// Who made the change. Imports and syncs leave this null; their Import row records the uploader.
+  recordedById String?
+  recordedBy   User?   @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  /// "manual" (product page); null for imports and syncs (see importId).
+  source       String?
 
   @@index([productId, recordedAt])
 }
@@ -212,6 +221,13 @@ model PriceHistory {
   price      Decimal      @db.Decimal(10, 4)
   recordedAt DateTime     @default(now())
   importId   String?
+  /// Price before this change, when known at write time (commits, publishes, undos).
+  previousPrice Decimal?  @db.Decimal(10, 4)
+  /// Who made the change. Imports and syncs leave this null; their Import row records the uploader.
+  recordedById  String?
+  recordedBy    User?     @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  /// "commit" | "publish" | "undo"; null for imports and syncs (see importId).
+  source        String?
 
   @@index([productId, channelId, recordedAt])
 }
@@ -224,6 +240,14 @@ model ShippingCostHistory {
   amount       Decimal  @db.Decimal(10, 4)
   recordedAt   DateTime @default(now())
   importId     String?
+  /// Who made the change. Imports and syncs leave this null; their Import row records the uploader.
+  recordedById String?
+  recordedBy   User?         @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  /// "manual" (product page), "commit" or "publish" (analysis); null for imports and syncs.
+  source       String?
+  /// The channel whose analysis the change was committed from, when there was one.
+  channelId    String?
+  channel      SalesChannel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
 
   @@index([productId, shippingType, recordedAt])
 }

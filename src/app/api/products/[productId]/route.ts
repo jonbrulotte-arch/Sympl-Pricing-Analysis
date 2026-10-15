@@ -73,7 +73,7 @@ export async function PATCH(
 
   if (cost != null && isFinite(cost) && cost >= 0) {
     await prisma.costHistory.create({
-      data: { id: randomUUID(), productId, cost },
+      data: { id: randomUUID(), productId, cost, recordedById: session.user.id, source: "manual" },
     });
   }
 
@@ -87,7 +87,7 @@ export async function PATCH(
   for (const [shippingType, amount] of shippingUpdates) {
     if (amount != null && isFinite(amount) && amount >= 0) {
       await prisma.shippingCostHistory.create({
-        data: { id: randomUUID(), productId, shippingType, amount },
+        data: { id: randomUUID(), productId, shippingType, amount, recordedById: session.user.id, source: "manual" },
       });
     }
   }

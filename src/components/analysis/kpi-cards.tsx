@@ -13,17 +13,19 @@ interface KpiData {
   needRepricing: number;
 }
 
-export function KpiCards({ kpis }: { kpis: KpiData }) {
+/** `loading` shows placeholders while server-computed results are on their way. */
+export function KpiCards({ kpis, loading = false }: { kpis: KpiData; loading?: boolean }) {
+  const v = (value: string | number) => (loading ? "–" : value);
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-      <KpiCard label="SKUs in scope" value={kpis.total} />
-      <KpiCard label="At goal" value={kpis.atGoal} color="text-green-600" />
-      <KpiCard label="Below goal" value={kpis.below} color="text-amber-600" />
-      <KpiCard label="Losing money" value={kpis.loss} color="text-red-600" />
-      <KpiCard label="Avg Net Margin" value={`${(kpis.avgGm * 100).toFixed(1)}%`} />
-      <KpiCard label="Total margin" value={`$${kpis.totalMargin.toFixed(0)}`} />
-      <KpiCard label="Need repricing" value={kpis.needRepricing} color="text-blue-600" />
-      <KpiCard label="Unpriced" value={kpis.unpriced} color="text-gray-500" />
+      <KpiCard label="SKUs in scope" value={v(kpis.total)} />
+      <KpiCard label="At goal" value={v(kpis.atGoal)} color="text-green-600" />
+      <KpiCard label="Below goal" value={v(kpis.below)} color="text-amber-600" />
+      <KpiCard label="Losing money" value={v(kpis.loss)} color="text-red-600" />
+      <KpiCard label="Avg Net Margin" value={v(`${(kpis.avgGm * 100).toFixed(1)}%`)} />
+      <KpiCard label="Total margin" value={v(`$${kpis.totalMargin.toFixed(0)}`)} />
+      <KpiCard label="Need repricing" value={v(kpis.needRepricing)} color="text-blue-600" />
+      <KpiCard label="Unpriced" value={v(kpis.unpriced)} color="text-gray-500" />
     </div>
   );
 }

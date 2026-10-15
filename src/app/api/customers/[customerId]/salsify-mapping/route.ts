@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity-log";
-import { canAccessCustomer } from "@/lib/permissions";
+import { canAccessCustomer, canManageSalsifyMapping } from "@/lib/permissions";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -11,6 +11,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cust
   const { customerId } = await params;
   if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canManageSalsifyMapping(session.user.role)))
+    return NextResponse.json({ error: "You don't have permission to manage Salsify field mapping" }, { status: 403 });
 
   const mappings = await prisma.salsifyFieldMapping.findMany({ where: { customerId } });
 
@@ -27,6 +29,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ cust
   const { customerId } = await params;
   if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canManageSalsifyMapping(session.user.role)))
+    return NextResponse.json({ error: "You don't have permission to manage Salsify field mapping" }, { status: 403 });
 
   const body = await req.json();
   const mappings = body.mappings as { importFieldKey: string; salsifyPropertyId: string }[];

@@ -19,6 +19,7 @@ export default function RoyaltiesPage() {
   const [entries, setEntries] = useState<RoyaltyEntry[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [newBrand, setNewBrand] = useState("");
   const [newValue, setNewValue] = useState<number>(6.9);
 
@@ -31,12 +32,18 @@ export default function RoyaltiesPage() {
 
   async function handleSave() {
     setSaving(true);
-    await fetch(`/api/customers/${customerId}/royalties`, {
+    setError(null);
+    const res = await fetch(`/api/customers/${customerId}/royalties`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ entries: entries.map((e) => ({ brandName: e.brandName, value: e.value })) }),
     });
     setSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Failed to save royalties");
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -52,11 +59,17 @@ export default function RoyaltiesPage() {
   }
 
   async function removeEntry(bk: string) {
-    await fetch(`/api/customers/${customerId}/royalties`, {
+    setError(null);
+    const res = await fetch(`/api/customers/${customerId}/royalties`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ brandKey: bk }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Failed to remove brand");
+      return;
+    }
     setEntries((prev) => prev.filter((e) => e.brandKey !== bk));
   }
 
@@ -81,6 +94,10 @@ export default function RoyaltiesPage() {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      )}
 
       <Card className="mb-4">
         <CardHeader>

@@ -1,13 +1,9 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
-import { loadProductRows } from "@/lib/db/load-product-rows";
-import { loadChannelProductIds } from "@/lib/db/channel-products";
-import { loadItemTypeCommissions } from "@/lib/db/item-type-commissions";
-import { getPermissions } from "@/lib/permissions";
-import type { BrandRoyaltyTable, RoyaltyRuleEntry } from "@/lib/pricing/types";
+import { canAccessCustomer, getPermissions } from "@/lib/permissions";
+import { loadAnalysisInputs, withoutCost } from "@/lib/db/analysis-inputs";
 
 export default async function AnalysisPage({
   params,
@@ -24,91 +20,13 @@ export default async function AnalysisPage({
 
   const permissions = await getPermissions(session.user.role);
   const canViewCost = permissions.has("data:viewCost");
-  const isAdmin = permissions.has("admin:settings");
+  if (!(await canAccessCustomer(customerId, userId, session.user.role))) notFound();
 
-  const customer = await prisma.customer.findFirst({
-    where: { id: customerId, ...(isAdmin ? {} : { users: { some: { userId } } }) },
-    include: {
-      channels: { orderBy: { sortOrder: "asc" } },
-      brandRoyalties: true,
-      royaltyRules: true,
-    },
-  });
-
-  if (!customer) notFound();
-
-  const singleChannel = customer.channels.find((c) => c.id === channelParam) ?? null;
-  const channels = singleChannel ? [singleChannel] : customer.channels;
-  const channelProductIds = await loadChannelProductIds(channels);
-
-  const productIds = singleChannel && channelProductIds[singleChannel.id]
-    ? channelProductIds[singleChannel.id]!
-    : (
-        await prisma.product.findMany({
-          where: { customers: { some: { customerId } } },
-          select: { id: true },
-        })
-      ).map((p) => p.id);
-
-  const products = await loadProductRows(productIds, channels);
-
-  const brandRoyalties: BrandRoyaltyTable = {};
-  for (const br of customer.brandRoyalties) {
-    brandRoyalties[br.brandKey] = Number(br.value);
-  }
-
-  const globalRulesDb = await prisma.royaltyRule.findMany({
-    where: { customerId: null },
-  });
-
-  const royaltyRules: RoyaltyRuleEntry[] = [
-    ...globalRulesDb.map((r) => ({
-      id: r.id,
-      scope: r.scope as "brand" | "sku",
-      brandKey: r.brandKey ?? undefined,
-      brandName: r.brandName ?? undefined,
-      skus: r.skus,
-      value: Number(r.value),
-      mode: r.mode as "pct" | "usd",
-      customerId: null as string | null,
-    })),
-    ...(customer.royaltyRules ?? []).map((r) => ({
-      id: r.id,
-      scope: r.scope as "brand" | "sku",
-      brandKey: r.brandKey ?? undefined,
-      brandName: r.brandName ?? undefined,
-      skus: r.skus,
-      value: Number(r.value),
-      mode: r.mode as "pct" | "usd",
-      customerId: r.customerId,
-      channelId: r.channelId,
-    })),
-  ];
-
-  const channelsData = channels.map((ch) => ({
-    channelProductIds: channelProductIds[ch.id],
-    id: ch.id,
-    name: ch.name,
-    tabLabel: ch.tabLabel,
-    shippingMode: ch.shippingMode,
-    priceField: ch.priceField,
-    fallbackPriceField: ch.fallbackPriceField,
-    channelType: ch.channelType,
-    hasCoupon: ch.hasCoupon,
-    hasTax: ch.hasTax,
-    hasCommission: ch.hasCommission,
-    hasTopSellerDisc: ch.hasTopSellerDisc,
-    hasPromotedListing: ch.hasPromotedListing,
-    hasFvfFixed: ch.hasFvfFixed,
-    hasCardProcessing: ch.hasCardProcessing,
-    hasPpc: ch.hasPpc,
-    hasAdvertising: ch.hasAdvertising,
-    hasPerSkuCommission: ch.hasPerSkuCommission,
-    hasFallback: ch.hasFallback,
-    hasAsin: ch.hasAsin,
-    defaults: ch.defaults as Record<string, unknown>,
-    blockedBrands: (ch.blockedBrands ?? []) as string[],
-  }));
+  const inputs = await loadAnalysisInputs(customerId, { channelId: channelParam });
+  if (!inputs) notFound();
+  const { customer, singleChannel, channels, context } = inputs;
+  // Without data:viewCost, cost is stripped here and the analysis is computed on the server.
+  const products = canViewCost ? inputs.products : withoutCost(inputs.products);
 
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
@@ -145,14 +63,17 @@ export default async function AnalysisPage({
       </div>
 
       <AnalysisWorkspace
-        channels={channelsData}
+        channels={channels}
         products={products}
-        brandRoyalties={brandRoyalties}
+        brandRoyalties={context.brandRoyalties}
         customerId={customerId}
-        royaltyRules={royaltyRules}
-        itemTypeCommissions={await loadItemTypeCommissions(customerId)}
+        royaltyRules={context.royaltyRules}
+        itemTypeCommissions={context.itemTypeCommissions}
         openPublish={tab === "publish"}
         canViewCost={canViewCost}
+        canExport={permissions.has("analysis:export")}
+        canPublish={permissions.has("salsify:publish") || permissions.has("admin:settings")}
+        serverCompute={canViewCost ? null : { singleChannel: !!singleChannel }}
       />
     </div>
   );

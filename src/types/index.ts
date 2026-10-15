@@ -26,8 +26,11 @@ export type Permission =
   | "module:projects"
   | "module:royalties"
   | "module:activityLog"
+  | "module:singleSku"
   | "data:viewCost"
-  | "data:viewAllPriceHistory";
+  | "data:viewAllPriceHistory"
+  | "salsify:mapping"
+  | "salsify:publish";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "module:products",
@@ -35,6 +38,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "module:projects",
   "module:royalties",
   "module:activityLog",
+  "module:singleSku",
   "customers:create",
   "customers:edit",
   "customers:delete",
@@ -52,6 +56,8 @@ export const ALL_PERMISSIONS: Permission[] = [
   "admin:roles",
   "data:viewCost",
   "data:viewAllPriceHistory",
+  "salsify:mapping",
+  "salsify:publish",
 ];
 
 export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission; label: string }[] }[] = [
@@ -63,6 +69,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission;
       { key: "module:projects", label: "Projects" },
       { key: "module:royalties", label: "Royalty Rules" },
       { key: "module:activityLog", label: "Activity Log" },
+      { key: "module:singleSku", label: "Single SKU Analysis" },
     ],
   },
   {
@@ -105,6 +112,13 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission;
     ],
   },
   {
+    label: "Salsify",
+    permissions: [
+      { key: "salsify:mapping", label: "Field Mapping" },
+      { key: "salsify:publish", label: "Publish" },
+    ],
+  },
+  {
     label: "Administration",
     permissions: [
       { key: "admin:users", label: "Manage Users" },
@@ -122,6 +136,7 @@ export const DEFAULT_ANALYST_PERMISSIONS: Permission[] = [
   "module:projects",
   "module:royalties",
   "module:activityLog",
+  "module:singleSku",
   "customers:edit",
   "channels:edit",
   "products:update",

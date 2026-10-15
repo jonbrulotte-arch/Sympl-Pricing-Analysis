@@ -5,11 +5,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
 import { ProjectActions } from "@/components/projects/project-actions";
-import { loadProductRows } from "@/lib/db/load-product-rows";
-import { loadChannelProductIds } from "@/lib/db/channel-products";
-import { loadItemTypeCommissions } from "@/lib/db/item-type-commissions";
 import { getPermissions, canAccessCustomer } from "@/lib/permissions";
-import type { BrandRoyaltyTable, RoyaltyRuleEntry } from "@/lib/pricing/types";
+import { loadAnalysisInputs, withoutCost } from "@/lib/db/analysis-inputs";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
   const session = await auth();
@@ -23,8 +20,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       customer: {
         include: {
           channels: { orderBy: { sortOrder: "asc" } },
-          brandRoyalties: true,
-          royaltyRules: true,
         },
       },
       createdBy: { select: { name: true } },
@@ -44,69 +39,11 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const canViewCost = permissions.has("data:viewCost");
 
   const customer = project.customer;
-  const productIds = project.products.map((pp) => pp.productId);
-
-  const products = await loadProductRows(productIds, customer.channels);
-
-  const brandRoyalties: BrandRoyaltyTable = {};
-  for (const br of customer.brandRoyalties) {
-    brandRoyalties[br.brandKey] = Number(br.value);
-  }
-
-  const globalRulesDb = await prisma.royaltyRule.findMany({
-    where: { customerId: null },
-  });
-
-  const royaltyRules: RoyaltyRuleEntry[] = [
-    ...globalRulesDb.map((r) => ({
-      id: r.id,
-      scope: r.scope as "brand" | "sku",
-      brandKey: r.brandKey ?? undefined,
-      brandName: r.brandName ?? undefined,
-      skus: r.skus,
-      value: Number(r.value),
-      mode: r.mode as "pct" | "usd",
-      customerId: null as string | null,
-    })),
-    ...(customer.royaltyRules ?? []).map((r) => ({
-      id: r.id,
-      scope: r.scope as "brand" | "sku",
-      brandKey: r.brandKey ?? undefined,
-      brandName: r.brandName ?? undefined,
-      skus: r.skus,
-      value: Number(r.value),
-      mode: r.mode as "pct" | "usd",
-      customerId: r.customerId,
-      channelId: r.channelId,
-    })),
-  ];
-
-  const channelProductIds = await loadChannelProductIds(customer.channels);
-
-  const channelsData = customer.channels.map((ch) => ({
-    channelProductIds: channelProductIds[ch.id],
-    id: ch.id,
-    name: ch.name,
-    tabLabel: ch.tabLabel,
-    shippingMode: ch.shippingMode,
-    priceField: ch.priceField,
-    fallbackPriceField: ch.fallbackPriceField,
-    channelType: ch.channelType,
-    hasCoupon: ch.hasCoupon,
-    hasTax: ch.hasTax,
-    hasCommission: ch.hasCommission,
-    hasTopSellerDisc: ch.hasTopSellerDisc,
-    hasPromotedListing: ch.hasPromotedListing,
-    hasFvfFixed: ch.hasFvfFixed,
-    hasCardProcessing: ch.hasCardProcessing,
-    hasPpc: ch.hasPpc,
-    hasAdvertising: ch.hasAdvertising,
-    hasPerSkuCommission: ch.hasPerSkuCommission,
-    hasFallback: ch.hasFallback,
-    hasAsin: ch.hasAsin,
-    defaults: ch.defaults as Record<string, unknown>,
-    blockedBrands: (ch.blockedBrands ?? []) as string[],
-  }));
+  const inputs = await loadAnalysisInputs(customer.id, { projectId });
+  if (!inputs) notFound();
+  const { channels: channelsData, context } = inputs;
+  // Without data:viewCost, cost is stripped here and the analysis is computed on the server.
+  const products = canViewCost ? inputs.products : withoutCost(inputs.products);
 
   const projectProducts = project.products.map((pp) => ({
     productId: pp.productId,
@@ -169,11 +106,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         <AnalysisWorkspace
           channels={channelsData}
           products={products}
-          brandRoyalties={brandRoyalties}
+          brandRoyalties={context.brandRoyalties}
           customerId={project.customerId}
-          royaltyRules={royaltyRules}
-          itemTypeCommissions={await loadItemTypeCommissions(project.customerId)}
+          royaltyRules={context.royaltyRules}
+          itemTypeCommissions={context.itemTypeCommissions}
           canViewCost={canViewCost}
+          serverCompute={canViewCost ? null : { projectId }}
+          canExport={permissions.has("analysis:export")}
+          canPublish={permissions.has("salsify:publish") || permissions.has("admin:settings")}
         />
       )}
     </div>

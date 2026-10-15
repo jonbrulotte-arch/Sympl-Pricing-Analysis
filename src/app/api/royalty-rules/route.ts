@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getPermissions } from "@/lib/permissions";
 import { randomUUID } from "crypto";
 import { brandKey } from "@/lib/pricing/helpers";
 import { logActivity } from "@/lib/activity-log";
@@ -29,6 +30,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const perms = await getPermissions(session.user.role);
+  if (!perms.has("royalties:edit") || !perms.has("admin:settings"))
+    return NextResponse.json({ error: "Only admins with royalty edit permission can change global royalty rules" }, { status: 403 });
 
   const body = await req.json();
   const { scope, brandName, skus, value, mode } = body;

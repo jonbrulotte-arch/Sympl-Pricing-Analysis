@@ -1,5 +1,6 @@
 "use client";
 
+import type { ActivityChangeDetail, LoggedChange } from "@/lib/db/activity-changes";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ interface LogEntry {
   createdAt: string;
   user: { id: string; name: string } | null;
   customer: { id: string; name: string } | null;
+  changes: ActivityChangeDetail | null;
 }
 
 interface Props {
@@ -207,7 +209,7 @@ export function ActivityLogView({ customers }: Props) {
                 const Icon = CATEGORY_ICON[log.category] ?? Package;
                 const color = CATEGORY_COLOR[log.category] ?? "bg-gray-100 text-gray-700";
                 const isExpanded = expandedId === log.id;
-                const hasDetail = log.detail != null && Object.keys(log.detail).length > 0;
+                const hasDetail = (log.detail != null && Object.keys(log.detail).length > 0) || log.changes != null;
 
                 return (
                   <tr
@@ -232,6 +234,7 @@ export function ActivityLogView({ customers }: Props) {
                           </span>
                         )}
                       </div>
+                      {isExpanded && log.changes && <ChangeView change={log.changes} />}
                       {isExpanded && log.detail && (
                         <div className="mt-2 ml-0 p-3 bg-gray-50 rounded-md text-xs">
                           <DetailView detail={log.detail} />
@@ -302,5 +305,70 @@ function DetailView({ detail }: { detail: Record<string, unknown> }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+function formatChangeValue(v: number | null, format: LoggedChange["format"]) {
+  if (v == null) return "—";
+  return format === "percent" ? `${(v * 100).toFixed(1)}%` : `$${v.toFixed(2)}`;
+}
+
+/** The same details the product page shows for a price, cost or shipping change. */
+function ChangeView({ change }: { change: ActivityChangeDetail }) {
+  const facts = [
+    { label: "SKU", value: change.sku ?? "—" },
+    { label: "Customer", value: change.customer ?? "All customers" },
+    { label: "Channel", value: change.channel ?? "All channels" },
+    { label: "Changed By", value: change.changedBy ?? "Unknown" },
+    { label: "Source", value: change.source },
+  ];
+  return (
+    <div className="mt-2 rounded-md border border-gray-200 bg-white p-3" onClick={(e) => e.stopPropagation()}>
+      <dl className="grid grid-cols-2 md:grid-cols-5 gap-x-6 gap-y-2 mb-3">
+        {facts.map((f) => (
+          <div key={f.label}>
+            <dt className="text-xs text-gray-500">{f.label}</dt>
+            <dd className="text-sm text-gray-900">{f.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {change.changes.length > 0 && (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50">
+              <th className="text-left py-1.5 px-2 text-gray-600 font-medium text-xs">Value</th>
+              <th className="text-right py-1.5 px-2 text-gray-600 font-medium text-xs">Previous</th>
+              <th className="text-right py-1.5 px-2 text-gray-600 font-medium text-xs">New</th>
+              <th className="text-right py-1.5 px-2 text-gray-600 font-medium text-xs">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {change.changes.map((c) => {
+              const delta = c.previous != null && c.next != null ? c.next - c.previous : null;
+              const good = delta != null && (c.increaseIsCost ? delta < 0 : delta > 0);
+              const pct = c.format === "money" && delta != null && c.previous! > 0 ? (delta / c.previous!) * 100 : null;
+              return (
+                <tr key={c.label} className="border-b border-gray-50">
+                  <td className="py-1.5 px-2 text-gray-700">{c.label}</td>
+                  <td className="py-1.5 px-2 text-right font-mono">{formatChangeValue(c.previous, c.format)}</td>
+                  <td className="py-1.5 px-2 text-right font-mono">{formatChangeValue(c.next, c.format)}</td>
+                  <td
+                    className={`py-1.5 px-2 text-right text-xs ${
+                      delta == null || Math.abs(delta) < 0.00005 ? "text-gray-500" : good ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {delta == null
+                      ? "—"
+                      : c.format === "percent"
+                        ? `${delta > 0 ? "+" : ""}${(delta * 100).toFixed(1)} pts`
+                        : `${delta > 0 ? "+" : delta < 0 ? "-" : ""}$${Math.abs(delta).toFixed(2)}${pct != null ? ` (${pct > 0 ? "+" : ""}${pct.toFixed(1)}%)` : ""}`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }

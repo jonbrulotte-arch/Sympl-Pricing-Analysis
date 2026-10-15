@@ -5,6 +5,7 @@ import { Check, AlertCircle, RefreshCw, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
 interface TestResult {
   listId: string;
@@ -174,7 +175,7 @@ export function SalsifyListCard({
           {!unsaved && savedListId && (
             <span className="text-xs text-gray-500">
               {productCount} SKUs on this channel
-              {syncedAt ? ` · last synced ${new Date(syncedAt).toLocaleString()}` : " · not synced yet"}
+              {syncedAt ? <> · last synced <LocalDateTime value={syncedAt} /></> : " · not synced yet"}
             </span>
           )}
         </div>

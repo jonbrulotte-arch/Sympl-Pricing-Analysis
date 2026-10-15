@@ -1,10 +1,48 @@
 import * as XLSX from "xlsx";
 import type { AnalysisResult, ChannelConfig, ChannelDefaults } from "@/lib/pricing/types";
 
+/** Excel sheet names can't contain : \ / ? * [ ] and are capped at 31 characters. */
+export function safeSheetName(name: string, fallback = "Sheet1"): string {
+  const cleaned = name.replace(/[:\\/?*[\]]/g, "-").replace(/^'+|'+$/g, "").trim().slice(0, 31);
+  return cleaned || fallback;
+}
+
+/** File-name safe version of a channel name. */
+export function safeFileName(name: string): string {
+  return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "-").replace(/\s+/g, "_");
+}
+
+/**
+ * Columns removed from the Full Analysis export for users without data:viewCost.
+ * Cost itself, plus the fee breakdown, since cost = price − fees − shipping − net.
+ */
+const FULL_ANALYSIS_COST_COLUMNS = [
+  "SKU Cost",
+  "Fee Rate k",
+  "Coupon",
+  "Commission",
+  "FVF Fixed",
+  "Promoted",
+  "CC Variable",
+  "CC Flat",
+  "Returns",
+  "Advertising",
+  "Royalty",
+  "PPC",
+  "Total Fees",
+];
+
+function omit<T extends Record<string, unknown>>(row: T, keys: string[]): Partial<T> {
+  const out: Record<string, unknown> = { ...row };
+  for (const k of keys) delete out[k];
+  return out as Partial<T>;
+}
+
 export function exportChangeReport(
   results: AnalysisResult[],
   channelName: string,
   settings: ChannelDefaults,
+  canViewCost: boolean,
 ): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
 
@@ -40,18 +78,21 @@ export function exportChangeReport(
       "Margin Gain $": r.recCalc ? r.recCalc.net - r.net : null,
       "Target Profit $": r.targetProfit,
       "Manually Adjusted": r.edited ? "Yes" : "",
-    }));
+    }))
+    .map((row) => (canViewCost ? row : omit(row, ["SKU Cost"])));
 
   const ws = XLSX.utils.json_to_sheet(rows);
 
   // Column widths
-  ws["!cols"] = [
+  const widths = [
     { wch: 14 }, { wch: 16 }, { wch: 30 }, { wch: 14 }, { wch: 14 },
     { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 8 },
     { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 16 },
     { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
     { wch: 12 }, { wch: 12 }, { wch: 14 },
   ];
+  if (!canViewCost) widths.splice(7, 1); // "SKU Cost"
+  ws["!cols"] = widths;
 
   XLSX.utils.book_append_sheet(wb, ws, "Price Changes");
   return wb;
@@ -60,6 +101,7 @@ export function exportChangeReport(
 export function exportFullAnalysis(
   results: AnalysisResult[],
   channelName: string,
+  canViewCost: boolean,
 ): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
 
@@ -99,9 +141,10 @@ export function exportFullAnalysis(
       "Inventory Status": r.invRaw ?? "",
       "Available": r.avail,
       ASIN: r.asin ?? "",
-    }));
+    }))
+    .map((row) => (canViewCost ? row : omit(row, FULL_ANALYSIS_COST_COLUMNS)));
 
   const ws = XLSX.utils.json_to_sheet(rows);
-  XLSX.utils.book_append_sheet(wb, ws, channelName.slice(0, 31));
+  XLSX.utils.book_append_sheet(wb, ws, safeSheetName(channelName, "Full Analysis"));
   return wb;
 }

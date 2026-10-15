@@ -23,13 +23,15 @@ export default async function ProductsPage({
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
   const { q, page: pageParam, pageSize: pageSizeParam, assigned, missing: missingParam } = await searchParams;
-  const missing = missingParam === "cost" || missingParam === "freight" ? missingParam : null;
 
   const pageSize = PAGE_SIZES.includes(Number(pageSizeParam)) ? Number(pageSizeParam) : 25;
   const page = Math.max(1, Number(pageParam) || 1);
 
   const permissions = await getPermissions(session.user.role);
   const isAdmin = permissions.has("admin:settings");
+  const canViewCost = permissions.has("data:viewCost");
+  const canImport = permissions.has("import:upload");
+  const missing = (missingParam === "cost" && canViewCost) || missingParam === "freight" ? missingParam : null;
   const unassignedOnly = isAdmin && assigned === "unassigned";
 
   const baseWhere = await productVisibilityWhere(userId, session.user.role);
@@ -64,9 +66,7 @@ export default async function ProductsPage({
     }),
     prisma.product.count({ where }),
     prisma.product.count({ where: baseWhere }),
-    prisma.product.count({
-      where: { ...baseWhere, costHistories: { some: {} } },
-    }),
+    canViewCost ? prisma.product.count({ where: { ...baseWhere, costHistories: { some: {} } } }) : Promise.resolve(0),
     prisma.product.count({
       where: { ...baseWhere, shippingCostHistories: { some: { shippingType: "mcf_freight" } } },
     }),
@@ -79,7 +79,8 @@ export default async function ProductsPage({
   const productIds = products.map((p) => p.id);
   const [latestCosts, latestMcfFreight] = await Promise.all([
     prisma.costHistory.findMany({
-      where: { productId: { in: productIds } },
+      // Cost is only loaded for users with data:viewCost.
+      where: { productId: { in: canViewCost ? productIds : [] } },
       orderBy: { recordedAt: "desc" },
       distinct: ["productId"],
       select: { productId: true, cost: true, recordedAt: true },
@@ -104,7 +105,7 @@ export default async function ProductsPage({
       brand: p.brand,
       inventoryStatus: p.inventoryStatus,
       cost: costEntry?.cost ?? null,
-      costDate: costEntry ? costEntry.at.toLocaleDateString() : null,
+      costDate: costEntry ? costEntry.at.toISOString() : null,
       freight: freightMap.get(p.id) ?? null,
       records: p._count.costHistories + p._count.priceHistories + p._count.productPrices + p._count.shippingCostHistories,
       customerCount: p._count.customers,
@@ -153,6 +154,7 @@ export default async function ProductsPage({
           <h1 className="text-2xl font-bold text-gray-900">Product Database</h1>
           <p className="text-sm text-gray-500 mt-1">Central hub for all product data</p>
         </div>
+        {canImport && (
         <div className="flex items-center gap-2">
           <Link href="/products/import/salsify">
             <Button variant="outline" size="sm">
@@ -174,10 +176,11 @@ export default async function ProductsPage({
           </Link>
           <McfFreightImport />
         </div>
+        )}
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className={cn("grid grid-cols-1 gap-4 mb-6", canViewCost ? "md:grid-cols-4" : "md:grid-cols-2")}>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -191,6 +194,8 @@ export default async function ProductsPage({
             </div>
           </CardContent>
         </Card>
+        {canViewCost && (
+        <>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -219,6 +224,8 @@ export default async function ProductsPage({
           </CardContent>
         </Card>
         </Link>
+        </>
+        )}
         <Link href={missingHref("freight")} className="block">
         <Card className={cn("h-full transition-colors hover:border-blue-300", missing === "freight" && "border-blue-500 ring-1 ring-blue-500")}>
           <CardContent className="pt-6">
@@ -296,6 +303,7 @@ export default async function ProductsPage({
 
       <ProductsTable
         rows={rows}
+        canViewCost={canViewCost}
         emptyMessage={
           q
             ? "No products match your search."

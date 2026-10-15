@@ -30,6 +30,7 @@ interface Props {
   cfg?: ChannelConfig;
   settings?: ChannelDefaults;
   onShowMath?: (sku: string) => void;
+  emptyMessage?: string;
   selectedSkus?: Set<string>;
   onSelectSku?: (sku: string) => void;
   onSelectAll?: (skus: string[]) => void;
@@ -44,7 +45,7 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "second
   invalid: { label: "Invalid", variant: "outline" },
 };
 
-export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, onShipEdit, channelId, onCommit, committedSkus, cfg, settings, onShowMath, selectedSkus, onSelectSku, onSelectAll, canViewCost = true }: Props) {
+export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, onShipEdit, channelId, onCommit, committedSkus, cfg, settings, onShowMath, selectedSkus, onSelectSku, onSelectAll, canViewCost = true, emptyMessage }: Props) {
   const [expandedSku, setExpandedSku] = useState<string | null>(null);
   const [committingSkus, setCommittingSkus] = useState<Set<string>>(new Set());
   const hasSelection = !!(onCommit && selectedSkus && onSelectSku && onSelectAll);
@@ -230,7 +231,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, o
                       result={r}
                       cfg={cfg}
                       settings={settings}
-                      onShowMath={() => onShowMath?.(r.sku)}
+                      onShowMath={onShowMath ? () => onShowMath(r.sku) : undefined}
                       canViewCost={canViewCost}
                     />
                   </td>
@@ -242,7 +243,7 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, o
         </tbody>
       </table>
       {results.length === 0 && (
-        <p className="text-sm text-gray-500 text-center py-8">No products match the current filters.</p>
+        <p className="text-sm text-gray-500 text-center py-8">{emptyMessage ?? "No products match the current filters."}</p>
       )}
     </div>
   );

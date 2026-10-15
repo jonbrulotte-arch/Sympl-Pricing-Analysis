@@ -3,13 +3,54 @@ import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime } from "@/lib/utils";
 import { getPermissions, getAccessibleCustomerIds, productVisibilityWhere } from "@/lib/permissions";
 import { ProductEditor } from "@/components/products/product-editor";
 import { ProductDelete } from "@/components/products/product-delete";
 import { CostHistoryChart, ShippingHistoryChart } from "@/components/products/cost-chart";
 import { PriceHistorySection } from "@/components/products/price-history-section";
+import { loadPriceHistory } from "@/lib/db/price-history";
+import { loadCostAndShippingHistory, type CostRecordDetail } from "@/lib/db/cost-history";
+import { ExpandableHistoryTable } from "@/components/products/expandable-history-table";
 import { AlertTriangle } from "lucide-react";
+import { LocalDateTime } from "@/components/ui/local-date-time";
+
+/** Change from the previous record; increases are red because these are costs. */
+function ChangeAmount({ value, previous }: { value: number; previous: number | null }) {
+  if (previous == null) return <span className="text-gray-500">-</span>;
+  const change = value - previous;
+  return (
+    <span className={change > 0 ? "text-red-600" : change < 0 ? "text-green-600" : "text-gray-500"}>
+      {change > 0 ? "+" : change < 0 ? "-" : ""}${Math.abs(change).toFixed(2)}
+    </span>
+  );
+}
+
+/** Detail panel items for a cost or shipping cost record. */
+function historyDetails(label: string, value: number, d: CostRecordDetail) {
+  const change = d.previous != null ? value - d.previous : null;
+  const pct = change != null && d.previous! > 0 ? (change / d.previous!) * 100 : null;
+  return [
+    { label: `Previous ${label}`, value: d.previous != null ? <span className="font-mono">${d.previous.toFixed(2)}</span> : "None recorded" },
+    {
+      label: `New ${label}`,
+      value: (
+        <span className="font-mono">
+          ${value.toFixed(2)}
+          {change != null && Math.abs(change) >= 0.005 && (
+            <span className={`ml-2 text-xs ${change > 0 ? "text-red-600" : "text-green-600"}`}>
+              {change > 0 ? "+" : "-"}${Math.abs(change).toFixed(2)}
+              {pct != null && ` (${change > 0 ? "+" : ""}${pct.toFixed(1)}%)`}
+            </span>
+          )}
+        </span>
+      ),
+    },
+    { label: "Customer", value: d.customer ?? "All customers" },
+    { label: "Channel", value: d.channel ?? "All channels" },
+    { label: "Changed By", value: d.changedBy ?? "Unknown" },
+    { label: "Source", value: d.how },
+  ];
+}
 
 function shippingTypesForMode(mode: string): string[] {
   switch (mode) {
@@ -74,65 +115,15 @@ export default async function ProductDetailPage({
     }
   }
 
-  const costHistory = await prisma.costHistory.findMany({
-    where: { productId },
-    orderBy: { recordedAt: "desc" },
-    take: 50,
+  const { cost: costHistory, shipping: shippingHistory } = await loadCostAndShippingHistory(product, {
+    includeCost: canViewCost,
+    shippingTypes: hasShippingChannels ? [...relevantShippingTypes] : [],
   });
 
-  const [channelPriceRows, productPriceRows] = await Promise.all([
-    prisma.priceHistory.findMany({
-      where: {
-        productId,
-        ...(!canViewAllPriceHistory ? { channelId: { in: [...userChannelIds] } } : {}),
-      },
-      orderBy: { recordedAt: "desc" },
-      take: 100,
-      include: { channel: { select: { name: true } } },
-    }),
-    prisma.productPrice.findMany({
-      where: {
-        productId,
-        ...(!canViewAllPriceHistory ? { priceField: { in: [...userPriceFields] } } : {}),
-      },
-      orderBy: { recordedAt: "desc" },
-      take: 100,
-    }),
-  ]);
-
-  const priceFieldLabels: Record<string, string> = {
-    priceJSP: "eBay (JSP)",
-    priceMCF: "eBay (MCF)",
-    priceWM: "Walmart",
-    priceShopify: "Shopify",
-    priceFBM: "Amazon FBM",
-    priceFBA: "Amazon FBA",
-  };
-
-  const allPriceRecords = [
-    ...channelPriceRows.map((ph) => ({
-      id: ph.id,
-      label: ph.channel.name,
-      price: Number(ph.price),
-      recordedAt: ph.recordedAt,
-      source: "channel" as const,
-    })),
-    ...productPriceRows.map((pp) => ({
-      id: pp.id,
-      label: priceFieldLabels[pp.priceField] ?? pp.priceField,
-      price: Number(pp.price),
-      recordedAt: pp.recordedAt,
-      source: "product" as const,
-    })),
-  ].sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime());
-
-  const shippingHistory = hasShippingChannels
-    ? await prisma.shippingCostHistory.findMany({
-        where: { productId, shippingType: { in: [...relevantShippingTypes] } },
-        orderBy: { recordedAt: "desc" },
-        take: 50,
-      })
-    : [];
+  const allPriceRecords = await loadPriceHistory(product, {
+    channelIds: canViewAllPriceHistory ? null : [...userChannelIds],
+    priceFields: canViewAllPriceHistory ? null : [...userPriceFields],
+  });
 
   const shippingTypeLabels: Record<string, string> = {
     std: "Standard",
@@ -250,35 +241,21 @@ export default async function ProductDetailPage({
             <>
               <CostHistoryChart data={costHistory.map((ch) => ({
                 id: ch.id,
-                cost: ch.cost.toString(),
+                cost: ch.cost,
                 recordedAt: ch.recordedAt.toISOString(),
               }))} />
-              <table className="w-full text-sm mt-4">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-2 text-gray-600 font-medium">Date</th>
-                    <th className="text-right py-2 text-gray-600 font-medium">Cost</th>
-                    <th className="text-right py-2 text-gray-600 font-medium">Change</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {costHistory.map((ch, i) => {
-                    const prev = costHistory[i + 1];
-                    const change = prev ? Number(ch.cost) - Number(prev.cost) : 0;
-                    return (
-                      <tr key={ch.id} className="border-b border-gray-50">
-                        <td className="py-1.5 text-gray-700">{formatDateTime(ch.recordedAt)}</td>
-                        <td className="py-1.5 text-right font-mono">${Number(ch.cost).toFixed(2)}</td>
-                        <td className={`py-1.5 text-right ${change > 0 ? "text-red-600" : change < 0 ? "text-green-600" : "text-gray-500"}`}>
-                          {i < costHistory.length - 1
-                            ? `${change > 0 ? "+" : ""}$${change.toFixed(2)}`
-                            : "-"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <ExpandableHistoryTable
+                columns={[{ label: "Date" }, { label: "Cost", align: "right" }, { label: "Change", align: "right" }]}
+                rows={costHistory.map((ch) => ({
+                  id: ch.id,
+                  cells: [
+                    <span key="d" className="text-gray-700"><LocalDateTime value={ch.recordedAt} /></span>,
+                    <span key="v" className="font-mono">${ch.cost.toFixed(2)}</span>,
+                    <ChangeAmount key="c" value={ch.cost} previous={ch.detail.previous} />,
+                  ],
+                  details: historyDetails("Cost", ch.cost, ch.detail),
+                }))}
+              />
             </>
           )}
         </CardContent>
@@ -301,6 +278,7 @@ export default async function ProductDetailPage({
                 price: pr.price,
                 recordedAt: pr.recordedAt.toISOString(),
                 source: pr.source,
+                detail: pr.detail,
               }))}
               canDelete={permissions.has("admin:settings")}
               productId={productId}
@@ -323,42 +301,24 @@ export default async function ProductDetailPage({
               <ShippingHistoryChart data={shippingHistory.map((sh) => ({
                 id: sh.id,
                 shippingType: sh.shippingType,
-                amount: sh.amount.toString(),
+                amount: sh.amount,
                 recordedAt: sh.recordedAt.toISOString(),
               }))} />
-              <table className="w-full text-sm mt-4">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-2 text-gray-600 font-medium">Date</th>
-                    <th className="text-left py-2 text-gray-600 font-medium">Type</th>
-                    <th className="text-right py-2 text-gray-600 font-medium">Amount</th>
-                    <th className="text-right py-2 text-gray-600 font-medium">Change</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {shippingHistory.map((sh, i) => {
-                    const sameType = shippingHistory.slice(i + 1).find((s) => s.shippingType === sh.shippingType);
-                    const change = sameType ? Number(sh.amount) - Number(sameType.amount) : 0;
-                    const hasComparison = !!sameType;
-                    return (
-                      <tr key={sh.id} className="border-b border-gray-50">
-                        <td className="py-1.5 text-gray-700">{formatDateTime(sh.recordedAt)}</td>
-                        <td className="py-1.5">
-                          <Badge variant="secondary" className="text-xs">
-                            {shippingTypeLabels[sh.shippingType] || sh.shippingType}
-                          </Badge>
-                        </td>
-                        <td className="py-1.5 text-right font-mono">${Number(sh.amount).toFixed(2)}</td>
-                        <td className={`py-1.5 text-right ${change > 0 ? "text-red-600" : change < 0 ? "text-green-600" : "text-gray-500"}`}>
-                          {hasComparison
-                            ? `${change > 0 ? "+" : ""}$${change.toFixed(2)}`
-                            : "-"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <ExpandableHistoryTable
+                columns={[{ label: "Date" }, { label: "Type" }, { label: "Amount", align: "right" }, { label: "Change", align: "right" }]}
+                rows={shippingHistory.map((sh) => ({
+                  id: sh.id,
+                  cells: [
+                    <span key="d" className="text-gray-700"><LocalDateTime value={sh.recordedAt} /></span>,
+                    <Badge key="t" variant="secondary" className="text-xs">
+                      {shippingTypeLabels[sh.shippingType] || sh.shippingType}
+                    </Badge>,
+                    <span key="v" className="font-mono">${sh.amount.toFixed(2)}</span>,
+                    <ChangeAmount key="c" value={sh.amount} previous={sh.detail.previous} />,
+                  ],
+                  details: historyDetails("Amount", sh.amount, sh.detail),
+                }))}
+              />
             </>
           )}
         </CardContent>

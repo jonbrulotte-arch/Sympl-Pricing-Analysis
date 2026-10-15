@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getPermissions } from "@/lib/permissions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate } from "@/lib/utils";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 
 export default async function SalsifyLogPage() {
   const session = await auth();
@@ -57,7 +57,7 @@ export default async function SalsifyLogPage() {
                       )}
                     </td>
                     <td className="py-2 px-2 text-right text-gray-600">{imp.rowCount}</td>
-                    <td className="py-2 px-2 text-right text-gray-500">{formatDate(imp.createdAt)}</td>
+                    <td className="py-2 px-2 text-right text-gray-500"><LocalDateTime value={imp.createdAt} dateOnly /></td>
                   </tr>
                 ))}
                 {imports.length === 0 && (

@@ -9,6 +9,7 @@ import { buildRows } from "@/lib/import/build-rows";
 import { upsertGlobalProducts } from "@/lib/db/upsert-global-products";
 import { randomUUID } from "crypto";
 import { logActivity } from "@/lib/activity-log";
+import { getPermissions } from "@/lib/permissions";
 
 const POLL_INTERVAL_MS = 3_000;
 const MAX_POLL_ATTEMPTS = 300; // ~15 minutes
@@ -18,6 +19,8 @@ export async function POST() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!(await getPermissions(session.user.role)).has("import:upload"))
+    return NextResponse.json({ error: "You don't have permission to import data" }, { status: 403 });
 
   const creds = await resolveSalsifyCredentials(session.user.id);
   if (!creds.ok) {

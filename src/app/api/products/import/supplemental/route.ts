@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { upsertSupplementalData } from "@/lib/db/upsert-supplemental";
 import { logActivity } from "@/lib/activity-log";
+import { getPermissions } from "@/lib/permissions";
 
 interface SupplementalRow {
   sku: string;
@@ -14,6 +15,8 @@ interface SupplementalRow {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await getPermissions(session.user.role)).has("import:upload"))
+    return NextResponse.json({ error: "You don't have permission to import data" }, { status: 403 });
 
   const body = await req.json();
   const { fileName, rows } = body as { fileName: string; rows: SupplementalRow[] };

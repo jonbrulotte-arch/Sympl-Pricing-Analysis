@@ -65,18 +65,22 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
             channelCount={customer.channels.length}
             isOwner={isOwner}
           />
-          <Link href={`/customers/${customerId}/import`}>
-            <Button>
-              <Upload className="h-4 w-4 mr-2" />
-              Import Data
-            </Button>
-          </Link>
-          <Link href={`/customers/${customerId}/salsify-mapping`}>
-            <Button variant="outline">
-              <Plug className="h-4 w-4 mr-2" />
-              Salsify Mapping
-            </Button>
-          </Link>
+          {permissions.has("import:upload") && (
+            <Link href={`/customers/${customerId}/import`}>
+              <Button>
+                <Upload className="h-4 w-4 mr-2" />
+                Import Data
+              </Button>
+            </Link>
+          )}
+          {(permissions.has("salsify:mapping") || isAdmin) && (
+            <Link href={`/customers/${customerId}/salsify-mapping`}>
+              <Button variant="outline">
+                <Plug className="h-4 w-4 mr-2" />
+                Salsify Mapping
+              </Button>
+            </Link>
+          )}
           <Link href={`/customers/${customerId}/products`}>
             <Button variant="outline">
               <Package className="h-4 w-4 mr-2" />
@@ -179,7 +183,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
                 done="All products have cost data"
               />
               <AttentionRow
-                href={`/customers/${customerId}/analysis?tab=publish`}
+                href={
+                  permissions.has("salsify:publish") || isAdmin
+                    ? `/customers/${customerId}/analysis?tab=publish`
+                    : `/customers/${customerId}/analysis`
+                }
                 icon={<Send className="h-4 w-4 text-blue-600" />}
                 count={stagedCount}
                 label="committed changes waiting to publish to Salsify"

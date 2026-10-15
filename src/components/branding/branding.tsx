@@ -2,9 +2,18 @@
 
 import { createContext, useContext } from "react";
 import { cn } from "@/lib/utils";
-import { DEFAULT_BRANDING, type Branding } from "@/lib/branding-shared";
+import type { Branding } from "@/lib/branding-shared";
 
-const BrandingContext = createContext<Branding>(DEFAULT_BRANDING);
+// No names here: the platform name and tagline always come from the server, so signed-out visitors' page
+// scripts don't contain them when sign-in branding is hidden.
+const BrandingContext = createContext<Branding>({
+  name: "",
+  longName: "",
+  isCustom: true,
+  logoUrl: null,
+  hideLoginBranding: true,
+  tagline: "",
+});
 
 export function BrandingProvider({ value, children }: { value: Branding; children: React.ReactNode }) {
   return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>;
@@ -14,13 +23,14 @@ export function useBranding(): Branding {
   return useContext(BrandingContext);
 }
 
-/** The platform name: the default renders as "Sympl PA" with the accent, a custom name renders as-is. */
+/** The platform name: the default name's last word gets the accent color, a custom name renders as-is. */
 export function BrandName({ className }: { className?: string }) {
   const b = useBranding();
-  if (!b.isCustom) {
+  const words = b.name.split(" ");
+  if (!b.isCustom && words.length > 1) {
     return (
       <span className={className}>
-        Sympl <span className="text-blue-400">PA</span>
+        {words.slice(0, -1).join(" ")} <span className="text-blue-400">{words.at(-1)}</span>
       </span>
     );
   }
@@ -62,7 +72,7 @@ export function AuthBrandHeader() {
       <h1 className={cn("text-3xl font-bold text-white tracking-tight")}>
         <BrandName />
       </h1>
-      <p className="text-gray-400 mt-1 text-sm">Pricing Analysis Platform</p>
+      {b.tagline && <p className="text-gray-400 mt-1 text-sm">{b.tagline}</p>}
     </div>
   );
 }

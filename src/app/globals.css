@@ -17,3 +17,30 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Printable reports (e.g. Single SKU Analysis): while one is open, only it prints. */
+@media print {
+  @page {
+    size: letter landscape;
+    margin: 0.4in;
+  }
+  body.printing-report > *:not(.print-report-root) {
+    display: none !important;
+  }
+  body.printing-report .print-report-root {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+  .print-break {
+    break-before: page;
+  }
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

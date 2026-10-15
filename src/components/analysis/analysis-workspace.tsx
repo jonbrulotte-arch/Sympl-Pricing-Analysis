@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAnalysis, type StatusFilter } from "@/hooks/use-analysis";
+import { useAnalysis, type ServerComputeScope, type StatusFilter } from "@/hooks/use-analysis";
 import { KpiCards } from "./kpi-cards";
 import { AnalysisTable } from "./analysis-table";
 import { CalculationCheck } from "./calculation-check";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ProductRow, BrandRoyaltyTable, ChannelDefaults, RoyaltyRuleEntry, ItemTypeCommissionTable } from "@/lib/pricing/types";
-import { exportChangeReport, exportFullAnalysis } from "@/lib/export/change-report";
+import { exportChangeReport, exportFullAnalysis, safeFileName } from "@/lib/export/change-report";
 import { Search, Download, ChevronDown, ChevronLeft, ChevronRight, Tag, CheckSquare } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -50,6 +50,11 @@ interface Props {
   /** Open on the Publish to Salsify tab instead of the first channel. */
   openPublish?: boolean;
   canViewCost?: boolean;
+  canExport?: boolean;
+  /** Set for users without data:viewCost: the analysis is computed on the server and cost never reaches the browser. */
+  serverCompute?: ServerComputeScope | null;
+  /** salsify:publish — shows the Publish to Salsify tab. */
+  canPublish?: boolean;
 }
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -60,7 +65,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "unpriced", label: "Unpriced" },
 ];
 
-export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true }: Props) {
+export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true, canExport = true, serverCompute = null, canPublish = true }: Props) {
   const {
     configs,
     activeTab,
@@ -90,6 +95,8 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     commitPrice,
     revertCommittedPrice,
     committedSkus,
+    computing,
+    computeError,
   } = useAnalysis(
     channels,
     products,
@@ -97,8 +104,11 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     customerId,
     royaltyRules,
     itemTypeCommissions,
-    openPublish ? "__publish_salsify__" : undefined,
+    openPublish && canPublish ? "__publish_salsify__" : undefined,
+    serverCompute,
   );
+  // The Calculation Check re-runs the math in the browser, which needs cost.
+  const showCalcCheck = !serverCompute;
 
   const isCalcCheck = activeTab === "__calc_check__";
   const isPublishSalsify = activeTab === "__publish_salsify__";
@@ -146,6 +156,13 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     ? allBrands.filter((b) => b.toLowerCase().includes(brandSearch.toLowerCase()))
     : allBrands;
 
+  // Both numbers count every row on the tab; SKUs without cost (left out of the KPIs) are noted separately.
+  const tabResults = results[activeTab] ?? [];
+  const missingCostCount = tabResults.filter((r) => r.invalid).length;
+  const skuCountLabel =
+    `${filteredResults.length} of ${tabResults.length} SKUs` +
+    (missingCostCount > 0 ? ` · ${missingCostCount} missing cost` : "");
+
   const activeCfg = configs.find((c) => c.id === activeTab);
   const activeSettings = settingsMap[activeTab] as unknown as ChannelDefaults | undefined;
 
@@ -156,14 +173,15 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
 
   function handleExport(type: "change" | "full") {
     setExportOpen(false);
+    if (!canExport) return;
     const cfg = configs.find((c) => c.id === activeTab);
     if (!cfg) return;
     const channelResults = results[activeTab] ?? [];
     const settings = settingsMap[activeTab] as unknown as ChannelDefaults;
     const wb = type === "change"
-      ? exportChangeReport(channelResults, cfg.name, settings)
-      : exportFullAnalysis(channelResults, cfg.name);
-    XLSX.writeFile(wb, `${cfg.name.replace(/\s+/g, "_")}_${type === "change" ? "changes" : "full"}.xlsx`);
+      ? exportChangeReport(channelResults, cfg.name, settings, canViewCost)
+      : exportFullAnalysis(channelResults, cfg.name, canViewCost);
+    XLSX.writeFile(wb, `${safeFileName(cfg.name)}_${type === "change" ? "changes" : "full"}.xlsx`);
   }
 
   if (channels.length === 0) {
@@ -199,6 +217,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             {cfg.tabLabel}
           </button>
         ))}
+        {showCalcCheck && (
         <button
           onClick={() => { setActiveTab("__calc_check__"); setSelectedSkus(new Set()); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
@@ -209,6 +228,8 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
         >
           Calculation Check
         </button>
+        )}
+        {canPublish && (
         <button
           onClick={() => { setActiveTab("__publish_salsify__"); setSelectedSkus(new Set()); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
@@ -219,9 +240,10 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
         >
           Publish to Salsify
         </button>
+        )}
       </div>
 
-      {isCalcCheck ? (
+      {isCalcCheck && showCalcCheck ? (
         <CalculationCheck
           results={results}
           configs={configs}
@@ -230,12 +252,12 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
           initialSku={calcCheckTarget?.sku}
           canViewCost={canViewCost}
         />
-      ) : isPublishSalsify ? (
+      ) : isPublishSalsify && canPublish ? (
         <PublishToSalsify customerId={customerId} onRevert={revertCommittedPrice} />
       ) : (
         <>
           {/* KPIs */}
-          <KpiCards kpis={kpis} />
+          <KpiCards kpis={kpis} loading={computing && kpis.total === 0} />
 
           {/* Toolbar */}
           <div className="flex items-center gap-3 mb-4">
@@ -334,8 +356,9 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
                 </Button>
               )}
               <span className="text-xs text-gray-500">
-                {filteredResults.length} of {kpis.total} SKUs
+                {computing ? "Calculating..." : skuCountLabel}
               </span>
+              {canExport && (
               <div className="relative">
                 <Button
                   variant="outline"
@@ -364,8 +387,13 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
+
+          {computeError && (
+            <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{computeError}</div>
+          )}
 
           {/* Table */}
           <AnalysisTable
@@ -380,7 +408,8 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             committedSkus={committedSkus[activeTab]}
             cfg={activeCfg}
             settings={activeSettings}
-            onShowMath={handleShowMath}
+            onShowMath={showCalcCheck ? handleShowMath : undefined}
+            emptyMessage={computing && filteredResults.length === 0 ? "Calculating..." : undefined}
             selectedSkus={selectedSkus}
             onSelectSku={handleSelectSku}
             onSelectAll={handleSelectAll}

@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 import type { ProductRow } from "@/lib/pricing/types";
 import { upsertImportRows } from "@/lib/db/upsert-import-rows";
 import { logActivity } from "@/lib/activity-log";
-import { canAccessCustomer } from "@/lib/permissions";
+import { canAccessCustomer, getPermissions } from "@/lib/permissions";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
   const session = await auth();
@@ -14,6 +14,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
   const { customerId } = await params;
   if (!(await canAccessCustomer(customerId, session.user.id, session.user.role)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await getPermissions(session.user.role)).has("import:upload"))
+    return NextResponse.json({ error: "You don't have permission to import data" }, { status: 403 });
 
   const body = await req.json();
   const { fileName, sheetName, headerSig, columnMap, rows } = body as {
