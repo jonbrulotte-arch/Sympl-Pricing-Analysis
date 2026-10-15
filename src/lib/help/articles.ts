@@ -121,7 +121,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         id: "product-page",
         title: "A product's page",
         blocks: [
-          { p: "Click a SKU anywhere in the platform to open its page. It shows the product's brand, inventory status, ASIN, FBA class and shipping weight, plus its history. Click the ASIN, here or under the SKU in an analysis table, to open the product's Amazon listing in a new tab." },
+          { p: "Click a SKU anywhere in the platform to open its page. It shows the product's brand, inventory status, ASIN, FBA class and shipping weight, plus its history. Click the ASIN, here or in a SKU's details in an analysis, to open the product's Amazon listing in a new tab." },
           { p: "Shipping weight comes from imports. When it's at or above the UPS weight break point, the card notes that the SKU's shipping cost uses the UPS rate." },
           { p: "If your role can update products, the **Cost & Shipping** card lets you enter a new unit cost or shipping cost. Each save adds a history record; nothing is overwritten." },
           { note: "A red banner marks discontinued SKUs, which are being sold through remaining stock and won't be reordered. Be careful raising prices on them.", tone: "warning" },
