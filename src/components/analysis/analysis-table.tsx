@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import type { AnalysisResult, ChannelConfig, ChannelDefaults } from "@/lib/pricing/types";
 import { ChevronDown, ChevronUp, ArrowUpDown, Check, BarChart3, AlertTriangle } from "lucide-react";
 import { SkuDetailPanel } from "./sku-detail-panel";
+import { AsinLink } from "@/components/products/asin-link";
 import { ShipCell } from "./ship-cell";
 import { shipComponentsFor, type ShipComponentKey } from "@/lib/pricing/shipping";
 
@@ -141,6 +142,9 @@ export function AnalysisTable({ results, sortKey, sortDir, onSort, onOverride, o
                       </span>
                     )}
                   </div>
+                  {r.asin && (
+                    <AsinLink asin={r.asin} className="text-[10px]" iconClassName="h-2.5 w-2.5" />
+                  )}
                 </td>
                 <td className="py-1.5 px-2 text-gray-700 max-w-[200px] truncate text-xs">{r.name ?? "-"}</td>
                 <td className="py-1.5 px-2 text-gray-600 text-xs">{r.brand ?? "-"}</td>

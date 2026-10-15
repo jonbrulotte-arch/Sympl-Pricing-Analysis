@@ -121,7 +121,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         id: "product-page",
         title: "A product's page",
         blocks: [
-          { p: "Click a SKU anywhere in the platform to open its page. It shows the product's brand, inventory status, ASIN, FBA class and shipping weight, plus its history. Click the ASIN to open the product's Amazon listing in a new tab." },
+          { p: "Click a SKU anywhere in the platform to open its page. It shows the product's brand, inventory status, ASIN, FBA class and shipping weight, plus its history. Click the ASIN, here or under the SKU in an analysis table, to open the product's Amazon listing in a new tab." },
           { p: "Shipping weight comes from imports. When it's at or above the UPS weight break point, the card notes that the SKU's shipping cost uses the UPS rate." },
           { p: "If your role can update products, the **Cost & Shipping** card lets you enter a new unit cost or shipping cost. Each save adds a history record; nothing is overwritten." },
           { note: "A red banner marks discontinued SKUs, which are being sold through remaining stock and won't be reordered. Be careful raising prices on them.", tone: "warning" },
@@ -132,7 +132,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         title: "Opening a SKU in Single SKU Analysis",
         requires: ["module:singleSku"],
         blocks: [
-          { p: "Click **Single SKU Analysis** at the top of a product's page. If only one of your customers carries the SKU, the calculator opens straight away. Otherwise choose the customer; customers that carry it are marked, and the SKU is already picked." },
+          { p: "Click **Single SKU Analysis** at the top of a product's page, choose the customer and click **Next**. The SKU is already picked, customers that carry it are marked, and when only one does it's selected for you." },
         ],
       },
       {

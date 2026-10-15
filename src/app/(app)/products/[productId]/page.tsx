@@ -11,13 +11,12 @@ import { PriceHistorySection } from "@/components/products/price-history-section
 import { loadPriceHistory } from "@/lib/db/price-history";
 import { loadCostAndShippingHistory, type CostRecordDetail } from "@/lib/db/cost-history";
 import { ExpandableHistoryTable } from "@/components/products/expandable-history-table";
-import { AlertTriangle, Calculator, ExternalLink } from "lucide-react";
+import { AlertTriangle, Calculator } from "lucide-react";
 import { LocalDateTime } from "@/components/ui/local-date-time";
 import { NavigatingButton } from "@/components/ui/navigating-link";
 import { AddToProject, type ProjectOption } from "@/components/products/add-to-project";
 import { getUpsWeightBreakpoint } from "@/lib/import/shipping-weight";
-
-const ASIN_PATTERN = /^[A-Z0-9]{10}$/i;
+import { AsinLink } from "@/components/products/asin-link";
 
 /** Change from the previous record; increases are red because these are costs. */
 function ChangeAmount({ value, previous }: { value: number; previous: number | null }) {
@@ -257,20 +256,7 @@ export default async function ProductDetailPage({
           <Card>
             <CardContent className="py-4">
               <p className="text-xs text-gray-600">ASIN</p>
-              {ASIN_PATTERN.test(product.asin) ? (
-                <a
-                  href={`https://www.amazon.com/dp/${encodeURIComponent(product.asin)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Open the Amazon listing in a new tab"
-                  className="inline-flex items-center gap-1 text-sm font-mono text-blue-600 hover:underline"
-                >
-                  {product.asin}
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                </a>
-              ) : (
-                <p className="text-sm font-mono">{product.asin}</p>
-              )}
+              <AsinLink asin={product.asin} className="text-sm" />
             </CardContent>
           </Card>
         )}

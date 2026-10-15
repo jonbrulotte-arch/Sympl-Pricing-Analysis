@@ -1,6 +1,7 @@
 import type { AnalysisResult, ChannelConfig, ChannelDefaults } from "@/lib/pricing/types";
 import { feeLedger } from "@/lib/pricing/ledger";
 import { AlertTriangle } from "lucide-react";
+import { AsinLink } from "@/components/products/asin-link";
 
 interface Props {
   result: AnalysisResult;
@@ -102,8 +103,14 @@ export function SkuDetailPanel({ result: r, cfg, settings, onShowMath, canViewCo
           {stockMessage}
         </div>
 
-        {tags.some((t) => t.value) && (
+        {(tags.some((t) => t.value) || r.asin) && (
           <div className="flex flex-wrap gap-2 mt-3">
+            {r.asin && (
+              <div className="text-center px-2 py-1 rounded border border-gray-200 bg-white">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide">ASIN</p>
+                <AsinLink asin={r.asin} className="text-xs" iconClassName="h-3 w-3" />
+              </div>
+            )}
             {tags.filter((t) => t.value).map((t) => (
               <div key={t.label} className="text-center px-2 py-1 rounded border border-gray-200 bg-white">
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide">{t.label}</p>

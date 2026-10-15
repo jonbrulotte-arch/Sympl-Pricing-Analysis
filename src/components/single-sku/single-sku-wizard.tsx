@@ -44,17 +44,14 @@ export function SingleSkuWizard({
   canExport: boolean;
   startProduct?: StartProduct | null;
 }) {
-  // When exactly one customer (with channels) carries the SKU, go straight to the calculator.
+  // Opened with a SKU: always start at the customer step, pre-selecting the customer when only one carries it.
   const carriers = startProduct
     ? customers.filter((c) => startProduct.customerIds.includes(c.id) && c.channels.length > 0)
     : [];
-  const direct = carriers.length === 1 ? carriers[0] : null;
   const [pinned, setPinned] = useState<StartProduct | null>(startProduct);
-  const [step, setStep] = useState(direct ? 2 : 0);
-  const [customerId, setCustomerId] = useState(direct?.id ?? "");
-  const [product, setProduct] = useState<ProductHit | null>(
-    direct && startProduct ? { ...startProduct, onCustomer: true } : null,
-  );
+  const [step, setStep] = useState(0);
+  const [customerId, setCustomerId] = useState(carriers.length === 1 ? carriers[0].id : "");
+  const [product, setProduct] = useState<ProductHit | null>(null);
   // Bumped to start a fresh calculator when the same selection is reopened.
   const [session, setSession] = useState(0);
 
