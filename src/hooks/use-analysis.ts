@@ -14,7 +14,8 @@ import { brandKey } from "@/lib/pricing/helpers";
 import type { ShipComponentKey, ShippingChanges } from "@/lib/pricing/shipping";
 import { computeChannelResults, toChannelConfig, type ChannelWithDb, type ChannelEdits } from "@/lib/pricing/compute-results";
 
-export type StatusFilter = "all" | "pass" | "below" | "loss" | "unpriced";
+/** "disc" shows only discontinued SKUs, whatever their status. */
+export type StatusFilter = "all" | "pass" | "below" | "loss" | "unpriced" | "disc";
 
 /**
  * Set for users without data:viewCost: products arrive without cost, and results are computed by
@@ -57,7 +58,18 @@ export function useAnalysis(
     for (const ch of channels) m[ch.id] = { ...(ch.defaults as Record<string, unknown>) };
     return m;
   });
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilterState] = useState<StatusFilter>("all");
+  // Hides discontinued SKUs from the table, KPIs and exports on every tab. Can't be on with the Discontinued filter.
+  const [hideDiscontinued, setHideDiscontinuedState] = useState(false);
+  const setStatusFilter = useCallback((f: StatusFilter) => {
+    setStatusFilterState(f);
+    if (f === "disc") setHideDiscontinuedState(false);
+  }, []);
+  const setHideDiscontinued = useCallback((hide: boolean) => {
+    setHideDiscontinuedState(hide);
+    if (hide) setStatusFilterState((f) => (f === "disc" ? "all" : f));
+  }, []);
+
   const [search, setSearch] = useState("");
   const [brandFilter, setBrandFilter] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<string>("sku");
@@ -198,10 +210,17 @@ export function useAnalysis(
     return Array.from(set).sort();
   }, [results, activeTab]);
 
-  const filteredResults = useMemo(() => {
+  // The active tab's results after the Hide discontinued toggle; everything else on the tab works from these.
+  const scopedResults = useMemo(() => {
     const channelResults = results[activeTab] ?? [];
-    return channelResults.filter((r) => {
-      if (statusFilter !== "all" && r.baseStatus !== statusFilter) return false;
+    return hideDiscontinued ? channelResults.filter((r) => !r.disc) : channelResults;
+  }, [results, activeTab, hideDiscontinued]);
+
+  const filteredResults = useMemo(() => {
+    return scopedResults.filter((r) => {
+      if (statusFilter === "disc") {
+        if (!r.disc) return false;
+      } else if (statusFilter !== "all" && r.baseStatus !== statusFilter) return false;
       if (brandFilter.length > 0 && !brandFilter.includes(r.brand ?? "")) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -214,7 +233,7 @@ export function useAnalysis(
       }
       return true;
     });
-  }, [results, activeTab, statusFilter, search, brandFilter]);
+  }, [scopedResults, statusFilter, search, brandFilter]);
 
   const sortedResults = useMemo(() => {
     const sorted = [...filteredResults];
@@ -242,7 +261,7 @@ export function useAnalysis(
 
   useEffect(() => {
     setPage(1);
-  }, [activeTab, statusFilter, search, brandFilter, sortKey, sortDir, pageSize]);
+  }, [activeTab, statusFilter, hideDiscontinued, search, brandFilter, sortKey, sortDir, pageSize]);
 
   const totalPages = pageSize === "all" ? 1 : Math.max(1, Math.ceil(sortedResults.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -254,8 +273,7 @@ export function useAnalysis(
   }, [sortedResults, pageSize, safePage]);
 
   const kpis = useMemo(() => {
-    const channelResults = results[activeTab] ?? [];
-    const valid = channelResults.filter((r) => !r.invalid);
+    const valid = scopedResults.filter((r) => !r.invalid);
     const atGoal = valid.filter((r) => r.baseStatus === "pass").length;
     const below = valid.filter((r) => r.baseStatus === "below").length;
     const loss = valid.filter((r) => r.baseStatus === "loss").length;
@@ -266,7 +284,7 @@ export function useAnalysis(
     const needRepricing = valid.filter((r) => r.rec != null && r.rec !== r.price).length;
 
     return { total: valid.length, atGoal, below, loss, unpriced, avgGm, totalMargin, needRepricing };
-  }, [results, activeTab]);
+  }, [scopedResults]);
 
   const setOverride = useCallback((channelId: string, sku: string, field: "price" | "ship", value: number | undefined) => {
     // Copy at every level: server-computed results diff the previous overrides against the new ones.
@@ -433,6 +451,9 @@ export function useAnalysis(
     kpis,
     statusFilter,
     setStatusFilter,
+    hideDiscontinued,
+    setHideDiscontinued,
+    scopedResults,
     search,
     setSearch,
     brandFilter,

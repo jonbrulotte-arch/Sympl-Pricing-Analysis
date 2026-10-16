@@ -63,6 +63,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "below", label: "Below" },
   { value: "loss", label: "Loss" },
   { value: "unpriced", label: "Unpriced" },
+  { value: "disc", label: "Discontinued" },
 ];
 
 export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true, canExport = true, serverCompute = null, canPublish = true }: Props) {
@@ -81,6 +82,9 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     kpis,
     statusFilter,
     setStatusFilter,
+    hideDiscontinued,
+    setHideDiscontinued,
+    scopedResults,
     search,
     setSearch,
     brandFilter,
@@ -156,12 +160,15 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     ? allBrands.filter((b) => b.toLowerCase().includes(brandSearch.toLowerCase()))
     : allBrands;
 
-  // Both numbers count every row on the tab; SKUs without cost (left out of the KPIs) are noted separately.
-  const tabResults = results[activeTab] ?? [];
+  // Both numbers count every row on the tab (less hidden discontinued SKUs); SKUs without cost (left out of the
+  // KPIs) and hidden discontinued SKUs are noted separately.
+  const tabResults = scopedResults;
+  const hiddenDiscCount = (results[activeTab]?.length ?? 0) - scopedResults.length;
   const missingCostCount = tabResults.filter((r) => r.invalid).length;
   const skuCountLabel =
     `${filteredResults.length} of ${tabResults.length} SKUs` +
-    (missingCostCount > 0 ? ` · ${missingCostCount} missing cost` : "");
+    (missingCostCount > 0 ? ` · ${missingCostCount} missing cost` : "") +
+    (hiddenDiscCount > 0 ? ` · ${hiddenDiscCount} discontinued hidden` : "");
 
   const activeCfg = configs.find((c) => c.id === activeTab);
   const activeSettings = settingsMap[activeTab] as unknown as ChannelDefaults | undefined;
@@ -176,7 +183,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
     if (!canExport) return;
     const cfg = configs.find((c) => c.id === activeTab);
     if (!cfg) return;
-    const channelResults = results[activeTab] ?? [];
+    const channelResults = scopedResults;
     const settings = settingsMap[activeTab] as unknown as ChannelDefaults;
     const wb = type === "change"
       ? exportChangeReport(channelResults, cfg.name, settings, canViewCost)
@@ -260,7 +267,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
           <KpiCards kpis={kpis} loading={computing && kpis.total === 0} />
 
           {/* Toolbar */}
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
             <div className="flex gap-1">
               {STATUS_FILTERS.map((f) => (
                 <button
@@ -276,7 +283,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
                 </button>
               ))}
             </div>
-            <div className="relative flex-1 max-w-xs">
+            <div className="relative flex-1 min-w-[200px] max-w-xs">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
               <Input
                 value={search}
@@ -342,6 +349,23 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
                 </div>
               )}
             </div>
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={hideDiscontinued}
+                onChange={(e) => {
+                  const hide = e.target.checked;
+                  setHideDiscontinued(hide);
+                  // Don't leave hidden SKUs selected for Commit Selected.
+                  if (hide) {
+                    const disc = new Set((results[activeTab] ?? []).filter((r) => r.disc).map((r) => r.sku));
+                    setSelectedSkus((prev) => new Set([...prev].filter((sku) => !disc.has(sku))));
+                  }
+                }}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
+              />
+              Hide discontinued
+            </label>
             <div className="ml-auto flex items-center gap-3">
               {selectedSkus.size > 0 && (
                 <Button

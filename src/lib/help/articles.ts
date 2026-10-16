@@ -355,6 +355,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
           },
           { p: "Click **Detail** on a row for a breakdown of where the list price goes (cost, fees and allocations, shipping, net) and a fee ledger for one order." },
           { p: "Filter by status, search by SKU, name or brand, and narrow by brand. The count above the table reads like \"30 of 30 SKUs · 1 missing cost\"; SKUs without a cost can't be analyzed and are left out of the cards." },
+          { p: "**Discontinued** (next to Unpriced) shows only discontinued SKUs. Tick **Hide discontinued** to leave them out of the table, the cards and exports on every tab for this visit; the count then notes how many are hidden. The two can't be on together. To leave discontinued SKUs out of a channel for everyone, use the channel's Inventory and lifecycle setting instead." },
           { note: "If your role can't see unit cost, cost is hidden and the analysis is calculated on the server. Margins and fees still show." },
         ],
       },
