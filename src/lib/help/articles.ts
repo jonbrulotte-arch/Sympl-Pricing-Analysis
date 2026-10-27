@@ -535,6 +535,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         blocks: [
           { p: "[Royalty Rules](/royalty-rules) set the royalty for a **brand** or for specific **SKUs**, either as a % of the sale (after coupons) or as $ per unit." },
           { list: ["**Global rules** apply to every customer.", "**Customer overrides** replace them for one customer, and can be limited to one sales channel."] },
+          { p: "The Customer Overrides list shows every customer's overrides when the page opens, with the customer and channel for each. Pick a customer from the list above it to see just theirs. **Add Override** asks which customer the rule is for, then whether it covers all of that customer's channels or just one." },
           { note: "Adding or changing rules needs the Edit Royalties permission. Global rules also need an administrator." },
         ],
       },

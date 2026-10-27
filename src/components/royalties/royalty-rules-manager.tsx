@@ -28,6 +28,7 @@ const ALL_CHANNELS = "__all__";
 interface Customer {
   id: string;
   name: string;
+  channels: Channel[];
 }
 
 interface RoyaltyRule {
@@ -39,6 +40,7 @@ interface RoyaltyRule {
   value: number;
   mode: "pct" | "usd";
   customerId?: string | null;
+  customerName?: string | null;
   channelId?: string | null;
   channelName?: string | null;
 }
@@ -62,14 +64,16 @@ export function RoyaltyRulesManager({
 }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [globalRules, setGlobalRules] = useState<RoyaltyRule[]>([]);
-  const [customerRules, setCustomerRules] = useState<RoyaltyRule[]>([]);
-  const [customerChannels, setCustomerChannels] = useState<Channel[]>([]);
+  // Every customer override the user can access; the customer filter narrows it on the page.
+  const [overrides, setOverrides] = useState<RoyaltyRule[]>([]);
   const [channelId, setChannelId] = useState("");
+  // The customer of the override being added or edited.
+  const [dialogCustomerId, setDialogCustomerId] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [loadingGlobal, setLoadingGlobal] = useState(true);
-  const [loadingCustomer, setLoadingCustomer] = useState(false);
+  const [loadingOverrides, setLoadingOverrides] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<RoyaltyRule | null>(null);
   const [ruleTarget, setRuleTarget] = useState<RuleTarget>("global");
@@ -89,16 +93,6 @@ export function RoyaltyRulesManager({
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/customers")
-      .then((r) => r.json())
-      .then((data) => {
-        const list = Array.isArray(data) ? data : data.customers ?? [];
-        setCustomers(list);
-      })
-      .catch(() => {});
-  }, []);
-
   const loadGlobalRules = useCallback(async () => {
     setLoadingGlobal(true);
     try {
@@ -109,33 +103,37 @@ export function RoyaltyRulesManager({
     }
   }, []);
 
-  const loadCustomerRules = useCallback(async (custId: string) => {
-    if (!custId) {
-      setCustomerRules([]);
-      setCustomerChannels([]);
-      return;
-    }
-    setLoadingCustomer(true);
+  /** Loads every accessible customer's overrides, plus the customers and their channels. */
+  const loadOverrides = useCallback(async () => {
     try {
-      const [res, chRes] = await Promise.all([
-        fetch(`/api/customers/${custId}/royalty-rules`),
-        fetch(`/api/customers/${custId}/channels`),
-      ]);
-      if (res.ok) setCustomerRules(await res.json());
-      if (chRes.ok) setCustomerChannels((await chRes.json()).map((c: Channel) => ({ id: c.id, name: c.name })));
+      const res = await fetch("/api/royalty-rules/all");
+      if (!res.ok) return;
+      const data: { rules: RuleRecord[]; customers: Customer[] } = await res.json();
+      setCustomers(data.customers);
+      setOverrides(
+        data.rules
+          .filter((r) => r.customerId != null)
+          .map(toRoyaltyRule)
+          .sort(
+            (a, b) =>
+              (a.customerName ?? "").localeCompare(b.customerName ?? "") ||
+              (a.channelName ?? "").localeCompare(b.channelName ?? ""),
+          ),
+      );
     } finally {
-      setLoadingCustomer(false);
+      setLoadingOverrides(false);
     }
   }, []);
 
   useEffect(() => {
     loadGlobalRules();
-  }, [loadGlobalRules]);
+    loadOverrides();
+  }, [loadGlobalRules, loadOverrides]);
 
-  useEffect(() => {
-    if (selectedCustomerId) loadCustomerRules(selectedCustomerId);
-    else setCustomerRules([]);
-  }, [selectedCustomerId, loadCustomerRules]);
+  const visibleOverrides = selectedCustomerId
+    ? overrides.filter((r) => r.customerId === selectedCustomerId)
+    : overrides;
+  const dialogChannels = customers.find((c) => c.id === dialogCustomerId)?.channels ?? [];
 
   function openAdd(target: RuleTarget) {
     setEditingRule(null);
@@ -146,6 +144,7 @@ export function RoyaltyRulesManager({
     setValue("");
     setMode("pct");
     setChannelId("");
+    setDialogCustomerId(target === "customer" ? selectedCustomerId : "");
     setSaveError(null);
     setDialogOpen(true);
   }
@@ -159,6 +158,7 @@ export function RoyaltyRulesManager({
     setValue(String(rule.value));
     setMode(rule.mode);
     setChannelId(rule.channelId ?? "");
+    setDialogCustomerId(rule.customerId ?? "");
     setSaveError(null);
     setDialogOpen(true);
   }
@@ -180,10 +180,13 @@ export function RoyaltyRulesManager({
       if (ruleTarget === "global") {
         url = editingRule ? `/api/royalty-rules/${editingRule.id}` : "/api/royalty-rules";
       } else {
-        if (!selectedCustomerId) return;
+        if (!dialogCustomerId) {
+          setSaveError("Choose a customer");
+          return;
+        }
         url = editingRule
-          ? `/api/customers/${selectedCustomerId}/royalty-rules/${editingRule.id}`
-          : `/api/customers/${selectedCustomerId}/royalty-rules`;
+          ? `/api/customers/${dialogCustomerId}/royalty-rules/${editingRule.id}`
+          : `/api/customers/${dialogCustomerId}/royalty-rules`;
         body = customerPayload;
       }
       const res = await fetch(url, {
@@ -197,7 +200,7 @@ export function RoyaltyRulesManager({
         return;
       }
       if (ruleTarget === "global") await loadGlobalRules();
-      else await loadCustomerRules(selectedCustomerId);
+      else await loadOverrides();
       setVersion((v) => v + 1);
 
       setDialogOpen(false);
@@ -206,13 +209,13 @@ export function RoyaltyRulesManager({
     }
   }
 
-  async function handleDelete(ruleId: string, target: RuleTarget) {
-    if (target === "customer" && !selectedCustomerId) return;
+  async function handleDelete(rule: RoyaltyRule, target: RuleTarget) {
+    if (target === "customer" && !rule.customerId) return;
     setDeleteError(null);
     const res = await fetch(
       target === "global"
-        ? `/api/royalty-rules/${ruleId}`
-        : `/api/customers/${selectedCustomerId}/royalty-rules/${ruleId}`,
+        ? `/api/royalty-rules/${rule.id}`
+        : `/api/customers/${rule.customerId}/royalty-rules/${rule.id}`,
       { method: "DELETE" },
     );
     if (!res.ok) {
@@ -221,35 +224,18 @@ export function RoyaltyRulesManager({
       return;
     }
     if (target === "global") await loadGlobalRules();
-    else await loadCustomerRules(selectedCustomerId);
+    else await loadOverrides();
     setVersion((v) => v + 1);
   }
 
   /** Opens the edit dialog for a rule found on the SKU Lookup or Duplicates tab. */
   function editRule(rule: RuleRecord) {
-    const asRule: RoyaltyRule = {
-      id: rule.id,
-      scope: rule.scope,
-      brandKey: rule.brandKey ?? undefined,
-      brandName: rule.brandName ?? undefined,
-      skus: rule.skus,
-      value: rule.value,
-      mode: rule.mode,
-      customerId: rule.customerId,
-      channelId: rule.channelId,
-      channelName: rule.channelName,
-    };
-    if (rule.customerId) {
-      setSelectedCustomerId(rule.customerId);
-      openEdit(asRule, "customer");
-    } else {
-      openEdit(asRule, "global");
-    }
+    openEdit(toRoyaltyRule(rule), rule.customerId ? "customer" : "global");
   }
 
   function refreshAll() {
     loadGlobalRules();
-    if (selectedCustomerId) loadCustomerRules(selectedCustomerId);
+    loadOverrides();
     setVersion((v) => v + 1);
   }
 
@@ -366,7 +352,7 @@ export function RoyaltyRulesManager({
                 rules={globalRules}
                 canEdit={canEditGlobal}
                 onEdit={(r) => openEdit(r, "global")}
-                onDelete={(id) => handleDelete(id, "global")}
+                onDelete={(r) => handleDelete(r, "global")}
               />
             )}
           </div>
@@ -375,7 +361,7 @@ export function RoyaltyRulesManager({
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold text-gray-800">Customer Overrides</h2>
-              {selectedCustomerId && canEditCustomer && (
+              {canEditCustomer && customers.length > 0 && (
                 <Button onClick={() => openAdd("customer")} size="sm" variant="outline">
                   <Plus className="h-4 w-4 mr-1" />
                   Add Override
@@ -389,36 +375,29 @@ export function RoyaltyRulesManager({
                 onChange={(e) => setSelectedCustomerId(e.target.value)}
                 className="flex h-9 w-full max-w-xs items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Select a customer...</option>
+                <option value="">All customers</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
 
-            {!selectedCustomerId && (
-              <div className="text-center py-10 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
-                Select a customer to view or add overrides.
-              </div>
-            )}
-
-            {selectedCustomerId && loadingCustomer && (
+            {loadingOverrides ? (
               <div className="text-center py-10 text-gray-500 text-sm">Loading...</div>
-            )}
-
-            {selectedCustomerId && !loadingCustomer && customerRules.length === 0 && (
+            ) : visibleOverrides.length === 0 ? (
               <div className="text-center py-10 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
-                No customer-specific overrides. Global rules apply.
+                {selectedCustomerId
+                  ? "No overrides for this customer. Global rules apply."
+                  : "No customer overrides. Global rules apply to every customer."}
               </div>
-            )}
-
-            {selectedCustomerId && !loadingCustomer && customerRules.length > 0 && (
+            ) : (
               <RulesTable
-                rules={customerRules}
+                rules={visibleOverrides}
+                showCustomer={!selectedCustomerId}
                 showChannel
                 canEdit={canEditCustomer}
                 onEdit={(r) => openEdit(r, "customer")}
-                onDelete={(id) => handleDelete(id, "customer")}
+                onDelete={(r) => handleDelete(r, "customer")}
               />
             )}
           </div>
@@ -437,7 +416,7 @@ export function RoyaltyRulesManager({
             <DialogDescription>
               {ruleTarget === "global"
                 ? "This rule applies to all customers unless overridden."
-                : "This rule overrides the global setting for the selected customer, on all of its channels or just one."}
+                : "This rule overrides the global setting for one customer, on all of its channels or just one."}
             </DialogDescription>
           </DialogHeader>
 
@@ -470,6 +449,35 @@ export function RoyaltyRulesManager({
 
             {ruleTarget === "customer" && (
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
+                {editingRule ? (
+                  <p className="text-sm text-gray-900">
+                    {customers.find((c) => c.id === dialogCustomerId)?.name ?? editingRule.customerName ?? "-"}
+                  </p>
+                ) : (
+                  <Select
+                    value={dialogCustomerId}
+                    onValueChange={(v) => {
+                      setDialogCustomerId(v);
+                      setChannelId("");
+                      setSaveError(null);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
+            {ruleTarget === "customer" && dialogCustomerId && (
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Applies to</label>
                 <Select value={channelId || ALL_CHANNELS} onValueChange={(v) => setChannelId(v === ALL_CHANNELS ? "" : v)}>
                   <SelectTrigger>
@@ -477,7 +485,7 @@ export function RoyaltyRulesManager({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_CHANNELS}>All channels</SelectItem>
-                    {customerChannels.map((c) => (
+                    {dialogChannels.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.name} only</SelectItem>
                     ))}
                   </SelectContent>
@@ -563,16 +571,18 @@ export function RoyaltyRulesManager({
 
 function RulesTable({
   rules,
+  showCustomer,
   showChannel,
   canEdit,
   onEdit,
   onDelete,
 }: {
   rules: RoyaltyRule[];
+  showCustomer?: boolean;
   showChannel?: boolean;
   canEdit: boolean;
   onEdit: (rule: RoyaltyRule) => void;
-  onDelete: (ruleId: string) => void;
+  onDelete: (rule: RoyaltyRule) => void;
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -580,6 +590,7 @@ function RulesTable({
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200">
             <th className="text-left py-2.5 px-4 text-gray-600 font-medium">Scope</th>
+            {showCustomer && <th className="text-left py-2.5 px-4 text-gray-600 font-medium">Customer</th>}
             {showChannel && <th className="text-left py-2.5 px-4 text-gray-600 font-medium">Channel</th>}
             <th className="text-left py-2.5 px-4 text-gray-600 font-medium">Brand / SKUs</th>
             <th className="text-right py-2.5 px-4 text-gray-600 font-medium">Value</th>
@@ -595,6 +606,7 @@ function RulesTable({
                   {rule.scope === "brand" ? "Brand" : "SKU"}
                 </Badge>
               </td>
+              {showCustomer && <td className="py-2 px-4 text-gray-700 text-xs">{rule.customerName ?? "-"}</td>}
               {showChannel && (
                 <td className="py-2 px-4 text-gray-700 text-xs">
                   {rule.channelName ?? <span className="text-gray-400">All channels</span>}
@@ -627,7 +639,7 @@ function RulesTable({
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => onDelete(rule.id)}
+                    onClick={() => onDelete(rule)}
                     className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -641,4 +653,20 @@ function RulesTable({
       </table>
     </div>
   );
+}
+
+function toRoyaltyRule(r: RuleRecord): RoyaltyRule {
+  return {
+    id: r.id,
+    scope: r.scope,
+    brandKey: r.brandKey ?? undefined,
+    brandName: r.brandName ?? undefined,
+    skus: r.skus,
+    value: r.value,
+    mode: r.mode,
+    customerId: r.customerId,
+    customerName: r.customerName,
+    channelId: r.channelId,
+    channelName: r.channelName,
+  };
 }
