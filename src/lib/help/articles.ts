@@ -524,7 +524,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: "royalty-rules",
     title: "Royalty Rules",
-    summary: "Global, customer and channel royalty rules, and which one applies.",
+    summary: "Global, customer and channel royalty rules, which one applies, SKU lookup, export and import, and duplicate cleanup.",
     icon: "DollarSign",
     group: "Pricing",
     requires: ["module:royalties"],
@@ -545,6 +545,40 @@ export const HELP_ARTICLES: HelpArticle[] = [
           { p: "For each SKU on a channel, the most specific rule wins, in this order:" },
           { steps: ["A SKU rule for this channel", "A brand rule for this channel", "A SKU rule for this customer", "A brand rule for this customer", "A global SKU rule", "A global brand rule"] },
           { p: "If no rule matches, the channel's **Royalty** settings decide: the royalty from the import or the brand table (whichever the channel prefers), otherwise the channel's default royalty. The row's detail shows which source was used." },
+        ],
+      },
+      {
+        id: "sku-lookup",
+        title: "Finding the rules for a SKU",
+        blocks: [
+          { p: "On the **SKU Lookup** tab, enter a SKU and choose **Find Rules**. You'll see every rule that lists the SKU or covers its brand, and a table of the royalty each of your customers' channels uses for it, with the rule it comes from." },
+          { note: "SKU rules must match the SKU exactly, including letter case. A rule that lists the SKU with different capitalization is flagged, because the analysis won't apply it.", tone: "warning" },
+        ],
+      },
+      {
+        id: "export-import",
+        title: "Exporting and importing rules",
+        blocks: [
+          { p: "**Export** downloads every rule you can see as a spreadsheet, one row per rule, with a sheet explaining the columns and one listing valid customer and channel names." },
+          {
+            steps: [
+              "Edit the file: change a row to update its rule, add a row with a blank Rule ID to add a rule, or put Yes in Delete to remove one.",
+              "Choose **Import** and pick the file. Nothing is saved yet: you'll see what will be added, updated and deleted, and any rows with problems.",
+              "Fix any problems in the file and upload it again; nothing is imported until every row is valid.",
+              "Choose **Import** to save the changes.",
+            ],
+          },
+          { note: "Removing a row from the file doesn't delete its rule; use the Delete column. Importing needs the Edit Royalties permission, and changes to global rules need an administrator." },
+        ],
+      },
+      {
+        id: "duplicates",
+        title: "Cleaning up duplicate rules",
+        blocks: [
+          { p: "The **Duplicates** tab lists rules at the same level (global, one customer, or one customer's channel) that cover the same SKU or brand. The tab shows how many groups need attention." },
+          { list: ["**Different royalties**: the analysis uses one of the rules, and which one isn't predictable. Clean these up first.", "**Same royalty, redundant**: no effect on pricing, but worth tidying.", "**Harmless**: a rule lists the same SKU twice."] },
+          { p: "Choose **Keep SKUs here** on the rule that should own the shared SKUs; they're removed from the other rules, and a rule left with no SKUs is deleted. For brand rules, **Keep this one** deletes the others. You can also edit any rule directly." },
+          { note: "Overrides at different levels, like a customer override for a SKU that also has a global rule, aren't duplicates: replacing the global rule is what an override is for." },
         ],
       },
     ],

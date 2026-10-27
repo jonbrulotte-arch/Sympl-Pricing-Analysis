@@ -12,6 +12,7 @@ import type {
   ItemTypeCommissionTable,
 } from "./types";
 import { parseNum, parseStatus, roundUp, roundStep, brandKey } from "./helpers";
+import { matchRoyaltyRule } from "@/lib/royalty/rules";
 
 /** Amazon's applicable minimum referral fee per unit (USD). */
 export const DEFAULT_REFERRAL_MIN = 0.3;
@@ -173,33 +174,8 @@ function resolveRoyalty(
 ): { royRate: number; royFlat: number; royFrom: "sku" | "brand" | "sheet" | "default" } {
   if (royaltyRules && royaltyRules.length > 0) {
     // Most specific wins: this channel's overrides, then customer-wide overrides, then global rules.
-    const channelRules = royaltyRules.filter((r) => r.customerId != null && r.channelId === cfg.id);
-    const customerRules = royaltyRules.filter((r) => r.customerId != null && !r.channelId);
-    const globalRules = royaltyRules.filter((r) => r.customerId == null);
-    const bk = brandKey(row.brand);
-
-    const chanSkuRule = channelRules.find((r) => r.scope === "sku" && r.skus.includes(row.sku));
-    if (chanSkuRule) return applyRuleValue(chanSkuRule.value, chanSkuRule.mode, "sku");
-    if (bk) {
-      const chanBrandRule = channelRules.find((r) => r.scope === "brand" && r.brandKey === bk);
-      if (chanBrandRule) return applyRuleValue(chanBrandRule.value, chanBrandRule.mode, "brand");
-    }
-
-    const custSkuRule = customerRules.find((r) => r.scope === "sku" && r.skus.includes(row.sku));
-    if (custSkuRule) return applyRuleValue(custSkuRule.value, custSkuRule.mode, "sku");
-
-    if (bk) {
-      const custBrandRule = customerRules.find((r) => r.scope === "brand" && r.brandKey === bk);
-      if (custBrandRule) return applyRuleValue(custBrandRule.value, custBrandRule.mode, "brand");
-    }
-
-    const globalSkuRule = globalRules.find((r) => r.scope === "sku" && r.skus.includes(row.sku));
-    if (globalSkuRule) return applyRuleValue(globalSkuRule.value, globalSkuRule.mode, "sku");
-
-    if (bk) {
-      const globalBrandRule = globalRules.find((r) => r.scope === "brand" && r.brandKey === bk);
-      if (globalBrandRule) return applyRuleValue(globalBrandRule.value, globalBrandRule.mode, "brand");
-    }
+    const match = matchRoyaltyRule(royaltyRules, row.sku, brandKey(row.brand), cfg.id);
+    if (match) return applyRuleValue(match.rule.value, match.rule.mode, match.matchedBy);
   }
 
   const roymode = settings.roymode ?? "pct";
