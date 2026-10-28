@@ -37,6 +37,8 @@ export interface ChannelWithDb {
   blockedBrands: string[];
   /** Product ids sold on this channel (from its Salsify list); null = no restriction. */
   channelProductIds?: string[] | null;
+  /** SKUs committed on this channel and waiting on Publish to Salsify. */
+  pendingPublishSkus?: string[];
 }
 
 export function toChannelConfig(ch: ChannelWithDb): ChannelConfig {

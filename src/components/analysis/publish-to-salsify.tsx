@@ -299,7 +299,8 @@ export function PublishToSalsify({ customerId, onRevert }: Props) {
     if (val == null) return "-";
     const n = Number(val);
     if (isNaN(n)) return "-";
-    if (Math.abs(n) > 1) return "-";
+    // Margins are fractions; a deeply negative one (price far below cost) can pass -100%.
+    if (Math.abs(n) > 10) return "-";
     return `${(n * 100).toFixed(1)}%`;
   }
 

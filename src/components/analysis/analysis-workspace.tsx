@@ -39,6 +39,7 @@ interface ChannelDb {
   defaults: Record<string, unknown>;
   blockedBrands: string[];
   channelProductIds?: string[] | null;
+  pendingPublishSkus?: string[];
 }
 
 interface Props {

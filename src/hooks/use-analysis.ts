@@ -53,7 +53,10 @@ export function useAnalysis(
   const [activeTab, setActiveTab] = useState<string>(initialTab ?? channels[0]?.id ?? "");
   const [overrides, setOverrides] = useState<Overrides>({});
   const [committedPrices, setCommittedPrices] = useState<Record<string, Record<string, number>>>({});
-  const [committedSkus, setCommittedSkus] = useState<Record<string, Set<string>>>({});
+  // Starts with commits still waiting on Publish to Salsify, so they show as committed after a refresh.
+  const [committedSkus, setCommittedSkus] = useState<Record<string, Set<string>>>(() =>
+    Object.fromEntries(channels.map((ch) => [ch.id, new Set(ch.pendingPublishSkus ?? [])])),
+  );
   // Shipping costs are product-level, so edits apply to every channel tab.
   const [shipEdits, setShipEdits] = useState<Record<string, ShippingChanges>>({});
   const [committedShip, setCommittedShip] = useState<Record<string, ShippingChanges>>({});
@@ -373,12 +376,9 @@ export function useAnalysis(
       body: JSON.stringify({
         sku,
         channelId,
-        ...(priceChanged && {
-          price: priceToCommit,
-          oldPrice: (row.basePrice ?? 0) > 0 ? row.basePrice! : undefined,
-          oldNetMargin: row.price > 0 ? row.gm : undefined,
-          newNetMargin: row.recCalc?.gm ?? undefined,
-        }),
+        // Margins are worked out on the server, at the committed price, with these channel settings.
+        settings: settingsMap[channelId],
+        ...(priceChanged && { price: priceToCommit }),
         ...(shipping && { shipping }),
       }),
     });
@@ -417,7 +417,7 @@ export function useAnalysis(
     });
     setOverride(channelId, sku, "price", undefined);
     router.refresh();
-  }, [activeTab, results, overrides, shipEdits, customerId, setOverride, router]);
+  }, [activeTab, results, overrides, shipEdits, settingsMap, customerId, setOverride, router]);
 
   const revertCommittedPrice = useCallback((channelId: string, sku: string, oldPrice: number | null) => {
     setCommittedPrices((prev) => {
@@ -434,6 +434,12 @@ export function useAnalysis(
       if (!(sku in prev)) return prev;
       const next = { ...prev };
       delete next[sku];
+      return next;
+    });
+    setCommittedSkus((prev) => {
+      if (!prev[channelId]?.has(sku)) return prev;
+      const next = { ...prev, [channelId]: new Set(prev[channelId]) };
+      next[channelId].delete(sku);
       return next;
     });
   }, []);

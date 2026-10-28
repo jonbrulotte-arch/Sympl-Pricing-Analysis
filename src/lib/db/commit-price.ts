@@ -57,8 +57,14 @@ export async function commitChannelPrice(input: CommitPriceInput) {
       where: { customerId_sku_channelId: { customerId, sku, channelId } },
     });
     const shippingChanges = mergeShippingChanges(existing?.shippingChanges, stagedShipping);
+    // A second commit before publishing keeps the first one's old price: that's still the price in Salsify.
+    const keepOld = existing?.newPrice != null;
     const priceFields = priceChanged
-      ? { newPrice: price!, oldPrice, oldNetMargin, newNetMargin }
+      ? {
+          newPrice: price!,
+          newNetMargin,
+          ...(keepOld ? {} : { oldPrice, oldNetMargin }),
+        }
       : {};
 
     await prisma.salsifyStaged.upsert({

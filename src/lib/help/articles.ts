@@ -396,6 +396,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
               "is logged in the Activity Log with your name.",
             ],
           },
+          { p: "Until it's published, a committed SKU stays marked **Committed** in the analysis, and on channels that record prices at publish the analysis shows the committed price rather than the old one. Commit the same SKU again before publishing and the Publish to Salsify page still compares against the price currently in Salsify." },
+          { p: "The net margins on Publish to Salsify are worked out when the page opens, at the old and new price, using the channel's saved settings and current costs." },
         ],
       },
       {

@@ -3,6 +3,7 @@ import { loadProductRows } from "@/lib/db/load-product-rows";
 import { loadChannelProductIds } from "@/lib/db/channel-products";
 import { loadItemTypeCommissions } from "@/lib/db/item-type-commissions";
 import { projectChannels } from "@/lib/projects/settings";
+import { applyPendingPublish } from "@/lib/db/pending-publish";
 import type { ChannelWithDb, AnalysisContext } from "@/lib/pricing/compute-results";
 import type { BrandRoyaltyTable, ProductRow, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
@@ -78,6 +79,7 @@ export async function loadAnalysisInputs(
     prisma.royaltyRule.findMany({ where: { customerId: null } }),
     loadItemTypeCommissions(customerId),
   ]);
+  const pendingPublish = await applyPendingPublish(customerId, channels, products);
 
   const brandRoyalties: BrandRoyaltyTable = {};
   for (const br of customer.brandRoyalties) brandRoyalties[br.brandKey] = Number(br.value);
@@ -108,6 +110,7 @@ export async function loadAnalysisInputs(
 
   const channelsData: ChannelWithDb[] = channels.map((ch) => ({
     channelProductIds: channelProductIds[ch.id],
+    pendingPublishSkus: pendingPublish[ch.id] ?? [],
     id: ch.id,
     name: ch.name,
     tabLabel: ch.tabLabel,
