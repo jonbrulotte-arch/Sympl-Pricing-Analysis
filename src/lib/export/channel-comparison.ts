@@ -61,6 +61,8 @@ const STATUS: Record<string, string> = {
 const fill = (argb: string): Fill => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
 const thin = { style: "thin" as const, color: { argb: C.border } };
 const box: Partial<Borders> = { top: thin, left: thin, bottom: thin, right: thin };
+const bestEdge = { style: "medium" as const, color: { argb: "FF111827" } };
+const BEST_BORDER: Partial<Borders> = { top: bestEdge, left: bestEdge, bottom: bestEdge, right: bestEdge };
 const font = (f: Partial<Font> = {}): Partial<Font> => ({ name: FONT, size: 10, color: { argb: C.text }, ...f });
 
 const priced = (r: AnalysisResult | undefined): boolean => !!r && r.price > 0 && !r.invalid;
@@ -103,7 +105,7 @@ function headerCell(cell: Cell, value: string, align: "left" | "center" | "right
 }
 
 function summarySheet(ws: Worksheet, input: ComparisonExportInput) {
-  const cols = ["Channel", "SKUs", "Priced", "At goal", "Below goal", "Losing money", "Unpriced / no cost", "Avg net margin", "Total net $", "Goal"];
+  const cols = ["Channel", "SKUs", "Priced", "At goal", "Below goal", "Losing money", "Unpriced / no cost", "Avg net margin", "Total net $", "Goal", "Sell-through goal"];
   titleBlock(ws, input, "Channel Comparison: Summary", cols.length);
 
   const head = ws.getRow(5);
@@ -115,6 +117,7 @@ function summarySheet(ws: Worksheet, input: ComparisonExportInput) {
     const withMargin = results.filter(priced);
     // The channel's goal; discontinued SKUs use its sell-through goal instead, so they're left out here.
     const goals = [...new Set(results.filter((r) => !r.disc).map((r) => r.goalUsed))];
+    const discGoals = [...new Set(results.filter((r) => r.disc).map((r) => r.goalUsed))];
     const row = ws.getRow(6 + i);
     const values: (string | number | null)[] = [
       cfg.name,
@@ -127,6 +130,8 @@ function summarySheet(ws: Worksheet, input: ComparisonExportInput) {
       withMargin.length ? withMargin.reduce((s, r) => s + r.gm, 0) / withMargin.length : null,
       withMargin.reduce((s, r) => s + r.net, 0),
       goals.length === 1 ? goals[0] : null,
+      // Only shown when the channel has discontinued SKUs in the comparison.
+      discGoals.length === 1 ? discGoals[0] : null,
     ];
     values.forEach((v, c) => {
       const cell = row.getCell(c + 1);
@@ -136,7 +141,7 @@ function summarySheet(ws: Worksheet, input: ComparisonExportInput) {
       cell.alignment = { horizontal: c === 0 ? "left" : "right", vertical: "middle" };
       if (c === 3) cell.font = font({ color: { argb: C.green }, bold: true });
       if (c === 5 && (v as number) > 0) cell.font = font({ color: { argb: C.red }, bold: true });
-      if (c === 7 || c === 9) cell.numFmt = PCT;
+      if (c === 7 || c === 9 || c === 10) cell.numFmt = PCT;
       if (c === 8) cell.numFmt = MONEY;
       if (i % 2 === 1) cell.fill = fill(C.zebra);
     });
@@ -145,28 +150,40 @@ function summarySheet(ws: Worksheet, input: ComparisonExportInput) {
 
   const legendRow = 7 + input.configs.length;
   const legend: [string, string, string][] = [
-    ["At or above the channel's goal", C.green, C.greenFill],
+    ["At or above the SKU's goal", C.green, C.greenFill],
     ["Profitable, below goal", C.amber, C.amberFill],
     ["Losing money", C.red, C.redFill],
   ];
-  ws.getCell(legendRow, 1).value = "Net margin colors";
+  ws.getCell(legendRow, 1).value = "Net margin colors (Comparison sheet)";
   ws.getCell(legendRow, 1).font = font({ bold: true });
   legend.forEach(([label, color, bg], i) => {
     const cell = ws.getCell(legendRow + 1 + i, 1);
     cell.value = label;
-    cell.font = font({ color: { argb: color }, bold: true });
+    cell.font = font({ color: { argb: color } });
     cell.fill = fill(bg);
     cell.border = box;
   });
-  const note = ws.getCell(legendRow + 5, 1);
-  note.value =
-    "Net margin is after fees, allocations, shipping and cost. Net $ is per order. Spread is the highest minus the lowest net margin across the channels, in percentage points.";
-  note.font = font({ italic: true, color: { argb: C.muted } });
-  ws.mergeCells(legendRow + 5, 1, legendRow + 5, cols.length);
-  note.alignment = { wrapText: true, vertical: "top" };
-  ws.getRow(legendRow + 5).height = 30;
+  const bestSample = ws.getCell(legendRow + 4, 1);
+  bestSample.value = "Best margin in the row";
+  bestSample.font = font({ bold: true });
+  bestSample.border = BEST_BORDER;
 
-  ws.columns = cols.map((_, i) => ({ width: i === 0 ? 30 : i === 6 ? 18 : 14 }));
+  const notes = [
+    "Colors compare each margin with its own goal. Discontinued SKUs are measured against the channel's sell-through goal (Sell-through goal in the channel's Inventory and lifecycle settings), not its regular goal, so a small positive margin can be green; the Details sheet shows the goal used for each SKU.",
+    "The best margin is the highest in the row, even when every channel is below goal or losing money: bold and outlined, with its channel in the Best margin column.",
+    "Net margin is after fees, allocations, shipping and cost. Net $ is per order. Spread is the highest minus the lowest net margin across the channels, in percentage points.",
+  ];
+  notes.forEach((text, i) => {
+    const r = legendRow + 6 + i;
+    ws.mergeCells(r, 1, r, cols.length);
+    const cell = ws.getCell(r, 1);
+    cell.value = text;
+    cell.font = font({ italic: true, color: { argb: C.muted } });
+    cell.alignment = { wrapText: true, vertical: "top" };
+    ws.getRow(r).height = 30;
+  });
+
+  ws.columns = cols.map((_, i) => ({ width: i === 0 ? 30 : i === 6 || i === 10 ? 18 : 14 }));
   ws.views = [{ state: "frozen", ySplit: 5, showGridLines: false }];
 }
 
@@ -247,16 +264,17 @@ function comparisonSheet(ws: Worksheet, input: ComparisonExportInput) {
       cells[1].numFmt = MONEY;
       cells[1].font = font({ color: { argb: C.primary } });
       if (priced(res)) {
+        // The fill says how the margin compares with the goal; the best margin in the row is bold and outlined.
         const style = marginStyle(res);
+        const isBest = best === res;
         cells[2].value = res.gm;
         cells[2].numFmt = PCT;
-        cells[2].font = font({ bold: true, color: { argb: style.color } });
+        cells[2].fill = fill(style.fill);
+        cells[2].font = font({ bold: isBest, color: { argb: style.color } });
+        if (isBest) cells[2].border = BEST_BORDER;
         cells[3].value = res.net;
         cells[3].numFmt = MONEY;
-        if (best === res) {
-          cells[2].fill = fill(C.greenFill);
-          cells[3].fill = fill(C.greenFill);
-        }
+        if (isBest) cells[3].font = font({ bold: true });
       } else {
         cells[2].value = STATUS[res.status] ?? "-";
         cells[2].font = font({ italic: true, color: { argb: C.gray } });

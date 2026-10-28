@@ -326,7 +326,7 @@ export function ChannelComparison({
                             <p className="text-[10px] text-gray-400">rec ${r.rec.toFixed(2)}</p>
                           )}
                         </td>
-                        <td className={cn("py-1.5 px-2 text-right text-xs whitespace-nowrap", isBest && "bg-green-50")}>
+                        <td className="py-1.5 px-2 text-right text-xs whitespace-nowrap">
                           <button
                             onClick={() => onOpen(cfg.id, row.sku)}
                             className="text-right hover:underline"
@@ -336,7 +336,16 @@ export function ChannelComparison({
                               <span className="text-gray-400">No cost</span>
                             ) : r.price > 0 ? (
                               <>
-                                <span className={cn("font-medium", marginColor(r))}>{(r.gm * 100).toFixed(1)}%</span>
+                                <span
+                                  className={cn(
+                                    marginColor(r),
+                                    // The highest margin in the row (not necessarily a good one): bold and outlined.
+                                    isBest ? "font-bold rounded px-1 ring-1 ring-gray-700" : "font-medium",
+                                  )}
+                                  title={isBest ? "Best margin in this row" : undefined}
+                                >
+                                  {(r.gm * 100).toFixed(1)}%
+                                </span>
                                 <span className="block text-[10px] text-gray-500">${r.net.toFixed(2)}</span>
                               </>
                             ) : (
@@ -359,7 +368,7 @@ export function ChannelComparison({
 
       <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
         <span>
-          Margin is net margin, colored against each channel&apos;s goal; the best margin in each row is shaded green. Click a
+          Margin is net margin, colored against the SKU&apos;s goal (discontinued SKUs use the channel&apos;s sell-through goal); the best margin in each row is bold and outlined. Click a
           margin to open that SKU on the channel&apos;s tab.
         </span>
         {totalPages > 1 && (

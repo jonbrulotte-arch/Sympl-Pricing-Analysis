@@ -341,7 +341,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
           { p: "When an analysis has two or more channels, the **Comparison** tab lists every SKU with its price and net margin on each channel, side by side. Cards at the top give each channel's average margin and how many SKUs are at goal." },
           {
             list: [
-              "Margins are colored against each channel's goal, and the best margin in each row is shaded green. A recommended price shows under the price when it differs.",
+              "Margins are colored against the SKU's goal: green at or above it, amber below it, red when losing money. Discontinued SKUs are measured against the channel's sell-through goal, so a small positive margin can be green. The highest margin in each row is bold and outlined, even when it's below goal. A recommended price shows under the price when it differs.",
               "**Spread** is the gap between the highest and lowest margin across the channels. Sort by it to find the SKUs priced least consistently.",
               "Click a column heading to sort, and click a margin to open that SKU on the channel's tab, where you can edit and commit its price.",
               "**Only SKUs on every channel** leaves out SKUs that aren't sold on all of them; a dash marks a channel that doesn't carry the SKU.",
