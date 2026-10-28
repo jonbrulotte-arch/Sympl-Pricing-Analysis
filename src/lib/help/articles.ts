@@ -330,8 +330,24 @@ export const HELP_ARTICLES: HelpArticle[] = [
         id: "opening",
         title: "Opening an analysis",
         blocks: [
-          { p: "From a customer, choose **Analysis** for every channel (one tab each), or a channel's own **Analysis** button for just that channel. Projects have the same analysis for their products." },
+          { p: "From a customer, choose **Analysis** for every channel (one tab each), or a channel's own **Analysis** button for just that channel. To analyze some channels together, tick them in the Sales Channels list and choose **Analyze N channels**. Projects have the same analysis for their products." },
           { p: "Each tab analyzes the customer's products on that channel, skipping blocked brands, discontinued SKUs if the channel hides them, and, for channels with a Salsify product list, SKUs not on the list." },
+        ],
+      },
+      {
+        id: "comparison",
+        title: "Comparing channels side by side",
+        blocks: [
+          { p: "When an analysis has two or more channels, the **Comparison** tab lists every SKU with its price and net margin on each channel, side by side. Cards at the top give each channel's average margin and how many SKUs are at goal." },
+          {
+            list: [
+              "Margins are colored against each channel's goal, and the best margin in each row is shaded green. A recommended price shows under the price when it differs.",
+              "**Spread** is the gap between the highest and lowest margin across the channels. Sort by it to find the SKUs priced least consistently.",
+              "Click a column heading to sort, and click a margin to open that SKU on the channel's tab, where you can edit and commit its price.",
+              "**Only SKUs on every channel** leaves out SKUs that aren't sold on all of them; a dash marks a channel that doesn't carry the SKU.",
+            ],
+          },
+          { p: "Price edits you make on a channel tab show up in the comparison straight away." },
         ],
       },
       {

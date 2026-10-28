@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAnalysis, type ServerComputeScope, type StatusFilter } from "@/hooks/use-analysis";
+import { useAnalysis, COMPARE_TAB, type ServerComputeScope, type StatusFilter } from "@/hooks/use-analysis";
+import { ChannelComparison } from "./channel-comparison";
 import { KpiCards } from "./kpi-cards";
 import { AnalysisTable } from "./analysis-table";
 import { CalculationCheck } from "./calculation-check";
@@ -115,6 +116,7 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
   const showCalcCheck = !serverCompute;
 
   const isCalcCheck = activeTab === "__calc_check__";
+  const isCompare = activeTab === COMPARE_TAB;
   const isPublishSalsify = activeTab === "__publish_salsify__";
   const [exportOpen, setExportOpen] = useState(false);
   const [brandPanelOpen, setBrandPanelOpen] = useState(false);
@@ -224,6 +226,18 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
             {cfg.tabLabel}
           </button>
         ))}
+        {configs.length > 1 && (
+        <button
+          onClick={() => { setActiveTab(COMPARE_TAB); setSelectedSkus(new Set()); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+            isCompare
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Comparison
+        </button>
+        )}
         {showCalcCheck && (
         <button
           onClick={() => { setActiveTab("__calc_check__"); setSelectedSkus(new Set()); }}
@@ -250,7 +264,21 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
         )}
       </div>
 
-      {isCalcCheck && showCalcCheck ? (
+      {isCompare ? (
+        <ChannelComparison
+          configs={configs}
+          results={results}
+          loading={computing}
+          hideDiscontinued={hideDiscontinued}
+          onHideDiscontinued={setHideDiscontinued}
+          onOpen={(channelId, sku) => {
+            setStatusFilter("all");
+            setBrandFilter([]);
+            setSearch(sku);
+            setActiveTab(channelId);
+          }}
+        />
+      ) : isCalcCheck && showCalcCheck ? (
         <CalculationCheck
           results={results}
           configs={configs}

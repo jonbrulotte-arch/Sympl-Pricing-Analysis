@@ -21,9 +21,13 @@ export type StatusFilter = "all" | "pass" | "below" | "loss" | "unpriced" | "dis
  * Set for users without data:viewCost: products arrive without cost, and results are computed by
  * POST /api/customers/[customerId]/analysis instead of in the browser.
  */
+/** The Comparison tab: every channel side by side. */
+export const COMPARE_TAB = "__compare__";
+
 export interface ServerComputeScope {
   projectId?: string;
-  singleChannel?: boolean;
+  /** The page's channel selection (single-channel or selected-channels views). */
+  channelIds?: string[];
 }
 
 type SentEdits = Required<Omit<ChannelEdits, "overrides">> & { overrides: Overrides[string] };
@@ -126,72 +130,74 @@ export function useAnalysis(
 
   useEffect(() => {
     if (!serverCompute) return;
-    const ch = channels.find((c) => c.id === activeTab);
-    if (!ch) return;
+    // The active channel tab, or every channel while the Comparison tab is open.
+    const targets = activeTab === COMPARE_TAB ? channels : channels.filter((c) => c.id === activeTab);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const ch of targets) {
+      const current: SentEdits = {
+        settings: settingsMap[ch.id],
+        overrides: overrides[ch.id] ?? {},
+        shipEdits,
+        committedShip,
+        committedPrices: committedPrices[ch.id] ?? {},
+      };
+      const prev = sentRef.current[ch.id];
+      const busy = !!abortRef.current[ch.id];
 
-    const current: SentEdits = {
-      settings: settingsMap[ch.id],
-      overrides: overrides[ch.id] ?? {},
-      shipEdits,
-      committedShip,
-      committedPrices: committedPrices[ch.id] ?? {},
-    };
-    const prev = sentRef.current[ch.id];
-    const busy = !!abortRef.current[ch.id];
-
-    // A whole channel on first view, after a settings change, or when superseding a request in flight;
-    // otherwise only the SKUs whose edits changed since the last request.
-    let productIds: string[] | undefined;
-    if (prev && !busy && JSON.stringify(prev.settings) === JSON.stringify(current.settings)) {
-      const skus = new Set<string>();
-      changedKeys(prev.overrides, current.overrides, skus);
-      changedKeys(prev.shipEdits, current.shipEdits, skus);
-      changedKeys(prev.committedShip, current.committedShip, skus);
-      changedKeys(prev.committedPrices, current.committedPrices, skus);
-      if (skus.size === 0) return;
-      productIds = [...skus].map((sku) => productIdBySku.get(sku)).filter((id): id is string => !!id);
-      if (productIds.length === 0) return;
-    }
-
-    const timer = setTimeout(async () => {
-      abortRef.current[ch.id]?.abort();
-      const controller = new AbortController();
-      abortRef.current[ch.id] = controller;
-      // A deep copy, so later edits can't change what we compare against.
-      sentRef.current[ch.id] = structuredClone(current);
-      setInFlight((n) => n + 1);
-      try {
-        const res = await fetch(`/api/customers/${customerId}/analysis`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
-            channelId: ch.id,
-            projectId: serverCompute.projectId,
-            singleChannel: serverCompute.singleChannel,
-            productIds,
-            edits: current,
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "Failed to calculate the analysis");
-        const fresh = data.results as AnalysisResult[];
-        setServerResults((prevResults) => {
-          if (!productIds) return { ...prevResults, [ch.id]: fresh };
-          const bySku = new Map(fresh.map((r) => [r.sku, r]));
-          return { ...prevResults, [ch.id]: (prevResults[ch.id] ?? []).map((r) => bySku.get(r.sku) ?? r) };
-        });
-        setComputeError(null);
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        delete sentRef.current[ch.id]; // recompute the whole channel on the next attempt
-        setComputeError(err instanceof Error ? err.message : "Failed to calculate the analysis");
-      } finally {
-        if (abortRef.current[ch.id] === controller) delete abortRef.current[ch.id];
-        setInFlight((n) => n - 1);
+      // A whole channel on first view, after a settings change, or when superseding a request in flight;
+      // otherwise only the SKUs whose edits changed since the last request.
+      let productIds: string[] | undefined;
+      if (prev && !busy && JSON.stringify(prev.settings) === JSON.stringify(current.settings)) {
+        const skus = new Set<string>();
+        changedKeys(prev.overrides, current.overrides, skus);
+        changedKeys(prev.shipEdits, current.shipEdits, skus);
+        changedKeys(prev.committedShip, current.committedShip, skus);
+        changedKeys(prev.committedPrices, current.committedPrices, skus);
+        if (skus.size === 0) continue;
+        productIds = [...skus].map((sku) => productIdBySku.get(sku)).filter((id): id is string => !!id);
+        if (productIds.length === 0) continue;
       }
-    }, productIds ? 150 : 0);
-    return () => clearTimeout(timer);
+
+      timers.push(setTimeout(async () => {
+        abortRef.current[ch.id]?.abort();
+        const controller = new AbortController();
+        abortRef.current[ch.id] = controller;
+        // A deep copy, so later edits can't change what we compare against.
+        sentRef.current[ch.id] = structuredClone(current);
+        setInFlight((n) => n + 1);
+        try {
+          const res = await fetch(`/api/customers/${customerId}/analysis`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              channelId: ch.id,
+              projectId: serverCompute.projectId,
+              channelIds: serverCompute.channelIds,
+              productIds,
+              edits: current,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || "Failed to calculate the analysis");
+          const fresh = data.results as AnalysisResult[];
+          setServerResults((prevResults) => {
+            if (!productIds) return { ...prevResults, [ch.id]: fresh };
+            const bySku = new Map(fresh.map((r) => [r.sku, r]));
+            return { ...prevResults, [ch.id]: (prevResults[ch.id] ?? []).map((r) => bySku.get(r.sku) ?? r) };
+          });
+          setComputeError(null);
+        } catch (err) {
+          if (controller.signal.aborted) return;
+          delete sentRef.current[ch.id]; // recompute the whole channel on the next attempt
+          setComputeError(err instanceof Error ? err.message : "Failed to calculate the analysis");
+        } finally {
+          if (abortRef.current[ch.id] === controller) delete abortRef.current[ch.id];
+          setInFlight((n) => n - 1);
+        }
+      }, productIds ? 150 : 0));
+    }
+    return () => timers.forEach(clearTimeout);
   }, [serverCompute, channels, activeTab, customerId, settingsMap, overrides, shipEdits, committedShip, committedPrices, productIdBySku]);
 
   useEffect(() => {
@@ -200,7 +206,12 @@ export function useAnalysis(
   }, []);
 
   const results = serverCompute ? serverResults : localResults;
-  const computing = !!serverCompute && (inFlight > 0 || (channels.some((c) => c.id === activeTab) && !serverResults[activeTab]));
+  const computing =
+    !!serverCompute &&
+    (inFlight > 0 ||
+      (activeTab === COMPARE_TAB
+        ? channels.some((c) => !serverResults[c.id])
+        : channels.some((c) => c.id === activeTab) && !serverResults[activeTab]));
 
   const allBrands = useMemo(() => {
     const set = new Set<string>();

@@ -51,7 +51,8 @@ function parseEdits(channelId: string, input: unknown): ChannelEdits {
 /**
  * Runs the pricing analysis for one channel on the server, so users without data:viewCost get
  * results without product cost being sent to their browser.
- * Body: { channelId, projectId?, singleChannel?, productIds?, edits: { settings, overrides, shipEdits, committedShip, committedPrices } }
+ * Body: { channelId, projectId?, channelIds?, productIds?, edits: { settings, overrides, shipEdits, committedShip, committedPrices } }
+ * `channelIds` is the page's channel selection, which decides the products loaded (see AnalysisScope).
  * `productIds` recomputes only those rows (after a per-SKU edit); omit it for the whole channel.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
@@ -73,11 +74,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
     productIds = body.productIds as string[];
   }
 
-  const inputs = await loadAnalysisInputs(
-    customerId,
-    { projectId, channelId: body.singleChannel === true ? channelId : null },
-    { channelId, productIds },
-  );
+  const channelIds = Array.isArray(body.channelIds)
+    ? body.channelIds.filter((id): id is string => typeof id === "string")
+    : body.singleChannel === true
+      ? [channelId]
+      : null;
+
+  const inputs = await loadAnalysisInputs(customerId, { projectId, channelIds }, { channelId, productIds });
   const channel = inputs?.channels[0];
   if (!inputs || !channel) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

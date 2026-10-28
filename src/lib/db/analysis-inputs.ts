@@ -5,11 +5,16 @@ import { loadItemTypeCommissions } from "@/lib/db/item-type-commissions";
 import type { ChannelWithDb, AnalysisContext } from "@/lib/pricing/compute-results";
 import type { BrandRoyaltyTable, ProductRow, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
-/** Which products an analysis covers: a project's products, one channel, or the whole customer. */
+/** Which products an analysis covers: a project's products, some of the customer's channels, or the whole customer. */
 export interface AnalysisScope {
   projectId?: string | null;
   /** Single-channel view: only this channel, and only its Salsify list's products when it has one. */
   channelId?: string | null;
+  /**
+   * Selected-channels view: only these channels. Products are the union of their Salsify lists when every one has a
+   * list, otherwise all the customer's products; each channel still analyzes only its own list.
+   */
+  channelIds?: string[] | null;
 }
 
 /**
@@ -32,8 +37,10 @@ export async function loadAnalysisInputs(
   });
   if (!customer) return null;
 
-  const singleChannel = scope.projectId ? null : (customer.channels.find((c) => c.id === scope.channelId) ?? null);
-  let channels = singleChannel ? [singleChannel] : customer.channels;
+  const wanted = scope.projectId ? [] : scope.channelIds?.length ? scope.channelIds : scope.channelId ? [scope.channelId] : [];
+  const selectedChannels = customer.channels.filter((c) => wanted.includes(c.id));
+  const singleChannel = selectedChannels.length === 1 ? selectedChannels[0] : null;
+  let channels = selectedChannels.length > 0 ? selectedChannels : customer.channels;
   if (only.channelId) channels = channels.filter((c) => c.id === only.channelId);
   const channelProductIds = await loadChannelProductIds(channels);
 
@@ -45,8 +52,8 @@ export async function loadAnalysisInputs(
     });
     if (!project) return null;
     productIds = project.products.map((pp) => pp.productId);
-  } else if (singleChannel && channelProductIds[singleChannel.id]) {
-    productIds = channelProductIds[singleChannel.id]!;
+  } else if (selectedChannels.length > 0 && selectedChannels.every((c) => channelProductIds[c.id])) {
+    productIds = [...new Set(selectedChannels.flatMap((c) => channelProductIds[c.id]!))];
   } else {
     productIds = (
       await prisma.product.findMany({ where: { customers: { some: { customerId } } }, select: { id: true } })
@@ -117,7 +124,7 @@ export async function loadAnalysisInputs(
 
   const context: AnalysisContext = { brandRoyalties, royaltyRules, itemTypeCommissions };
 
-  return { customer, singleChannel, channels: channelsData, products, context };
+  return { customer, singleChannel, selectedChannels, channels: channelsData, products, context };
 }
 
 /** Product rows safe to send to a user without data:viewCost. */

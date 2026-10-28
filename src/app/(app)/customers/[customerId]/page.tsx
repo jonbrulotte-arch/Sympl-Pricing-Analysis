@@ -2,14 +2,13 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { BarChart3, Upload, Settings, Plus, Store, Package, Plug, AlertTriangle, Send, FolderKanban, CheckCircle2, ChevronRight } from "lucide-react";
+import { BarChart3, Upload, Package, Plug, AlertTriangle, Send, FolderKanban, CheckCircle2, ChevronRight } from "lucide-react";
 import { NavigatingButton } from "@/components/ui/navigating-link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { getPermissions } from "@/lib/permissions";
 import { CustomerActions } from "@/components/customers/customer-actions";
-import { ChannelDeleteButton } from "@/components/channels/channel-delete-button";
+import { SalesChannelsCard } from "@/components/channels/sales-channels-card";
 import { CustomerCollaborators } from "@/components/customers/customer-collaborators";
 
 export default async function CustomerPage({ params }: { params: Promise<{ customerId: string }> }) {
@@ -97,76 +96,16 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Channels */}
         <div className="lg:col-span-2">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Sales Channels</CardTitle>
-              <Link href={`/customers/${customerId}/channels/new`}>
-                <Button size="sm" variant="outline">
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Add Channel
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {customer.channels.length === 0 ? (
-                <p className="text-sm text-gray-500 py-4 text-center">No channels configured.</p>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {customer.channels.map((ch) => (
-                    <div
-                      key={ch.id}
-                      className="flex items-center justify-between py-3 hover:bg-gray-50 -mx-4 px-4 rounded transition-colors"
-                    >
-                      <Link
-                        href={`/customers/${customerId}/channels/${ch.id}`}
-                        className="flex items-center gap-3 flex-1 min-w-0"
-                      >
-                        <Store className="h-4 w-4 text-gray-400 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{ch.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {ch.channelType === "commercial" ? "Commercial" : "Online"}{" · "}
-                            {ch.freightMode === "collect" ? "Collect" : "Prepaid"}
-                          </p>
-                        </div>
-                      </Link>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <NavigatingButton
-                          href={`/customers/${customerId}/analysis?channel=${ch.id}`}
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs px-2.5"
-                          loadingText="Loading..."
-                        >
-                          <BarChart3 className="h-3.5 w-3.5 mr-1" />
-                          Analysis
-                        </NavigatingButton>
-                        {ch.isDefault && (
-                          <Badge variant="secondary" className="text-xs">
-                            Default
-                          </Badge>
-                        )}
-                        <Link
-                          href={`/customers/${customerId}/channels/${ch.id}`}
-                          className="p-1 rounded hover:bg-gray-100"
-                        >
-                          <Settings className="h-3.5 w-3.5 text-gray-400" />
-                        </Link>
-                        {!ch.isDefault && (
-                          <ChannelDeleteButton
-                            customerId={customerId}
-                            channelId={ch.id}
-                            channelName={ch.name}
-                            iconOnly
-                          />
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <SalesChannelsCard
+            customerId={customerId}
+            channels={customer.channels.map((ch) => ({
+              id: ch.id,
+              name: ch.name,
+              channelType: ch.channelType,
+              freightMode: ch.freightMode,
+              isDefault: ch.isDefault,
+            }))}
+          />
         </div>
 
         <div className="space-y-6">

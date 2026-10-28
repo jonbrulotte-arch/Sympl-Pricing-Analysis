@@ -10,21 +10,23 @@ export default async function AnalysisPage({
   searchParams,
 }: {
   params: Promise<{ customerId: string }>;
-  searchParams: Promise<{ channel?: string; tab?: string }>;
+  searchParams: Promise<{ channel?: string; channels?: string; tab?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
   const { customerId } = await params;
-  const { channel: channelParam, tab } = await searchParams;
+  const { channel: channelParam, channels: channelsParam, tab } = await searchParams;
+  // ?channel=<id> analyzes one channel; ?channels=<id>,<id> analyzes a selection together.
+  const channelIds = (channelsParam ?? channelParam ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
   const permissions = await getPermissions(session.user.role);
   const canViewCost = permissions.has("data:viewCost");
   if (!(await canAccessCustomer(customerId, userId, session.user.role))) notFound();
 
-  const inputs = await loadAnalysisInputs(customerId, { channelId: channelParam });
+  const inputs = await loadAnalysisInputs(customerId, { channelIds });
   if (!inputs) notFound();
-  const { customer, singleChannel, channels, context } = inputs;
+  const { customer, singleChannel, selectedChannels, channels, context } = inputs;
   // Without data:viewCost, cost is stripped here and the analysis is computed on the server.
   const products = canViewCost ? inputs.products : withoutCost(inputs.products);
 
@@ -52,6 +54,21 @@ export default async function AnalysisPage({
               </Link>
             </p>
           </>
+        ) : selectedChannels.length > 1 ? (
+          <>
+            <h1 className="text-2xl font-bold text-gray-900">{customer.name} — {selectedChannels.length} Channel Analysis</h1>
+            <p className="text-sm text-gray-500">
+              {products.length} products across {selectedChannels.map((c) => c.name).join(", ")}
+              {" · "}
+              <Link href={`/customers/${customerId}/analysis`} className="text-blue-600 hover:underline">
+                All channels
+              </Link>
+              {" · "}
+              <Link href={`/customers/${customerId}`} className="text-blue-600 hover:underline">
+                Change selection
+              </Link>
+            </p>
+          </>
         ) : (
           <>
             <h1 className="text-2xl font-bold text-gray-900">{customer.name} — Analysis</h1>
@@ -73,7 +90,7 @@ export default async function AnalysisPage({
         canViewCost={canViewCost}
         canExport={permissions.has("analysis:export")}
         canPublish={permissions.has("salsify:publish") || permissions.has("admin:settings")}
-        serverCompute={canViewCost ? null : { singleChannel: !!singleChannel }}
+        serverCompute={canViewCost ? null : { channelIds: selectedChannels.map((c) => c.id) }}
       />
     </div>
   );
