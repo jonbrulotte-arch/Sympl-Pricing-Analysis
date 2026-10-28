@@ -348,6 +348,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
             ],
           },
           { p: "Price edits you make on a channel tab show up in the comparison straight away." },
+          { p: "**Export** (with the Export permission) downloads a formatted workbook of what the tab is showing, including your search and filters: a **Summary** sheet with each channel's results, a **Comparison** sheet laid out like the tab with margins colored against goal and the best margin highlighted, and a **Details** sheet with one row per SKU per channel for filtering or pivot tables. Cost and fee columns are included only if your role can see cost." },
         ],
       },
       {

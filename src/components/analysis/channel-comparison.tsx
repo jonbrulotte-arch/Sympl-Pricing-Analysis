@@ -2,8 +2,9 @@
 
 import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Download, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import type { AnalysisResult, ChannelConfig } from "@/lib/pricing/types";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,9 @@ export function ChannelComparison({
   hideDiscontinued,
   onHideDiscontinued,
   onOpen,
+  canExport = false,
+  includeCost = false,
+  reportName = "Channel comparison",
 }: {
   configs: ChannelConfig[];
   results: Record<string, AnalysisResult[]>;
@@ -44,7 +48,15 @@ export function ChannelComparison({
   onHideDiscontinued: (hide: boolean) => void;
   /** Opens a SKU on one channel's tab. */
   onOpen: (channelId: string, sku: string) => void;
+  /** analysis:export */
+  canExport?: boolean;
+  /** data:viewCost: cost and fee columns in the export. */
+  includeCost?: boolean;
+  /** Names the export, e.g. the customer or "Customer — Project". */
+  reportName?: string;
 }) {
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [onEvery, setOnEvery] = useState(false);
   const [sortKey, setSortKey] = useState("sku");
@@ -120,6 +132,31 @@ export function ChannelComparison({
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageRows = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  async function handleExport() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const { exportChannelComparison } = await import("@/lib/export/channel-comparison");
+      const filters = [
+        search.trim() && `Search "${search.trim()}"`,
+        onEvery && "Only SKUs on every channel",
+        hideDiscontinued && "Discontinued SKUs hidden",
+      ].filter((f): f is string => !!f);
+      await exportChannelComparison({
+        reportName,
+        configs,
+        rows: sorted,
+        totalRows: rows.length,
+        filters,
+        includeCost,
+      });
+    } catch (err) {
+      setExportError(err instanceof Error ? `Export failed: ${err.message}` : "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   function sortBy(key: string) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -202,7 +239,14 @@ export function ChannelComparison({
         <span className="ml-auto text-xs text-gray-500">
           {loading ? "Calculating..." : `${sorted.length} of ${rows.length} SKUs`}
         </span>
+        {canExport && (
+          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExport} disabled={exporting || loading || sorted.length === 0}>
+            <Download className="h-3.5 w-3.5 mr-1" />
+            {exporting ? "Exporting..." : "Export"}
+          </Button>
+        )}
       </div>
+      {exportError && <p className="text-xs text-red-600 mb-2">{exportError}</p>}
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-sm">

@@ -91,6 +91,7 @@ export default async function AnalysisPage({
         canExport={permissions.has("analysis:export")}
         canPublish={permissions.has("salsify:publish") || permissions.has("admin:settings")}
         serverCompute={canViewCost ? null : { channelIds: selectedChannels.map((c) => c.id) }}
+        reportName={customer.name}
       />
     </div>
   );

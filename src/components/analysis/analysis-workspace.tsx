@@ -57,6 +57,8 @@ interface Props {
   serverCompute?: ServerComputeScope | null;
   /** salsify:publish — shows the Publish to Salsify tab. */
   canPublish?: boolean;
+  /** Names exports, e.g. the customer, or "Customer — Project". */
+  reportName?: string;
 }
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -68,7 +70,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "disc", label: "Discontinued" },
 ];
 
-export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true, canExport = true, serverCompute = null, canPublish = true }: Props) {
+export function AnalysisWorkspace({ channels, products, brandRoyalties, customerId, royaltyRules = [], itemTypeCommissions, openPublish, canViewCost = true, canExport = true, serverCompute = null, canPublish = true, reportName }: Props) {
   const {
     configs,
     activeTab,
@@ -272,6 +274,9 @@ export function AnalysisWorkspace({ channels, products, brandRoyalties, customer
           loading={computing}
           hideDiscontinued={hideDiscontinued}
           onHideDiscontinued={setHideDiscontinued}
+          canExport={canExport}
+          includeCost={canViewCost}
+          reportName={reportName}
           onOpen={(channelId, sku) => {
             setStatusFilter("all");
             setBrandFilter([]);
