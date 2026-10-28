@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { AnalysisWorkspace } from "@/components/analysis/analysis-workspace";
 import { ProjectActions } from "@/components/projects/project-actions";
+import { ProjectChannels } from "@/components/projects/project-channels";
+import { projectChannelIds } from "@/lib/projects/settings";
 import { getPermissions, canAccessCustomer } from "@/lib/permissions";
 import { loadAnalysisInputs, withoutCost } from "@/lib/db/analysis-inputs";
 
@@ -62,13 +64,23 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
           {project.description && <p className="text-sm text-gray-600 mt-1">{project.description}</p>}
         </div>
-        <ProjectActions
-          projectId={projectId}
-          projectName={project.name}
-          customerId={project.customerId}
-          status={project.status}
-          products={projectProducts}
-        />
+        <div className="flex items-start gap-2">
+          {customer.channels.length > 1 && (
+            <ProjectChannels
+              projectId={projectId}
+              customerName={customer.name}
+              channels={customer.channels.map((c) => ({ id: c.id, name: c.name }))}
+              enabledIds={projectChannelIds(project.settings)}
+            />
+          )}
+          <ProjectActions
+            projectId={projectId}
+            projectName={project.name}
+            customerId={project.customerId}
+            status={project.status}
+            products={projectProducts}
+          />
+        </div>
       </div>
       <div className="text-xs text-gray-500 mb-4">
         <Link href={`/customers/${project.customerId}`} className="hover:text-blue-600 transition-colors">
@@ -77,7 +89,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         {" · "}
         {products.length} products
         {" · "}
-        {customer.channels.length} channels
+        {channelsData.length < customer.channels.length
+          ? `${channelsData.length} of ${customer.channels.length} channels`
+          : `${customer.channels.length} channels`}
         {" · "}
         <Badge variant={project.status === "active" ? "default" : "secondary"} className="text-xs">
           {project.status}
@@ -104,6 +118,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </div>
       ) : (
         <AnalysisWorkspace
+          // Start fresh when the project's channels change.
+          key={channelsData.map((c) => c.id).join(",")}
           channels={channelsData}
           products={products}
           brandRoyalties={context.brandRoyalties}

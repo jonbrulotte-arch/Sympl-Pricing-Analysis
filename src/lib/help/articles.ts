@@ -534,6 +534,14 @@ export const HELP_ARTICLES: HelpArticle[] = [
           { p: "Rename or delete a project from its page. Deleting a project doesn't delete any products or prices." },
         ],
       },
+      {
+        id: "project-channels",
+        title: "Choosing a project's channels",
+        blocks: [
+          { p: "A project analyzes all of its customer's sales channels unless you narrow it. Choose **Channels** at the top of the project, tick the channels it should use, and **Save**. The project then shows a tab only for those channels (plus Comparison when there are two or more), and the button shows how many are on, like **Channels (2 of 6)**." },
+          { list: ["The choice is saved with the project, so everyone who opens it sees the same channels.", "Ticking every channel means all channels, including any the customer adds later. A partial selection doesn't pick up new channels.", "Changing the channels clears price edits you haven't committed."] },
+        ],
+      },
     ],
   },
 

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { loadProductRows } from "@/lib/db/load-product-rows";
 import { loadChannelProductIds } from "@/lib/db/channel-products";
 import { loadItemTypeCommissions } from "@/lib/db/item-type-commissions";
+import { projectChannels } from "@/lib/projects/settings";
 import type { ChannelWithDb, AnalysisContext } from "@/lib/pricing/compute-results";
 import type { BrandRoyaltyTable, ProductRow, RoyaltyRuleEntry } from "@/lib/pricing/types";
 
@@ -37,20 +38,28 @@ export async function loadAnalysisInputs(
   });
   if (!customer) return null;
 
+  const project = scope.projectId
+    ? await prisma.project.findFirst({
+        where: { id: scope.projectId, customerId },
+        select: { settings: true, products: { select: { productId: true } } },
+      })
+    : null;
+  if (scope.projectId && !project) return null;
+
   const wanted = scope.projectId ? [] : scope.channelIds?.length ? scope.channelIds : scope.channelId ? [scope.channelId] : [];
   const selectedChannels = customer.channels.filter((c) => wanted.includes(c.id));
   const singleChannel = selectedChannels.length === 1 ? selectedChannels[0] : null;
-  let channels = selectedChannels.length > 0 ? selectedChannels : customer.channels;
+  // A project analyzes the channels enabled for it.
+  let channels = project
+    ? projectChannels(customer.channels, project.settings)
+    : selectedChannels.length > 0
+      ? selectedChannels
+      : customer.channels;
   if (only.channelId) channels = channels.filter((c) => c.id === only.channelId);
   const channelProductIds = await loadChannelProductIds(channels);
 
   let productIds: string[];
-  if (scope.projectId) {
-    const project = await prisma.project.findFirst({
-      where: { id: scope.projectId, customerId },
-      select: { products: { select: { productId: true } } },
-    });
-    if (!project) return null;
+  if (project) {
     productIds = project.products.map((pp) => pp.productId);
   } else if (selectedChannels.length > 0 && selectedChannels.every((c) => channelProductIds[c.id])) {
     productIds = [...new Set(selectedChannels.flatMap((c) => channelProductIds[c.id]!))];
