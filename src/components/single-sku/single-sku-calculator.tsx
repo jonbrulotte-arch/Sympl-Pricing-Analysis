@@ -14,6 +14,8 @@ import { toChannelConfig, type ChannelWithDb } from "@/lib/pricing/compute-resul
 import { SHIP_COMPONENTS, shipComponentsFor, type ShipComponentKey } from "@/lib/pricing/shipping";
 import type { SingleSkuChannelReport, SingleSkuReportInput } from "@/lib/export/single-sku-report";
 import { SingleSkuReport } from "./single-sku-report";
+import { PublishAllDialog } from "./publish-all-dialog";
+import type { PublishAllRow } from "@/lib/export/single-sku-change-report";
 import { cn } from "@/lib/utils";
 import type { AnalysisResult, ChannelDefaults, ChannelFlags } from "@/lib/pricing/types";
 
@@ -143,11 +145,19 @@ export function SingleSkuCalculator({
   const [computed, setComputed] = useState<Record<string, Computed>>({});
   const [computing, setComputing] = useState(false);
   const [computeError, setComputeError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"commit" | "publish" | "price" | "export" | null>(null);
+  const [busy, setBusy] = useState<"commit" | "publish" | "price" | "export" | "publishAll" | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string; productId?: string } | null>(null);
   const [committed, setCommitted] = useState<{ productId: string; sku: string } | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [report, setReport] = useState<SingleSkuReportInput | null>(null);
+  // Publish All: the change report, the channel inputs it was built from, and how the submit went.
+  const [publishAll, setPublishAll] = useState<{
+    rows: PublishAllRow[];
+    channels: { channelId: string; inputs: unknown; settings: unknown }[];
+    error: string | null;
+    submitting: boolean;
+    published: boolean;
+  } | null>(null);
   const loading = useRef(new Set<string>());
 
   /** Loads a channel's setup once, and seeds its price and allocations (and, first time, the product inputs). */
@@ -267,6 +277,77 @@ export function SingleSkuCalculator({
       return v != null && v >= 0 && !(stored != null && Math.abs(stored - v) < 0.00005);
     });
   }, [isNew, setup, shared, prices, active, shipComponents]);
+
+  /** Existing SKU: channels (of those opened) whose list price differs from what's saved. */
+  const changedChannelIds = useMemo(() => {
+    if (isNew) return [];
+    return channels
+      .map((c) => c.id)
+      .filter((id) => {
+        const s = setups[id];
+        if (!s?.product) return false;
+        const p = toNum(prices[id]);
+        return p != null && p > 0 && !(s.product.price != null && Math.abs(p - s.product.price) < 0.005);
+      });
+  }, [isNew, channels, setups, prices]);
+  const anyCanPublish = Object.values(setups).some((s) => s.canPublish);
+
+  /** Builds the Publish All change report for every channel with a changed price, and opens it. */
+  async function openPublishAll() {
+    const list = changedChannelIds.flatMap((id) => {
+      const s = setups[id];
+      const body = s && payloadFor(id, s, settingsBy[id] ?? settingsFrom(s.channel, fieldsFor(s.channel)), prices[id]);
+      return body ? [{ channelId: id, inputs: body.inputs, settings: body.settings }] : [];
+    });
+    if (list.length === 0 || !productId) return;
+    setBusy("publishAll");
+    setMessage(null);
+    try {
+      const { res, data } = await post("/api/single-sku/publish-all", { customerId, productId, channels: list });
+      if (!res.ok) return setMessage({ ok: false, text: data.error || "Couldn't build the change report" });
+      if (!data.rows?.length) return setMessage({ ok: false, text: "No channel prices have changed." });
+      setPublishAll({ rows: data.rows, channels: list, error: null, submitting: false, published: false });
+    } catch {
+      setMessage({ ok: false, text: "Couldn't build the change report" });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function submitPublishAll() {
+    if (!publishAll || !productId) return;
+    setPublishAll({ ...publishAll, submitting: true, error: null });
+    let res: Response;
+    let data: Record<string, unknown> & { rows?: PublishAllRow[]; error?: string; sku?: string };
+    try {
+      ({ res, data } = await post("/api/single-sku/publish-all", {
+        customerId,
+        productId,
+        channels: publishAll.channels,
+        apply: true,
+      }));
+    } catch {
+      setPublishAll((cur) => cur && { ...cur, submitting: false, error: "Couldn't reach the server. Nothing was published." });
+      return;
+    }
+    if (!res.ok) {
+      setPublishAll((cur) => cur && { ...cur, submitting: false, error: data.error || "Couldn't publish", rows: data.rows ?? cur.rows });
+      return;
+    }
+    const rows: PublishAllRow[] = data.rows ?? [];
+    setPublishAll((cur) => cur && { ...cur, submitting: false, published: true, rows });
+    // The published prices are now the saved ones.
+    setSetups((all) => {
+      const next = { ...all };
+      for (const r of rows) {
+        const s = next[r.channelId];
+        if (r.published && s?.product) next[r.channelId] = { ...s, product: { ...s.product, price: r.newPrice } };
+      }
+      return next;
+    });
+    const n = rows.filter((r) => r.published).length;
+    setMessage({ ok: true, text: `Published ${data.sku} on ${n} channel${n !== 1 ? "s" : ""} to Salsify.` });
+  }
 
   /** New SKU: list prices entered on every channel, so committing records them all. */
   const channelPrices = () =>
@@ -449,6 +530,21 @@ export function SingleSkuCalculator({
   return (
     <div>
       {report && <SingleSkuReport input={report} onClose={closeReport} />}
+      {publishAll && (
+        <PublishAllDialog
+          open
+          onOpenChange={(o) => !o && setPublishAll(null)}
+          customerName={customerName}
+          sku={productLabel ?? ""}
+          productName={shared.name}
+          rows={publishAll.rows}
+          error={publishAll.error}
+          submitting={publishAll.submitting}
+          published={publishAll.published}
+          canExport={canExport}
+          onSubmit={submitPublishAll}
+        />
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <p className="text-sm text-gray-600">
           {customerName} · <span className={isNew ? "font-medium text-gray-900" : "font-mono font-medium text-gray-900"}>{productLabel}</span>
@@ -515,6 +611,21 @@ export function SingleSkuCalculator({
             >
               {busy === "publish" ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
               {isNew ? "Commit & Publish to Salsify" : "Publish to Salsify"}
+            </Button>
+          )}
+          {!isNew && anyCanPublish && channels.length > 1 && (
+            <Button
+              size="sm"
+              onClick={openPublishAll}
+              disabled={!!busy || changedChannelIds.length === 0}
+              title={
+                changedChannelIds.length === 0
+                  ? "Change a channel's list price to publish"
+                  : "Review every channel's price change, then publish them to Salsify together"
+              }
+            >
+              {busy === "publishAll" ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
+              Publish All to Salsify{changedChannelIds.length > 0 ? ` (${changedChannelIds.length})` : ""}
             </Button>
           )}
         </div>

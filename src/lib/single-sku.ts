@@ -310,11 +310,33 @@ export async function publishSingleSkuPrice(opts: {
   }
   if (failure) return { error: `Publish to Salsify failed: ${failure}`, status: 502 };
 
+  await recordSingleSkuPublish({ setup, userId: user.id, customerId, sku, productId, price, isNew });
+  return { ok: true };
+}
+
+/**
+ * Records a price Salsify accepted, like any publish: for an existing SKU, price history with the previous price, and
+ * any staged price for this SKU and channel is cleared (it's superseded). A new SKU's price was already recorded when
+ * it was added, so only the publish is logged.
+ */
+export async function recordSingleSkuPublish(opts: {
+  setup: SingleSkuSetup;
+  userId: string;
+  customerId: string;
+  sku: string;
+  productId: string;
+  price: number;
+  isNew: boolean;
+  /** Extra Activity Log detail, e.g. that it was part of Publish All. */
+  detail?: Record<string, unknown>;
+}) {
+  const { setup, userId, customerId, sku, productId, price, isNew } = opts;
+  const { channel } = setup;
   const oldPrice = isNew ? null : (setup.row?.channelPrices?.[channel.id] ?? null);
   if (!isNew) {
     if (oldPrice == null || Math.abs(oldPrice - price) >= 0.005) {
       await prisma.priceHistory.create({
-        data: { id: randomUUID(), productId, channelId: channel.id, price, previousPrice: oldPrice, recordedById: user.id, source: "publish" },
+        data: { id: randomUUID(), productId, channelId: channel.id, price, previousPrice: oldPrice, recordedById: userId, source: "publish" },
       });
     }
     const staged = await prisma.salsifyStaged.findUnique({
@@ -330,11 +352,10 @@ export async function publishSingleSkuPrice(opts: {
     action: "salsify.publish",
     category: "publish",
     summary: `Published ${sku} at $${price.toFixed(2)} on ${channel.name} to Salsify from Single SKU Analysis${isNew ? " (new SKU)" : ""}`,
-    detail: { sku, productId, channelId: channel.id, channelName: channel.name, oldPrice, newPrice: price, source: "single-sku", newSku: isNew },
+    detail: { sku, productId, channelId: channel.id, channelName: channel.name, oldPrice, newPrice: price, source: "single-sku", newSku: isNew, ...opts.detail },
     customerId,
-    userId: user.id,
+    userId,
   });
-  return { ok: true };
 }
 
 /** { channelId: price } from a request body, keeping positive finite prices only. */

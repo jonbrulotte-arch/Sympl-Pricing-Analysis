@@ -499,11 +499,28 @@ export const HELP_ARTICLES: HelpArticle[] = [
                 ["Commit Price", "Existing SKUs: commits the list price and any shipping changes for this channel, exactly like a commit in the analysis. Cost isn't changed."],
                 ["Publish to Salsify", "Existing SKUs: sends the list price to Salsify and records it."],
                 ["Commit & Publish to Salsify", "New SKUs: adds the SKU to the database, then creates it in Salsify with its SKU and price."],
+                ["Publish All to Salsify", "Existing SKUs: publishes every channel whose list price you changed, together, after you review a change report."],
                 ["Discard", "Throws the calculation away and returns to choosing a SKU."],
               ],
             },
           },
           { p: "Commit Price and the publish buttons act on the channel tab you're on. The publish buttons only appear when you can publish to Salsify, you have a Salsify API key, and the customer's field mapping covers the SKU and that channel's price. **Commit Price** only works for SKUs that belong to the selected customer." },
+        ],
+      },
+      {
+        id: "publish-all",
+        title: "Publishing every channel at once",
+        blocks: [
+          { p: "Change the list price on as many channel tabs as you like, then choose **Publish All to Salsify**. The button shows how many channels have a new price." },
+          {
+            steps: [
+              "A change report opens with each changed channel's old and new price, the change, and the old and new net margin and net $.",
+              "Choose **Export to Excel** to download the report. It lists each channel's Salsify property and old price, so you can roll back if needed.",
+              "Choose **Submit to Salsify**. Every channel's price goes to Salsify in one update and is recorded like any publish: price history, the Activity Log, and any staged change for that channel is cleared.",
+            ],
+          },
+          { p: "Net margins use the calculator's cost, shipping and allocations for both old and new, so the difference is the price change alone. Only list prices are published; use Commit Price for shipping changes." },
+          { note: "A channel that can't be published (no Salsify mapping for its price, or it shares a Salsify property with another channel that has a different price) is listed and skipped. After publishing, you can export the report again as a record." },
         ],
       },
       {
