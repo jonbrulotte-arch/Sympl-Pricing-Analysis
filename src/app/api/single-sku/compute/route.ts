@@ -22,6 +22,6 @@ export async function POST(req: NextRequest) {
   );
   if ("error" in setup) return NextResponse.json({ error: setup.error }, { status: setup.status });
 
-  const { result, warnings } = computeSingleSku(setup, parseInputs(body.inputs), parseSettings(body.settings));
-  return NextResponse.json({ result, warnings });
+  const { result, warnings, retail } = computeSingleSku(setup, parseInputs(body.inputs), parseSettings(body.settings));
+  return NextResponse.json({ result, warnings, retail });
 }

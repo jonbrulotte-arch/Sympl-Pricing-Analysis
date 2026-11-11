@@ -16,6 +16,8 @@ import type { SingleSkuChannelReport, SingleSkuReportInput } from "@/lib/export/
 import { SingleSkuReport } from "./single-sku-report";
 import { PublishAllDialog } from "./publish-all-dialog";
 import type { PublishAllRow } from "@/lib/export/single-sku-change-report";
+import type { RetailComparison } from "@/lib/single-sku";
+import { RetailComparisonCard } from "./retail-comparison";
 import { cn } from "@/lib/utils";
 import type { AnalysisResult, ChannelDefaults, ChannelFlags } from "@/lib/pricing/types";
 
@@ -53,7 +55,15 @@ interface Shared {
 }
 
 type SettingValue = string | boolean;
-type Computed = { result: AnalysisResult; warnings: string[] };
+type Computed = { result: AnalysisResult; warnings: string[]; retail: RetailComparison | null };
+
+/** Commercial / Retail channels: the customer's selling price and fulfillment cost, and a promotional discount. */
+interface RetailEntry {
+  sellingPrice: string;
+  fulfillment: string;
+  promoPct: string;
+}
+const EMPTY_RETAIL: RetailEntry = { sellingPrice: "", fulfillment: "", promoPct: "" };
 
 /** Allocation sections shown in the calculator (brand availability and lifecycle don't apply to one SKU). */
 const CALC_SECTIONS = ["goal", "market", "royalty", "returns", "commercial", "rules"];
@@ -142,6 +152,7 @@ export function SingleSkuCalculator({
   const [shared, setShared] = useState<Shared | null>(null);
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [settingsBy, setSettingsBy] = useState<Record<string, Record<string, SettingValue>>>({});
+  const [retailBy, setRetailBy] = useState<Record<string, RetailEntry>>({});
   const [computed, setComputed] = useState<Record<string, Computed>>({});
   const [computing, setComputing] = useState(false);
   const [computeError, setComputeError] = useState<string | null>(null);
@@ -208,11 +219,18 @@ export function SingleSkuCalculator({
           units: toNum(shared.units),
           price: toNum(price),
           shipping: Object.fromEntries(shipComponentsFor(chCfg).map((c) => [c.key, toNum(shared.shipping[c.key])])),
+          ...(chCfg.channelType === "commercial" && {
+            retail: {
+              sellingPrice: toNum(retailBy[channelId]?.sellingPrice),
+              fulfillment: toNum(retailBy[channelId]?.fulfillment),
+              promoPct: toNum(retailBy[channelId]?.promoPct),
+            },
+          }),
         },
         settings: settingsPayload(chSettings, fieldsFor(s.channel)),
       };
     },
-    [shared, customerId, productId, isNew],
+    [shared, customerId, productId, isNew, retailBy],
   );
 
   const payload = useMemo(
@@ -229,7 +247,7 @@ export function SingleSkuCalculator({
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "Couldn't calculate");
-    return { result: data.result, warnings: data.warnings ?? [] };
+    return { result: data.result, warnings: data.warnings ?? [], retail: data.retail ?? null };
   }, []);
 
   // Recalculate the active channel on the server whenever an input changes.
@@ -258,12 +276,13 @@ export function SingleSkuCalculator({
     const anySetup = Object.values(setups)[0];
     if (!shared || !anySetup) return false;
     if (JSON.stringify(shared) !== JSON.stringify(sharedFrom(anySetup.product))) return true;
+    if (Object.values(retailBy).some((r) => r.sellingPrice || r.fulfillment || r.promoPct)) return true;
     return Object.entries(setups).some(
       ([id, s]) =>
         (prices[id] ?? "") !== str(s.product?.price) ||
         JSON.stringify(settingsBy[id]) !== JSON.stringify(settingsFrom(s.channel, fieldsFor(s.channel))),
     );
-  }, [shared, setups, prices, settingsBy]);
+  }, [shared, setups, prices, settingsBy, retailBy]);
 
   /** Existing SKU: the active channel's list price or one of its shipping costs differs from what's stored. */
   const hasSavableChange = useMemo(() => {
@@ -742,6 +761,46 @@ export function SingleSkuCalculator({
               </CardContent>
             </Card>
 
+            {cfg?.channelType === "commercial" && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Customer & Promotion</CardTitle>
+                  <p className="text-xs text-gray-500">
+                    For comparing {customerName}&apos;s margins with ours on {setup.channel.name}. Not saved.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Row label="Customer selling price" hint="per unit">
+                    <Money
+                      value={retailBy[active]?.sellingPrice ?? ""}
+                      onChange={(v) => setRetailBy((r) => ({ ...r, [active]: { ...(r[active] ?? EMPTY_RETAIL), sellingPrice: v } }))}
+                    />
+                  </Row>
+                  <Row label="Customer fulfillment" hint="per unit, optional">
+                    <Money
+                      value={retailBy[active]?.fulfillment ?? ""}
+                      onChange={(v) => setRetailBy((r) => ({ ...r, [active]: { ...(r[active] ?? EMPTY_RETAIL), fulfillment: v } }))}
+                    />
+                  </Row>
+                  <Row label="Promotional discount" hint="% off list price">
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="99"
+                        step="0.5"
+                        value={retailBy[active]?.promoPct ?? ""}
+                        onChange={(e) => setRetailBy((r) => ({ ...r, [active]: { ...(r[active] ?? EMPTY_RETAIL), promoPct: e.target.value } }))}
+                        className="pr-7"
+                        placeholder="0"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
+                    </div>
+                  </Row>
+                </CardContent>
+              </Card>
+            )}
+
             {shipComponents.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
@@ -828,6 +887,9 @@ export function SingleSkuCalculator({
                 </div>
               </div>
             </div>
+            {cfg?.channelType === "commercial" && computed[active]?.retail && (
+              <RetailComparisonCard comparison={computed[active].retail!} customerName={customerName} />
+            )}
             {result && !result.invalid && numericSettings ? (
               <SkuDetailPanel result={result} cfg={cfg} settings={numericSettings} canViewCost={!costHidden} />
             ) : (

@@ -22,6 +22,41 @@ export interface SingleSkuInputs {
   units?: number | null;
   price?: number | null;
   shipping?: Partial<Record<ShipComponentKey, number | null>>;
+  /** Commercial / Retail channels: the customer's side, for comparing their margins with ours. */
+  retail?: RetailInputs;
+}
+
+export interface RetailInputs {
+  /** What the customer sells the SKU for, per unit. */
+  sellingPrice?: number | null;
+  /** The customer's own cost to fulfill an order, per unit (optional). */
+  fulfillment?: number | null;
+  /** Promotional discount off our list price, in percent (15 = 15%). The customer's selling price drops by the same %. */
+  promoPct?: number | null;
+}
+
+/** Margins for one scenario (regular or promotional), per unit. */
+export interface RetailScenario {
+  /** Our price to the customer, which is the customer's cost. */
+  ourPrice: number;
+  ourNetMargin: number | null;
+  ourNet: number | null;
+  /** The customer's figures, when their selling price is entered. */
+  customer: {
+    sellingPrice: number;
+    grossMargin: number;
+    gross: number;
+    fulfillment: number;
+    netMargin: number;
+    net: number;
+  } | null;
+}
+
+export interface RetailComparison {
+  /** Promotional discount as a fraction (0.15), or null when none is entered. */
+  promo: number | null;
+  regular: RetailScenario | null;
+  promotion: RetailScenario | null;
 }
 
 export interface SingleSkuSetup {
@@ -104,7 +139,62 @@ export function parseInputs(input: unknown): SingleSkuInputs {
     units: finite(i.units),
     price: i.price === null ? null : (finite(i.price) ?? undefined),
     shipping,
+    retail: isRecord(i.retail)
+      ? {
+          sellingPrice: finite(i.retail.sellingPrice),
+          fulfillment: finite(i.retail.fulfillment),
+          promoPct: finite(i.retail.promoPct),
+        }
+      : undefined,
   };
+}
+
+/**
+ * Commercial / Retail channels: our margin and the customer's, at our list price and during a promotion. The customer
+ * buys at our price and sells at their selling price; a promotion takes a % off our list price and the customer passes
+ * it on, so their selling price drops by the same %. Everything is per unit.
+ */
+function retailComparison(
+  setup: SingleSkuSetup,
+  inputs: SingleSkuInputs,
+  settingsOverrides: Record<string, unknown>,
+  result: AnalysisResult,
+): RetailComparison {
+  const retail = inputs.retail ?? {};
+  const promo = retail.promoPct != null && retail.promoPct > 0 && retail.promoPct < 100 ? retail.promoPct / 100 : null;
+  const units = result.units > 0 ? result.units : 1;
+  const sell = retail.sellingPrice != null && retail.sellingPrice > 0 ? retail.sellingPrice : null;
+  const fulfillment = retail.fulfillment != null && retail.fulfillment > 0 ? retail.fulfillment : 0;
+
+  const scenario = (r: AnalysisResult, factor: number): RetailScenario | null => {
+    if (!(r.price > 0)) return null;
+    const priced = !r.invalid;
+    const customerSell = sell != null ? sell * factor : null;
+    return {
+      ourPrice: r.price,
+      ourNetMargin: priced ? r.gm : null,
+      ourNet: priced ? r.net / units : null,
+      customer:
+        customerSell != null
+          ? {
+              sellingPrice: customerSell,
+              grossMargin: (customerSell - r.price) / customerSell,
+              gross: customerSell - r.price,
+              fulfillment,
+              netMargin: (customerSell - r.price - fulfillment) / customerSell,
+              net: customerSell - r.price - fulfillment,
+            }
+          : null,
+    };
+  };
+
+  const regular = scenario(result, 1);
+  let promotion: RetailScenario | null = null;
+  if (promo != null && result.price > 0) {
+    const atPromo = computeSingleSku(setup, { ...inputs, price: result.price * (1 - promo), retail: undefined }, settingsOverrides).result;
+    promotion = scenario(atPromo, 1 - promo);
+  }
+  return { promo, regular, promotion };
 }
 
 /** Why the result may not match the full analysis for this channel. */
@@ -168,7 +258,8 @@ export function computeSingleSku(setup: SingleSkuSetup, inputs: SingleSkuInputs,
     warnings.push("This SKU is discontinued and the channel hides discontinued SKUs, so it's left out of the channel's analysis.");
   }
   const safe: AnalysisResult = costHidden ? { ...result, cost: null } : result;
-  return { result: safe, settings, warnings };
+  const retail = cfg.channelType === "commercial" && inputs.retail ? retailComparison(setup, inputs, settingsOverrides, result) : null;
+  return { result: safe, settings, warnings, retail };
 }
 
 export type SalsifyPublishStatus =
