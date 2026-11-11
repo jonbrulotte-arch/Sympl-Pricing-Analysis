@@ -518,11 +518,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
               rows: [
                 ["Customer selling price", "What the customer sells the SKU for, per unit."],
                 ["Customer fulfillment", "Optional: the customer's own cost to fulfill, per unit."],
-                ["Promotional discount", "A % off our list price. During the promotion the customer's selling price drops by the same %."],
+                ["Promotional discount and Discount tier 2", "Up to two promotions to compare, each a % off our list price (for example 5% and 10%). During a promotion the customer's selling price drops by the same %."],
               ],
             },
           },
-          { p: "**Our margins vs the customer's** then shows, per unit, our price (the customer's cost) and our net margin, the customer's gross margin (selling price minus our price) and estimated net margin (after their fulfillment cost), for the regular price and, with a discount entered, the promotion side by side." },
+          { p: "**Our margins vs the customer's** then shows, per unit, our price (the customer's cost) and our net margin, the customer's gross margin (selling price minus our price) and estimated net margin (after their fulfillment cost), for the regular price and each discount tier, side by side. The comparison is also in the **Export Report**, on the channel's details page and in the spreadsheet." },
           { note: "Because a promotion lowers our price and the customer's selling price by the same %, the customer's gross margin % stays the same while their dollars shrink. Their net margin falls, since fulfillment is a fixed amount per unit." },
         ],
       },

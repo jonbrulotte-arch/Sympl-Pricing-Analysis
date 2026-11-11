@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { cn } from "@/lib/utils";
-import type { RetailComparison, RetailScenario } from "@/lib/single-sku";
+import type { RetailComparison, RetailScenario } from "@/lib/single-sku-retail";
 
 const money = (v: number | null | undefined) => (v == null ? "-" : `${v < 0 ? "-" : ""}$${Math.abs(v).toFixed(2)}`);
 const pct = (v: number | null | undefined) => (v == null ? "-" : `${(v * 100).toFixed(1)}%`);
@@ -8,10 +8,10 @@ const tone = (v: number | null | undefined) => (v == null ? "text-gray-400" : v 
 
 /**
  * Commercial / Retail channels: our net margin and the customer's gross and estimated net margin, at our list price
- * and (with a promotional discount) during the promotion, side by side. Per unit.
+ * and at each promotional discount tier, side by side. Per unit.
  */
 export function RetailComparisonCard({ comparison, customerName }: { comparison: RetailComparison; customerName: string }) {
-  const { regular, promotion, promo } = comparison;
+  const { regular, promotions } = comparison;
   if (!regular) {
     return (
       <div className="rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500">
@@ -21,7 +21,7 @@ export function RetailComparisonCard({ comparison, customerName }: { comparison:
   }
   const columns: { label: string; s: RetailScenario }[] = [
     { label: "Regular", s: regular },
-    ...(promotion && promo != null ? [{ label: `Promotion (−${+(promo * 100).toFixed(2)}%)`, s: promotion }] : []),
+    ...promotions.map((p) => ({ label: `Promotion (−${+(p.promo * 100).toFixed(2)}%)`, s: p.scenario })),
   ];
   const hasCustomer = !!regular.customer;
   const fulfillment = regular.customer?.fulfillment ?? 0;
@@ -75,7 +75,7 @@ export function RetailComparisonCard({ comparison, customerName }: { comparison:
     <div className="rounded-lg border border-gray-200 bg-white">
       <div className="px-4 pt-3 pb-2">
         <p className="text-sm font-semibold text-gray-900">Our margins vs {customerName}&apos;s</p>
-        <p className="text-xs text-gray-500">Per unit.{promotion ? " During the promotion the customer's selling price drops by the same %." : ""}</p>
+        <p className="text-xs text-gray-500">Per unit.{promotions.length ? ` During ${promotions.length > 1 ? "each" : "the"} promotion the customer's selling price drops by the same %.` : ""}</p>
       </div>
       <table className="w-full text-sm">
         <thead>

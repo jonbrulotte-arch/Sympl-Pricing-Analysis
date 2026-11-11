@@ -16,7 +16,7 @@ import type { SingleSkuChannelReport, SingleSkuReportInput } from "@/lib/export/
 import { SingleSkuReport } from "./single-sku-report";
 import { PublishAllDialog } from "./publish-all-dialog";
 import type { PublishAllRow } from "@/lib/export/single-sku-change-report";
-import type { RetailComparison } from "@/lib/single-sku";
+import { MAX_PROMO_TIERS, type RetailComparison } from "@/lib/single-sku-retail";
 import { RetailComparisonCard } from "./retail-comparison";
 import { cn } from "@/lib/utils";
 import type { AnalysisResult, ChannelDefaults, ChannelFlags } from "@/lib/pricing/types";
@@ -61,9 +61,10 @@ type Computed = { result: AnalysisResult; warnings: string[]; retail: RetailComp
 interface RetailEntry {
   sellingPrice: string;
   fulfillment: string;
-  promoPct: string;
+  /** One per discount tier (MAX_PROMO_TIERS). */
+  promoPcts: string[];
 }
-const EMPTY_RETAIL: RetailEntry = { sellingPrice: "", fulfillment: "", promoPct: "" };
+const EMPTY_RETAIL: RetailEntry = { sellingPrice: "", fulfillment: "", promoPcts: Array(MAX_PROMO_TIERS).fill("") };
 
 /** Allocation sections shown in the calculator (brand availability and lifecycle don't apply to one SKU). */
 const CALC_SECTIONS = ["goal", "market", "royalty", "returns", "commercial", "rules"];
@@ -223,7 +224,7 @@ export function SingleSkuCalculator({
             retail: {
               sellingPrice: toNum(retailBy[channelId]?.sellingPrice),
               fulfillment: toNum(retailBy[channelId]?.fulfillment),
-              promoPct: toNum(retailBy[channelId]?.promoPct),
+              promoPcts: (retailBy[channelId]?.promoPcts ?? []).map(toNum).filter((v): v is number => v != null),
             },
           }),
         },
@@ -276,7 +277,7 @@ export function SingleSkuCalculator({
     const anySetup = Object.values(setups)[0];
     if (!shared || !anySetup) return false;
     if (JSON.stringify(shared) !== JSON.stringify(sharedFrom(anySetup.product))) return true;
-    if (Object.values(retailBy).some((r) => r.sellingPrice || r.fulfillment || r.promoPct)) return true;
+    if (Object.values(retailBy).some((r) => r.sellingPrice || r.fulfillment || r.promoPcts.some(Boolean))) return true;
     return Object.entries(setups).some(
       ([id, s]) =>
         (prices[id] ?? "") !== str(s.product?.price) ||
@@ -498,6 +499,7 @@ export function SingleSkuCalculator({
           allocations: chFields.map((f) => ({ field: f, value: chSettings[f.key], channelValue: channelValues[f.key] })),
           shipping: shipComponentsFor(chCfg).map((c) => ({ label: c.label, value: toNum(shared.shipping[c.key]) })),
           warnings: out.warnings,
+          retail: out.retail,
         });
       }
       const first = setups[active] ?? Object.values(setups)[0];
@@ -782,21 +784,34 @@ export function SingleSkuCalculator({
                       onChange={(v) => setRetailBy((r) => ({ ...r, [active]: { ...(r[active] ?? EMPTY_RETAIL), fulfillment: v } }))}
                     />
                   </Row>
-                  <Row label="Promotional discount" hint="% off list price">
-                    <div className="relative">
-                      <Input
-                        type="number"
-                        min="0"
-                        max="99"
-                        step="0.5"
-                        value={retailBy[active]?.promoPct ?? ""}
-                        onChange={(e) => setRetailBy((r) => ({ ...r, [active]: { ...(r[active] ?? EMPTY_RETAIL), promoPct: e.target.value } }))}
-                        className="pr-7"
-                        placeholder="0"
-                      />
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
-                    </div>
-                  </Row>
+                  {Array.from({ length: MAX_PROMO_TIERS }, (_, t) => (
+                    <Row
+                      key={t}
+                      label={t === 0 ? "Promotional discount" : `Discount tier ${t + 1}`}
+                      hint={t === 0 ? "% off list price" : "% off list price, optional"}
+                    >
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="99"
+                          step="0.5"
+                          value={retailBy[active]?.promoPcts[t] ?? ""}
+                          onChange={(e) =>
+                            setRetailBy((r) => {
+                              const cur = r[active] ?? EMPTY_RETAIL;
+                              const promoPcts = [...cur.promoPcts];
+                              promoPcts[t] = e.target.value;
+                              return { ...r, [active]: { ...cur, promoPcts } };
+                            })
+                          }
+                          className="pr-7"
+                          placeholder={t === 0 ? "e.g. 5" : "e.g. 10"}
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
+                      </div>
+                    </Row>
+                  ))}
                 </CardContent>
               </Card>
             )}

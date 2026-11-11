@@ -3,6 +3,7 @@ import type { AnalysisResult, ChannelConfig, ChannelDefaults } from "@/lib/prici
 import type { FieldUiDef } from "@/lib/pricing/constants";
 import { feeLedger } from "@/lib/pricing/ledger";
 import { safeFileName, safeSheetName } from "@/lib/export/change-report";
+import type { RetailComparison } from "@/lib/single-sku-retail";
 
 export interface SingleSkuChannelReport {
   cfg: ChannelConfig;
@@ -13,6 +14,8 @@ export interface SingleSkuChannelReport {
   allocations: { field: FieldUiDef; value: unknown; channelValue: unknown }[];
   shipping: { label: string; value: number | null }[];
   warnings: string[];
+  /** Commercial / Retail channels: our margins vs the customer's, regular and at each promotional tier. */
+  retail?: RetailComparison | null;
 }
 
 export interface SingleSkuReportInput {
@@ -99,6 +102,32 @@ function channelSheet(input: SingleSkuReportInput, ch: SingleSkuChannelReport): 
     }
   } else {
     rows.push([], ["The fee breakdown is left out because your role can't see unit cost."]);
+  }
+
+  const retail = ch.retail;
+  if (retail?.regular) {
+    const cols = [
+      { label: "Regular", s: retail.regular },
+      ...retail.promotions.map((p) => ({ label: `Promotion −${+(p.promo * 100).toFixed(2)}%`, s: p.scenario })),
+    ];
+    const line = (label: string, get: (s: (typeof cols)[number]["s"]) => Cell) => [label, ...cols.map((c) => get(c.s))] as Cell[];
+    rows.push(
+      [],
+      [`CUSTOMER & PROMOTION (per unit; ${input.customerName}'s selling price drops by the promotion %)`, ...cols.map((c) => c.label)],
+      line("Our price (customer's cost)", (s) => money(s.ourPrice)),
+      line("Our net margin", (s) => pct(s.ourNetMargin)),
+      line("Our net $ per unit", (s) => money(s.ourNet)),
+    );
+    if (retail.regular.customer) {
+      rows.push(
+        line("Customer selling price", (s) => money(s.customer?.sellingPrice)),
+        line("Customer gross margin", (s) => pct(s.customer?.grossMargin)),
+        line("Customer gross $ per unit", (s) => money(s.customer?.gross)),
+        line("Customer fulfillment per unit", (s) => money(s.customer?.fulfillment)),
+        line("Customer est. net margin", (s) => pct(s.customer?.netMargin)),
+        line("Customer est. net $ per unit", (s) => money(s.customer?.net)),
+      );
+    }
   }
 
   if (ch.warnings.length) {

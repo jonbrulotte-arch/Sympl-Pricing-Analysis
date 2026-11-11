@@ -11,6 +11,9 @@ import { FIELDS_UI } from "@/lib/pricing/constants";
 import { brandKey } from "@/lib/pricing/helpers";
 import { SHIP_COMPONENTS, type ShipComponentKey } from "@/lib/pricing/shipping";
 import type { AnalysisResult, ProductRow } from "@/lib/pricing/types";
+import { MAX_PROMO_TIERS, type RetailComparison, type RetailInputs, type RetailScenario } from "@/lib/single-sku-retail";
+
+export type { RetailComparison, RetailInputs, RetailScenario } from "@/lib/single-sku-retail";
 
 /** What the calculator lets the user set. Product fields (sku, name, brand, item type) only apply to new SKUs. */
 export interface SingleSkuInputs {
@@ -24,39 +27,6 @@ export interface SingleSkuInputs {
   shipping?: Partial<Record<ShipComponentKey, number | null>>;
   /** Commercial / Retail channels: the customer's side, for comparing their margins with ours. */
   retail?: RetailInputs;
-}
-
-export interface RetailInputs {
-  /** What the customer sells the SKU for, per unit. */
-  sellingPrice?: number | null;
-  /** The customer's own cost to fulfill an order, per unit (optional). */
-  fulfillment?: number | null;
-  /** Promotional discount off our list price, in percent (15 = 15%). The customer's selling price drops by the same %. */
-  promoPct?: number | null;
-}
-
-/** Margins for one scenario (regular or promotional), per unit. */
-export interface RetailScenario {
-  /** Our price to the customer, which is the customer's cost. */
-  ourPrice: number;
-  ourNetMargin: number | null;
-  ourNet: number | null;
-  /** The customer's figures, when their selling price is entered. */
-  customer: {
-    sellingPrice: number;
-    grossMargin: number;
-    gross: number;
-    fulfillment: number;
-    netMargin: number;
-    net: number;
-  } | null;
-}
-
-export interface RetailComparison {
-  /** Promotional discount as a fraction (0.15), or null when none is entered. */
-  promo: number | null;
-  regular: RetailScenario | null;
-  promotion: RetailScenario | null;
 }
 
 export interface SingleSkuSetup {
@@ -143,7 +113,11 @@ export function parseInputs(input: unknown): SingleSkuInputs {
       ? {
           sellingPrice: finite(i.retail.sellingPrice),
           fulfillment: finite(i.retail.fulfillment),
-          promoPct: finite(i.retail.promoPct),
+          promoPcts: Array.isArray(i.retail.promoPcts)
+            ? i.retail.promoPcts.map(finite).filter((v): v is number => v != null)
+            : finite(i.retail.promoPct) != null
+              ? [finite(i.retail.promoPct)!]
+              : [],
         }
       : undefined,
   };
@@ -161,7 +135,11 @@ function retailComparison(
   result: AnalysisResult,
 ): RetailComparison {
   const retail = inputs.retail ?? {};
-  const promo = retail.promoPct != null && retail.promoPct > 0 && retail.promoPct < 100 ? retail.promoPct / 100 : null;
+  // Valid tiers, each once, smallest first.
+  const promos = [...new Set((retail.promoPcts ?? []).filter((p) => p > 0 && p < 100))]
+    .sort((a, b) => a - b)
+    .slice(0, MAX_PROMO_TIERS)
+    .map((p) => p / 100);
   const units = result.units > 0 ? result.units : 1;
   const sell = retail.sellingPrice != null && retail.sellingPrice > 0 ? retail.sellingPrice : null;
   const fulfillment = retail.fulfillment != null && retail.fulfillment > 0 ? retail.fulfillment : 0;
@@ -189,12 +167,15 @@ function retailComparison(
   };
 
   const regular = scenario(result, 1);
-  let promotion: RetailScenario | null = null;
-  if (promo != null && result.price > 0) {
-    const atPromo = computeSingleSku(setup, { ...inputs, price: result.price * (1 - promo), retail: undefined }, settingsOverrides).result;
-    promotion = scenario(atPromo, 1 - promo);
+  const promotions: RetailComparison["promotions"] = [];
+  if (result.price > 0) {
+    for (const promo of promos) {
+      const atPromo = computeSingleSku(setup, { ...inputs, price: result.price * (1 - promo), retail: undefined }, settingsOverrides).result;
+      const s = scenario(atPromo, 1 - promo);
+      if (s) promotions.push({ promo, scenario: s });
+    }
   }
-  return { promo, regular, promotion };
+  return { regular, promotions };
 }
 
 /** Why the result may not match the full analysis for this channel. */

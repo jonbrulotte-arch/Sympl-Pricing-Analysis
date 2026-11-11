@@ -6,6 +6,7 @@ import { AlertTriangle, FileSpreadsheet, Printer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SkuDetailPanel } from "@/components/analysis/sku-detail-panel";
+import { RetailComparisonCard } from "./retail-comparison";
 import { useBranding } from "@/components/branding/branding";
 import { exportSingleSkuReport, type SingleSkuChannelReport, type SingleSkuReportInput } from "@/lib/export/single-sku-report";
 import type { FieldUiDef } from "@/lib/pricing/constants";
@@ -255,6 +256,12 @@ function ChannelReport({ input, ch }: { input: SingleSkuReportInput; ch: SingleS
           ]}
         />
       </div>
+
+      {ch.retail && (
+        <div className="mt-4 print-avoid-break">
+          <RetailComparisonCard comparison={ch.retail} customerName={input.customerName} />
+        </div>
+      )}
 
       <div className="mt-4 print-avoid-break">
         <h3 className="mb-2 text-sm font-semibold text-gray-900">
