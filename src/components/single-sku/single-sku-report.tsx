@@ -119,6 +119,12 @@ function ReportHeader({ input, title, status }: { input: SingleSkuReportInput; t
           <dd className="font-medium text-gray-900">{input.customerName}</dd>
           <dt className="text-gray-500">Unit cost</dt>
           <dd className="font-medium text-gray-900">{input.includeCost ? money(input.cost) : "Hidden"}</dd>
+          {input.channels.some((c) => c.cfg.costBasis === "fob") && (
+            <>
+              <dt className="text-gray-500">FOB unit cost</dt>
+              <dd className="font-medium text-gray-900">{input.includeCost ? money(input.fobCost) : "Hidden"}</dd>
+            </>
+          )}
           <dt className="text-gray-500">Units per order</dt>
           <dd className="font-medium text-gray-900">{input.units}</dd>
           <dt className="text-gray-500">Generated</dt>
@@ -245,7 +251,9 @@ function ChannelReport({ input, ch }: { input: SingleSkuReportInput; ch: SingleS
           title="Inputs"
           head={["", "Value"]}
           rows={[
-            ["Unit cost", input.includeCost ? money(input.cost) : "Hidden"],
+            ch.cfg.costBasis === "fob"
+              ? ["FOB unit cost", input.includeCost ? money(input.fobCost) : "Hidden"]
+              : ["Unit cost", input.includeCost ? money(input.cost) : "Hidden"],
             ["List price", r.price > 0 ? money(r.price) : "—"],
             ["Units per order", String(input.units)],
             ...ch.shipping.map((s) => [`${s.label} (per unit)`, money(s.value)]),

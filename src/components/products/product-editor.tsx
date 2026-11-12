@@ -10,6 +10,8 @@ import { Save } from "lucide-react";
 interface Props {
   productId: string;
   currentCost: number | null;
+  /** FOB unit cost, used by Direct Import (FOB/FCA) channels instead of the unit cost. */
+  currentFobCost?: number | null;
   currentShipping: Record<string, number>;
   hideCost?: boolean;
   shippingTypes?: string[];
@@ -22,8 +24,9 @@ const SHIPPING_LABELS: Record<string, string> = {
   fba_fee: "FBA Fee",
 };
 
-export function ProductEditor({ productId, currentCost, currentShipping, hideCost, shippingTypes }: Props) {
+export function ProductEditor({ productId, currentCost, currentFobCost = null, currentShipping, hideCost, shippingTypes }: Props) {
   const router = useRouter();
+  const [fobCost, setFobCost] = useState(currentFobCost?.toString() ?? "");
   const [cost, setCost] = useState(currentCost?.toString() ?? "");
   const [shipping, setShipping] = useState<Record<string, string>>({
     std: currentShipping.std?.toString() ?? "",
@@ -44,6 +47,10 @@ export function ProductEditor({ productId, currentCost, currentShipping, hideCos
     const costVal = parseFloat(cost);
     if (isFinite(costVal) && costVal >= 0 && costVal !== currentCost) {
       body.cost = costVal;
+    }
+    const fobVal = parseFloat(fobCost);
+    if (!hideCost && isFinite(fobVal) && fobVal > 0 && fobVal !== currentFobCost) {
+      body.fobCost = fobVal;
     }
 
     const fieldMap: Record<string, string> = {
@@ -96,7 +103,7 @@ export function ProductEditor({ productId, currentCost, currentShipping, hideCos
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {!hideCost && (
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Unit Cost</label>
@@ -108,6 +115,24 @@ export function ProductEditor({ productId, currentCost, currentShipping, hideCos
                 value={cost}
                 onChange={(e) => setCost(e.target.value)}
                 className="pl-6"
+              />
+            </div>
+          </div>
+          )}
+          {!hideCost && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1" title="Used by Direct Import (FOB/FCA) channels instead of the unit cost">
+              FOB Unit Cost
+            </label>
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-600">$</span>
+              <Input
+                type="number"
+                step="0.01"
+                value={fobCost}
+                onChange={(e) => setFobCost(e.target.value)}
+                className="pl-6"
+                placeholder="Direct Import"
               />
             </div>
           </div>

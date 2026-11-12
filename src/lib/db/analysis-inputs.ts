@@ -111,6 +111,7 @@ export async function loadAnalysisInputs(
   const channelsData: ChannelWithDb[] = channels.map((ch) => ({
     channelProductIds: channelProductIds[ch.id],
     pendingPublishSkus: pendingPublish[ch.id] ?? [],
+    channelSubtype: ch.channelSubtype,
     id: ch.id,
     name: ch.name,
     tabLabel: ch.tabLabel,
@@ -141,5 +142,5 @@ export async function loadAnalysisInputs(
 
 /** Product rows safe to send to a user without data:viewCost. */
 export function withoutCost(products: ProductRow[]): ProductRow[] {
-  return products.map((p) => ({ ...p, cost: null }));
+  return products.map((p) => ({ ...p, cost: null, fobCost: null }));
 }

@@ -39,6 +39,13 @@ export interface ChannelWithDb {
   channelProductIds?: string[] | null;
   /** SKUs committed on this channel and waiting on Publish to Salsify. */
   pendingPublishSkus?: string[];
+  /** Commercial subtype ("bulk_b2b", "dropship_dsv", "direct_import") or online template id. */
+  channelSubtype?: string | null;
+}
+
+/** Commercial / Retail Direct Import (FOB/FCA) channels are analyzed against the FOB unit cost. */
+export function isFobChannel(ch: { channelType?: string | null; channelSubtype?: string | null }): boolean {
+  return ch.channelType === "commercial" && ch.channelSubtype === "direct_import";
 }
 
 export function toChannelConfig(ch: ChannelWithDb): ChannelConfig {
@@ -50,6 +57,7 @@ export function toChannelConfig(ch: ChannelWithDb): ChannelConfig {
     priceField: ch.priceField,
     fallbackPriceField: ch.fallbackPriceField ?? undefined,
     channelType: ch.channelType === "commercial" ? "commercial" : "online",
+    costBasis: isFobChannel(ch) ? "fob" : "unit",
     flags: {
       coupon: ch.hasCoupon,
       tax: ch.hasTax,
@@ -107,6 +115,8 @@ export function computeChannelResults(
     .filter((p) => !allowed || (p.productId != null && allowed.has(p.productId)))
     .map((p) => {
       let row: ProductRow = { ...p, ...edits.committedShip[p.sku], ...edits.shipEdits[p.sku] };
+      // Direct Import channels use the FOB unit cost; a SKU without one has no cost here (never the regular one).
+      if (cfg.costBasis === "fob") row = { ...row, cost: p.fobCost ?? null };
       if (committed?.[p.sku] != null) {
         row = {
           ...row,

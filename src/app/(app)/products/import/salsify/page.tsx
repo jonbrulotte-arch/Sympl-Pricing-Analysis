@@ -24,7 +24,8 @@ interface SyncResult {
 
 function downloadSupplementalSheet(products: { sku: string; name: string | null }[]) {
   const headers = [...SUPPLEMENTAL_IMPORT_FIELDS.map((f) => f.label), "Item name"];
-  const rows = products.map((p) => [p.sku, null, null, p.name ?? ""]);
+  // SKU, then a blank for each value to fill in, then the name for reference.
+  const rows = products.map((p) => [p.sku, ...SUPPLEMENTAL_IMPORT_FIELDS.slice(1).map(() => null), p.name ?? ""]);
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   ws["!cols"] = headers.map((h, i) => ({ wch: i === headers.length - 1 ? 40 : Math.max(h.length + 2, 16) }));
   const wb = XLSX.utils.book_new();

@@ -25,6 +25,8 @@ export function autoMapColumns(headers: string[]): Record<string, number> {
     if (map[field.key] !== undefined) continue;
     for (let i = 0; i < normHeaders.length; i++) {
       if (used.has(i)) continue;
+      // An FOB cost column is only ever the FOB unit cost, never the regular cost (or anything else).
+      if (field.key !== "fobCost" && /fob|fca/.test(normHeaders[i])) continue;
       if (field.cand.some((c) => normHeaders[i].includes(c) || c.includes(normHeaders[i]))) {
         map[field.key] = i;
         used.add(i);

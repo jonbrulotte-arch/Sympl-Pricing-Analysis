@@ -40,6 +40,7 @@ interface ChannelDb {
   blockedBrands: string[];
   channelProductIds?: string[] | null;
   pendingPublishSkus?: string[];
+  channelSubtype?: string | null;
 }
 
 interface Props {

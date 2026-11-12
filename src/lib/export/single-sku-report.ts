@@ -22,6 +22,8 @@ export interface SingleSkuReportInput {
   customerName: string;
   product: { sku: string; name: string; brand: string; itemType: string; isNew: boolean };
   cost: number | null;
+  /** FOB unit cost, shown for Direct Import (FOB/FCA) channels. */
+  fobCost?: number | null;
   /** False when the viewer lacks data:viewCost: cost and the fee breakdown are left out. */
   includeCost: boolean;
   units: number;
@@ -63,7 +65,9 @@ function channelSheet(input: SingleSkuReportInput, ch: SingleSkuChannelReport): 
     ["Generated", new Date().toLocaleString()],
     [],
     ["INPUTS"],
-    ["Unit cost", input.includeCost ? money(input.cost) : "Hidden"],
+    ch.cfg.costBasis === "fob"
+      ? ["FOB unit cost", input.includeCost ? money(input.fobCost) : "Hidden"]
+      : ["Unit cost", input.includeCost ? money(input.cost) : "Hidden"],
     ["List price", money(r.price > 0 ? r.price : null)],
     ["Units per order", input.units],
     ...ch.shipping.map((s) => [`${s.label} (per unit)`, money(s.value)] as Cell[]),
@@ -147,6 +151,9 @@ function summarySheet(input: SingleSkuReportInput): XLSX.WorkSheet {
     ["SKU", input.product.sku + (input.product.isNew ? " (new)" : "")],
     ["Name", input.product.name || null],
     ["Unit cost", input.includeCost ? money(input.cost) : "Hidden"],
+    ...(input.channels.some((c) => c.cfg.costBasis === "fob")
+      ? [["FOB unit cost (Direct Import)", input.includeCost ? money(input.fobCost) : "Hidden"] as Cell[]]
+      : []),
     ["Generated", new Date().toLocaleString()],
     [],
     ["Channel", "List price", "Net margin %", "Net $ per order", "Goal", "Status", "Recommended", "Rec. net margin %", "Change to rec. %"],

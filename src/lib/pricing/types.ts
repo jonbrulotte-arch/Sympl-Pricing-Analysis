@@ -55,6 +55,8 @@ export interface ChannelConfig {
   priceField: string;
   fallbackPriceField?: string;
   channelType?: "online" | "commercial";
+  /** "fob": Direct Import (FOB/FCA) channels analyze the FOB unit cost instead of the regular unit cost. */
+  costBasis?: "unit" | "fob";
   flags: ChannelFlags;
   defaults: ChannelDefaults;
 }
@@ -64,6 +66,8 @@ export interface ProductRow {
   sku: string;
   name?: string;
   cost: number | null;
+  /** FOB unit cost, used instead of `cost` on Direct Import channels. */
+  fobCost?: number | null;
   priceJSP?: number | null;
   priceMCF?: number | null;
   priceWM?: number | null;

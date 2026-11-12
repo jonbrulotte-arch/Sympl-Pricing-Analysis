@@ -73,6 +73,7 @@ export const IMPORT_FIELDS = [
   { key: "sku", label: "SKU", req: true, cand: ["sku", "skuid", "itemid", "itemnumber", "mpn", "partnumber", "customlabel"] },
   { key: "name", label: "Item name", req: false, cand: ["itemname", "name", "title", "itemtitle", "productname", "description"] },
   { key: "cost", label: "SKU cost", req: false, cand: ["skucost", "landedcost", "cost", "unitcost", "itemcost", "cogs"] },
+  { key: "fobCost", label: "FOB unit cost", req: false, cand: ["fobunitcost", "fobcost", "fobskucost", "fob", "fcacost", "fobfcacost"] },
   { key: "priceJSP", label: "eBay list price", req: false, cand: ["ebaylistprice", "ebayprice", "ebayjspprice", "listingprice", "listprice", "price"] },
   { key: "priceMCF", label: "eBay MCF price", req: false, cand: ["ebaylistpricemcf", "mcflistprice", "ebaymcfprice", "mcfprice"] },
   { key: "priceWM", label: "Walmart price", req: false, cand: ["wmcommarketplaceprice", "walmartprice", "wmprice", "walmartmarketplaceprice", "wmcomprice"] },
@@ -100,7 +101,7 @@ export const IMPORT_FIELDS = [
 ];
 
 export const SUPPLEMENTAL_IMPORT_FIELDS = IMPORT_FIELDS.filter((f) =>
-  ["sku", "cost", "mcfFreight"].includes(f.key),
+  ["sku", "cost", "fobCost", "mcfFreight"].includes(f.key),
 );
 
 export const DEFAULT_CHANNELS: Omit<ChannelConfig, "id">[] = [

@@ -16,6 +16,7 @@ type Step = "upload" | "map" | "preview" | "importing" | "done";
 interface SupplementalRow {
   sku: string;
   cost?: number | null;
+  fobCost?: number | null;
   mcfFreight?: number | null;
 }
 
@@ -31,12 +32,14 @@ function buildSupplementalRows(
     if (!sku) continue;
 
     const costIdx = columnMap["cost"];
+    const fobIdx = columnMap["fobCost"];
     const freightIdx = columnMap["mcfFreight"];
 
     const cost = costIdx !== undefined ? Number(row[costIdx]) || null : null;
+    const fobCost = fobIdx !== undefined ? Number(row[fobIdx]) || null : null;
     const mcfFreight = freightIdx !== undefined ? Number(row[freightIdx]) || null : null;
 
-    rows.push({ sku, cost, mcfFreight });
+    rows.push({ sku, cost, fobCost, mcfFreight });
   }
   return rows;
 }
@@ -154,7 +157,7 @@ export default function SupplementalImportPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Supplemental Data Import</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Update cost and MCF freight for existing products. SKUs must already be in the database.
+            Update cost, FOB unit cost and MCF freight for existing products. SKUs must already be in the database.
           </p>
         </div>
       </div>
@@ -173,7 +176,7 @@ export default function SupplementalImportPage() {
             <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 mb-2">Drag and drop a spreadsheet file here</p>
             <p className="text-sm text-gray-500 mb-1">Required columns: SKU</p>
-            <p className="text-sm text-gray-500 mb-4">Optional columns: SKU Cost, To MCF Freight Cost</p>
+            <p className="text-sm text-gray-500 mb-4">Optional columns: SKU Cost, FOB Unit Cost, To MCF Freight Cost</p>
             <label>
               <Button variant="outline" asChild>
                 <span>Browse Files</span>
@@ -281,6 +284,7 @@ export default function SupplementalImportPage() {
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-2 px-2 text-gray-600 font-medium">SKU</th>
                       <th className="text-right py-2 px-2 text-gray-600 font-medium">Cost</th>
+                      <th className="text-right py-2 px-2 text-gray-600 font-medium">FOB Cost</th>
                       <th className="text-right py-2 px-2 text-gray-600 font-medium">MCF Freight</th>
                     </tr>
                   </thead>
@@ -290,6 +294,9 @@ export default function SupplementalImportPage() {
                         <td className="py-1.5 px-2 font-mono text-xs">{r.sku}</td>
                         <td className="py-1.5 px-2 text-right">
                           {r.cost != null ? `$${r.cost.toFixed(2)}` : "-"}
+                        </td>
+                        <td className="py-1.5 px-2 text-right">
+                          {r.fobCost != null ? `$${r.fobCost.toFixed(2)}` : "-"}
                         </td>
                         <td className="py-1.5 px-2 text-right">
                           {r.mcfFreight != null ? `$${r.mcfFreight.toFixed(2)}` : "-"}

@@ -118,8 +118,8 @@ export async function upsertGlobalProducts(
     }
 
     const existingIds = existing.map((p) => p.id);
-    const [lastCosts, lastPrices, lastShipping] = existingIds.length === 0
-      ? [[], [], []]
+    const [lastCosts, lastPrices, lastShipping, lastFobCosts] = existingIds.length === 0
+      ? [[], [], [], []]
       : await Promise.all([
           prisma.costHistory.findMany({
             where: { productId: { in: existingIds } },
@@ -139,13 +139,21 @@ export async function upsertGlobalProducts(
             distinct: ["productId", "shippingType"],
             select: { productId: true, shippingType: true, amount: true },
           }),
+          prisma.fobCostHistory.findMany({
+            where: { productId: { in: existingIds } },
+            orderBy: { recordedAt: "desc" },
+            distinct: ["productId"],
+            select: { productId: true, cost: true },
+          }),
         ]);
 
     const costMap = new Map(lastCosts.map((c) => [c.productId, Number(c.cost)]));
+    const fobCostMap = new Map(lastFobCosts.map((c) => [c.productId, Number(c.cost)]));
     const priceMap = new Map(lastPrices.map((p) => [`${p.productId}|${p.priceField}`, Number(p.price)]));
     const shipMap = new Map(lastShipping.map((s) => [`${s.productId}|${s.shippingType}`, Number(s.amount)]));
 
     const costRows: { id: string; productId: string; cost: number; importId: string }[] = [];
+    const fobCostRows: { id: string; productId: string; cost: number; importId: string }[] = [];
     const priceRows: { id: string; productId: string; priceField: string; price: number; importId: string }[] = [];
     const shipRows: { id: string; productId: string; shippingType: string; amount: number; importId: string }[] = [];
 
@@ -157,6 +165,12 @@ export async function upsertGlobalProducts(
         if (last == null || !same(last, row.cost)) {
           costRows.push({ id: randomUUID(), productId, cost: row.cost, importId });
         }
+      }
+
+      const fob = positive(row.fobCost);
+      if (fob != null) {
+        const last = fobCostMap.get(productId);
+        if (last == null || !same(last, fob)) fobCostRows.push({ id: randomUUID(), productId, cost: fob, importId });
       }
 
       for (const pf of PRICE_FIELDS) {
@@ -180,6 +194,7 @@ export async function upsertGlobalProducts(
 
     await Promise.all([
       costRows.length > 0 ? prisma.costHistory.createMany({ data: costRows }) : null,
+      fobCostRows.length > 0 ? prisma.fobCostHistory.createMany({ data: fobCostRows }) : null,
       priceRows.length > 0 ? prisma.productPrice.createMany({ data: priceRows }) : null,
       shipRows.length > 0 ? prisma.shippingCostHistory.createMany({ data: shipRows }) : null,
     ]);

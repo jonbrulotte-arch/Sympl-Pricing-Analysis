@@ -124,6 +124,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
           { p: "Click a SKU anywhere in the platform to open its page. It shows the product's brand, inventory status, ASIN, FBA class and shipping weight, plus its history. Click the ASIN, here or in a SKU's details in an analysis, to open the product's Amazon listing in a new tab." },
           { p: "Shipping weight comes from imports. When it's at or above the UPS weight break point, the card notes that the SKU's shipping cost uses the UPS rate." },
           { p: "If your role can update products, the **Cost & Shipping** card lets you enter a new unit cost or shipping cost. Each save adds a history record; nothing is overwritten." },
+          { p: "The **FOB Unit Cost** field holds the separate cost that Direct Import (FOB/FCA) channels use. Its changes show in the **FOB Cost History** card." },
           { note: "A red banner marks discontinued SKUs, which are being sold through remaining stock and won't be reordered. Be careful raising prices on them.", tone: "warning" },
         ],
       },
@@ -185,7 +186,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
               rows: [
                 ["Salsify Sync", "Pulls the full catalog from your Salsify channel export: names, brands, item types, prices and shipping."],
                 ["Import Spreadsheet", "Loads products from an .xlsx, .xls or .csv file, mapping its columns to fields."],
-                ["Supplemental Data", "Updates unit cost and MCF freight for SKUs that already exist."],
+                ["Supplemental Data", "Updates unit cost, FOB unit cost and MCF freight for SKUs that already exist."],
                 ["Import MCF Freight", "Pulls the latest average MCF freight per SKU from the freight report."],
               ],
             },
@@ -229,7 +230,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         id: "supplemental",
         title: "Supplemental data",
         blocks: [
-          { p: "Use **Supplemental Data** to fill in unit cost and MCF freight for existing SKUs. The only required column is SKU; the optional columns are **SKU Cost** and **To MCF Freight Cost**. SKUs that aren't already in the database are skipped." },
+          { p: "Use **Supplemental Data** to fill in unit cost and MCF freight for existing SKUs. The only required column is SKU; the optional columns are **SKU Cost**, **FOB Unit Cost** and **To MCF Freight Cost**. SKUs that aren't already in the database are skipped." },
         ],
       },
     ],
@@ -272,6 +273,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
             },
           },
           { p: "Shipping is calculated by the channel's mode: **Standard** uses the shipping cost per unit; **MCF** uses MCF shipping plus inbound freight; **FBA** uses the FBA fulfillment fee plus inbound freight. Commercial channels exclude freight." },
+          { note: "Direct Import (FOB/FCA) channels use each SKU's **FOB unit cost** instead of its unit cost. The two never fall back to each other: a SKU with no FOB unit cost shows as missing cost on Direct Import channels. Set it on the product's page, or import an **FOB Unit Cost** column." },
         ],
       },
       {
@@ -815,7 +817,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
       {
         id: "missing-cost",
         title: "Why does a SKU say it's missing cost?",
-        blocks: [{ p: "There's no unit cost on file. Add one with a Supplemental Data import or on the product's page, then reopen the analysis." }],
+        blocks: [
+          { p: "There's no unit cost on file. Add one with a Supplemental Data import or on the product's page, then reopen the analysis." },
+          { p: "On a Direct Import (FOB/FCA) channel, the SKU needs an **FOB unit cost** instead. The regular unit cost isn't used there." },
+        ],
       },
       {
         id: "edits-gone",

@@ -9,7 +9,7 @@ import { ProductDelete } from "@/components/products/product-delete";
 import { CostHistoryChart, ShippingHistoryChart } from "@/components/products/cost-chart";
 import { PriceHistorySection } from "@/components/products/price-history-section";
 import { loadPriceHistory } from "@/lib/db/price-history";
-import { loadCostAndShippingHistory, type CostRecordDetail } from "@/lib/db/cost-history";
+import { loadCostAndShippingHistory, loadFobCostHistory, type CostRecordDetail } from "@/lib/db/cost-history";
 import { ExpandableHistoryTable } from "@/components/products/expandable-history-table";
 import { AlertTriangle, Calculator } from "lucide-react";
 import { LocalDateTime } from "@/components/ui/local-date-time";
@@ -118,6 +118,9 @@ export default async function ProductDetailPage({
       if (latest) latestShipping[st] = Number(latest.amount);
     }
   }
+
+  // FOB unit cost: what Direct Import (FOB/FCA) channels analyze instead of the unit cost.
+  const fobHistory = canViewCost ? await loadFobCostHistory(productId) : [];
 
   const { cost: costHistory, shipping: shippingHistory } = await loadCostAndShippingHistory(product, {
     includeCost: canViewCost,
@@ -286,6 +289,7 @@ export default async function ProductDetailPage({
         <ProductEditor
           productId={productId}
           currentCost={canViewCost ? (latestCost ? Number(latestCost.cost) : null) : null}
+          currentFobCost={fobHistory[0]?.cost ?? null}
           currentShipping={latestShipping}
           hideCost={!canViewCost}
           shippingTypes={hasShippingChannels ? [...relevantShippingTypes] : []}
@@ -324,6 +328,33 @@ export default async function ProductDetailPage({
           )}
         </CardContent>
       </Card>
+      )}
+
+      {/* FOB Cost History (Direct Import channels) */}
+      {canViewCost && fobHistory.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-base">FOB Cost History ({fobHistory.length} records)</CardTitle>
+            <p className="text-xs text-gray-500">Used instead of the unit cost on Direct Import (FOB/FCA) channels.</p>
+          </CardHeader>
+          <CardContent>
+            <CostHistoryChart
+              data={fobHistory.map((r) => ({ id: r.id, cost: r.cost, recordedAt: r.recordedAt.toISOString() }))}
+            />
+            <ExpandableHistoryTable
+              columns={[{ label: "Date" }, { label: "FOB Cost", align: "right" }, { label: "Change", align: "right" }]}
+              rows={fobHistory.map((r) => ({
+                id: r.id,
+                cells: [
+                  <span key="d" className="text-gray-700"><LocalDateTime value={r.recordedAt} /></span>,
+                  <span key="v" className="font-mono">${r.cost.toFixed(2)}</span>,
+                  <ChangeAmount key="c" value={r.cost} previous={r.detail.previous} />,
+                ],
+                details: historyDetails("FOB Cost", r.cost, r.detail),
+              }))}
+            />
+          </CardContent>
+        </Card>
       )}
 
       {/* Price History */}

@@ -19,7 +19,7 @@ export function SkuDetailPanel({ result: r, cfg, settings, onShowMath, canViewCo
 
   const segments = revenue > 0
     ? [
-        ...(canViewCost ? [{ label: "Cost", value: costTotal, color: "bg-slate-600" }] : []),
+        ...(canViewCost ? [{ label: cfg.costBasis === "fob" ? "FOB cost" : "Cost", value: costTotal, color: "bg-slate-600" }] : []),
         { label: "Fees + alloc", value: cur.alloc, color: "bg-slate-400" },
         { label: "Shipping", value: r.ship, color: "bg-slate-200" },
         { label: "Net", value: cur.net, color: cur.net >= 0 ? "bg-green-600" : "bg-red-600" },

@@ -65,7 +65,7 @@ export function feeLedger(
     }
   }
 
-  if (opts.includeCost) add(`SKU cost × ${r.units}`, -(r.cost ?? 0) * r.units, "cost");
+  if (opts.includeCost) add(`${cfg.costBasis === "fob" ? "FOB cost" : "SKU cost"} × ${r.units}`, -(r.cost ?? 0) * r.units, "cost");
   add("Net margin", cur.net, "net");
   return lines;
 }

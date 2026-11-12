@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
           })),
           // Never sent when hidden; the server keeps using the stored cost.
           cost: costHidden ? null : row.cost,
+          fobCost: costHidden ? null : (row.fobCost ?? null),
           price,
           shipping: Object.fromEntries(SHIP_COMPONENTS.map((c) => [c.key, (row[c.key] as number | null | undefined) ?? null])),
         }

@@ -159,3 +159,30 @@ export async function loadCostAndShippingHistory(
 
   return { cost, shipping };
 }
+
+/**
+ * A product's FOB unit cost history (newest first, up to `take`), with the previous value, who changed it and how.
+ * FOB costs (used by Direct Import channels) always store their writer or import, so no log matching is needed.
+ */
+export async function loadFobCostHistory(productId: string, take = 50): Promise<CostRecord[]> {
+  const rows = await prisma.fobCostHistory.findMany({
+    where: { productId },
+    orderBy: { recordedAt: "desc" },
+    include: { recordedBy: { select: { name: true } } },
+  });
+  const shown = rows.slice(0, take);
+  const imports = await loadImportInfo(shown.map((r) => r.importId));
+  const prev = previousValues(rows, () => "fob", (r) => Number(r.cost));
+  return shown.map((r) => ({
+    id: r.id,
+    cost: Number(r.cost),
+    recordedAt: r.recordedAt,
+    detail: {
+      previous: prev.get(r.id) ?? null,
+      customer: null,
+      channel: null,
+      changedBy: r.recordedBy?.name ?? imports.uploader(r.importId) ?? null,
+      how: (r.source && WRITE_SOURCE_LABELS[r.source]) || imports.how(r.importId) || "Unknown",
+    },
+  }));
+}

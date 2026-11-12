@@ -63,8 +63,9 @@ export async function PATCH(
   if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
-  const { cost, shipping, mcfShip, mcfFreight, fbaFee } = body as {
+  const { cost, fobCost, shipping, mcfShip, mcfFreight, fbaFee } = body as {
     cost?: number;
+    fobCost?: number;
     shipping?: number;
     mcfShip?: number;
     mcfFreight?: number;
@@ -74,6 +75,13 @@ export async function PATCH(
   if (cost != null && isFinite(cost) && cost >= 0) {
     await prisma.costHistory.create({
       data: { id: randomUUID(), productId, cost, recordedById: session.user.id, source: "manual" },
+    });
+  }
+
+  // FOB unit cost: what Direct Import (FOB/FCA) channels are analyzed against.
+  if (fobCost != null && isFinite(fobCost) && fobCost > 0) {
+    await prisma.fobCostHistory.create({
+      data: { id: randomUUID(), productId, cost: fobCost, recordedById: session.user.id, source: "manual" },
     });
   }
 
@@ -96,7 +104,7 @@ export async function PATCH(
     action: "product.update",
     category: "product",
     summary: `Updated product "${product.sku}" costs`,
-    detail: { productId, sku: product.sku, cost, shipping, mcfShip, mcfFreight, fbaFee },
+    detail: { productId, sku: product.sku, cost, fobCost, shipping, mcfShip, mcfFreight, fbaFee },
     userId: session.user.id,
   });
 

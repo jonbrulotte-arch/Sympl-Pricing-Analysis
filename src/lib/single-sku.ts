@@ -22,6 +22,8 @@ export interface SingleSkuInputs {
   brand?: string;
   amzItemType?: string;
   cost?: number | null;
+  /** FOB unit cost, used instead of `cost` on Direct Import (FOB/FCA) channels. */
+  fobCost?: number | null;
   units?: number | null;
   price?: number | null;
   shipping?: Partial<Record<ShipComponentKey, number | null>>;
@@ -106,6 +108,7 @@ export function parseInputs(input: unknown): SingleSkuInputs {
     brand: str(i.brand),
     amzItemType: str(i.amzItemType),
     cost: i.cost === null ? null : (finite(i.cost) ?? undefined),
+    fobCost: i.fobCost === null ? null : (finite(i.fobCost) ?? undefined),
     units: finite(i.units),
     price: i.price === null ? null : (finite(i.price) ?? undefined),
     shipping,
@@ -210,6 +213,7 @@ export function computeSingleSku(setup: SingleSkuSetup, inputs: SingleSkuInputs,
       };
 
   if (!costHidden && inputs.cost !== undefined) row.cost = inputs.cost;
+  if (!costHidden && inputs.fobCost !== undefined) row.fobCost = inputs.fobCost;
   if (inputs.units != null && inputs.units >= 1) row.units = Math.round(inputs.units);
   for (const c of SHIP_COMPONENTS) {
     const v = inputs.shipping?.[c.key];
@@ -289,6 +293,7 @@ export async function createSingleSkuProduct(
   const sku = inputs.sku?.trim();
   if (!sku) return { error: "SKU is required", status: 400 };
   if (inputs.cost != null && inputs.cost < 0) return { error: "Cost can't be negative", status: 400 };
+  if (inputs.fobCost != null && inputs.fobCost < 0) return { error: "FOB cost can't be negative", status: 400 };
 
   const existing = await prisma.product.findUnique({ where: { sku }, select: { id: true } });
   if (existing) return { error: `SKU ${sku} already exists in the Product database`, status: 409, productId: existing.id };
@@ -316,6 +321,9 @@ export async function createSingleSkuProduct(
     }),
     prisma.customerProduct.create({ data: { customerId, productId } }),
     ...(inputs.cost != null ? [prisma.costHistory.create({ data: { id: randomUUID(), productId, cost: inputs.cost, ...meta } })] : []),
+    ...(inputs.fobCost != null && inputs.fobCost > 0
+      ? [prisma.fobCostHistory.create({ data: { id: randomUUID(), productId, cost: inputs.fobCost, ...meta } })]
+      : []),
     ...shipping.map((x) =>
       prisma.shippingCostHistory.create({
         data: { id: randomUUID(), productId, shippingType: x.shippingType, amount: x.amount, channelId: channel.id, ...meta },
@@ -340,6 +348,7 @@ export async function createSingleSkuProduct(
       channelId: channel.id,
       channelName: channel.name,
       cost: inputs.cost ?? null,
+      fobCost: inputs.fobCost ?? null,
       newPrice: price,
       channelPrices: prices.length > 1 ? Object.fromEntries(prices.map((p) => [p.channelName, p.price])) : undefined,
       shipping: Object.fromEntries(shipping.map((x) => [x.key, x.amount])),

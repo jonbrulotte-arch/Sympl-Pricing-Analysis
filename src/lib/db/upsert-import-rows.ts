@@ -79,6 +79,14 @@ export async function upsertImportRows(
       }
     }
 
+    // Record FOB unit cost history (Direct Import channels)
+    if (typeof row.fobCost === "number" && row.fobCost > 0) {
+      const lastFob = await prisma.fobCostHistory.findFirst({ where: { productId }, orderBy: { recordedAt: "desc" } });
+      if (!lastFob || Number(lastFob.cost) !== row.fobCost) {
+        await prisma.fobCostHistory.create({ data: { id: randomUUID(), productId, cost: row.fobCost, importId } });
+      }
+    }
+
     // Record price history per channel
     for (const ch of channels) {
       const priceVal = (row as Record<string, unknown>)[ch.priceField];

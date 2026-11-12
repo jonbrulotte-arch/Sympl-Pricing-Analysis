@@ -28,6 +28,8 @@ interface SetupProduct {
   brand: string;
   amzItemType: string;
   cost: number | null;
+  /** FOB unit cost, used on Direct Import (FOB/FCA) channels. */
+  fobCost: number | null;
   price: number | null;
   shipping: Record<ShipComponentKey, number | null>;
   /** Whether the SKU is one of this customer's products (needed to commit its price). */
@@ -50,6 +52,7 @@ interface Shared {
   brand: string;
   amzItemType: string;
   cost: string;
+  fobCost: string;
   units: string;
   shipping: Record<ShipComponentKey, string>;
 }
@@ -92,6 +95,7 @@ function sharedFrom(p: SetupProduct | null): Shared {
     brand: p?.brand ?? "",
     amzItemType: p?.amzItemType ?? "",
     cost: str(p?.cost),
+    fobCost: str(p?.fobCost),
     units: "1",
     shipping: Object.fromEntries(SHIP_COMPONENTS.map((c) => [c.key, str(p?.shipping[c.key])])) as Record<ShipComponentKey, string>,
   };
@@ -216,7 +220,7 @@ export function SingleSkuCalculator({
         productId,
         inputs: {
           ...(isNew ? { sku: shared.sku, name: shared.name, brand: shared.brand, amzItemType: shared.amzItemType } : {}),
-          ...(s.costHidden ? {} : { cost: toNum(shared.cost) }),
+          ...(s.costHidden ? {} : { cost: toNum(shared.cost), fobCost: toNum(shared.fobCost) }),
           units: toNum(shared.units),
           price: toNum(price),
           shipping: Object.fromEntries(shipComponentsFor(chCfg).map((c) => [c.key, toNum(shared.shipping[c.key])])),
@@ -513,6 +517,7 @@ export function SingleSkuCalculator({
           isNew: isNew && !committed,
         },
         cost: toNum(shared.cost),
+        fobCost: toNum(shared.fobCost),
         includeCost: !first?.costHidden,
         units: toNum(shared.units) ?? 1,
         channels: reports,
@@ -546,6 +551,8 @@ export function SingleSkuCalculator({
   const status = result ? (STATUS[result.status] ?? STATUS.invalid) : null;
   const price = toNum(prices[active]);
   const costHidden = !!setup?.costHidden;
+  // Direct Import (FOB/FCA) channels are analyzed against the FOB unit cost instead of the unit cost.
+  const isFob = cfg?.costBasis === "fob";
   const productLabel = isNew ? "New SKU" : setup?.product?.sku ?? Object.values(setups)[0]?.product?.sku;
 
   return (
@@ -747,13 +754,23 @@ export function SingleSkuCalculator({
                 <p className="text-xs text-gray-500">Cost, units and shipping apply to every channel; the list price is for {setup.channel.name}.</p>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Row label="Unit cost">
-                  {costHidden ? (
-                    <p className="text-sm text-gray-500 py-2">Hidden (uses the stored cost)</p>
-                  ) : (
-                    <Money value={shared.cost} onChange={(v) => setShared({ ...shared, cost: v })} disabled={locked} />
-                  )}
-                </Row>
+                {isFob ? (
+                  <Row label="FOB unit cost" hint="Direct Import channels">
+                    {costHidden ? (
+                      <p className="text-sm text-gray-500 py-2">Hidden (uses the stored FOB cost)</p>
+                    ) : (
+                      <Money value={shared.fobCost} onChange={(v) => setShared({ ...shared, fobCost: v })} disabled={locked} />
+                    )}
+                  </Row>
+                ) : (
+                  <Row label="Unit cost">
+                    {costHidden ? (
+                      <p className="text-sm text-gray-500 py-2">Hidden (uses the stored cost)</p>
+                    ) : (
+                      <Money value={shared.cost} onChange={(v) => setShared({ ...shared, cost: v })} disabled={locked} />
+                    )}
+                  </Row>
+                )}
                 <Row label="List price" hint={setup.channel.name}>
                   <Money value={prices[active] ?? ""} onChange={(v) => setPrices((p) => ({ ...p, [active]: v }))} disabled={locked} />
                 </Row>
@@ -909,7 +926,9 @@ export function SingleSkuCalculator({
               <SkuDetailPanel result={result} cfg={cfg} settings={numericSettings} canViewCost={!costHidden} />
             ) : (
               <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
-                {costHidden ? "This SKU has no cost on file, so it can't be analyzed." : "Enter a unit cost to see the margin breakdown."}
+                {costHidden
+                  ? `This SKU has no ${isFob ? "FOB " : ""}cost on file, so it can't be analyzed.`
+                  : `Enter ${isFob ? "an FOB" : "a"} unit cost to see the margin breakdown.`}
               </div>
             )}
           </div>

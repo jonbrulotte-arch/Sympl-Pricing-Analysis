@@ -36,6 +36,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   priceHistories     PriceHistory[]
   costHistories      CostHistory[]
+  fobCostHistories   FobCostHistory[]
   shippingCostHistories ShippingCostHistory[]
 }
 
@@ -189,6 +190,7 @@ model Product {
 
   customers             CustomerProduct[]
   costHistories         CostHistory[]
+  fobCostHistories      FobCostHistory[]
   priceHistories        PriceHistory[]
   shippingCostHistories ShippingCostHistory[]
   productPrices         ProductPrice[]
@@ -208,6 +210,23 @@ model CostHistory {
   recordedById String?
   recordedBy   User?   @relation(fields: [recordedById], references: [id], onDelete: SetNull)
   /// "manual" (product page); null for imports and syncs (see importId).
+  source       String?
+
+  @@index([productId, recordedAt])
+}
+
+/// FOB unit cost: what a Direct Import (FOB/FCA) buyer's price is analyzed against instead of the regular unit cost.
+model FobCostHistory {
+  id         String   @id @default(uuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cost       Decimal  @db.Decimal(10, 4)
+  recordedAt DateTime @default(now())
+  importId   String?
+  /// Who made the change. Imports and syncs leave this null; their Import row records the uploader.
+  recordedById String?
+  recordedBy   User?   @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  /// "manual" (product page), "single-sku"; null for imports and syncs (see importId).
   source       String?
 
   @@index([productId, recordedAt])

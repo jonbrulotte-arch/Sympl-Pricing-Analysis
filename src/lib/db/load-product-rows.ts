@@ -29,7 +29,7 @@ export async function loadProductRows(
   const channelIds = channels.map((c) => c.id);
   const priceFields = [...new Set(channels.map((c) => c.priceField).filter((f) => f && f !== "__none__"))];
 
-  const [dbProducts, costs, shipping, channelPrices, fieldPrices] = await Promise.all([
+  const [dbProducts, costs, fobCosts, shipping, channelPrices, fieldPrices] = await Promise.all([
     prisma.product.findMany({
       where: { id: { in: productIds } },
       orderBy: { sku: "asc" },
@@ -37,6 +37,11 @@ export async function loadProductRows(
     prisma.$queryRaw<{ productId: string; cost: Amount }[]>`
       SELECT DISTINCT ON ("productId") "productId", "cost"
       FROM "CostHistory"
+      WHERE "productId" = ANY(${productIds}::text[])
+      ORDER BY "productId", "recordedAt" DESC`,
+    prisma.$queryRaw<{ productId: string; cost: Amount }[]>`
+      SELECT DISTINCT ON ("productId") "productId", "cost"
+      FROM "FobCostHistory"
       WHERE "productId" = ANY(${productIds}::text[])
       ORDER BY "productId", "recordedAt" DESC`,
     prisma.$queryRaw<{ productId: string; shippingType: string; amount: Amount }[]>`
@@ -62,6 +67,7 @@ export async function loadProductRows(
   ]);
 
   const costBy = new Map(costs.map((c) => [c.productId, Number(c.cost)]));
+  const fobCostBy = new Map(fobCosts.map((c) => [c.productId, Number(c.cost)]));
   const shippingBy = new Map<string, Partial<ProductRow>>();
   for (const s of shipping) {
     const values = shippingBy.get(s.productId) ?? {};
@@ -78,6 +84,7 @@ export async function loadProductRows(
       sku: p.sku,
       name: p.name ?? undefined,
       cost: cost ?? null,
+      fobCost: fobCostBy.get(p.id) ?? null,
       brand: p.brand ?? undefined,
       asin: p.asin ?? undefined,
       fbaClass: p.fbaClass ?? undefined,

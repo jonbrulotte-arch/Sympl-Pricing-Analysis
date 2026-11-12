@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 interface SupplementalRow {
   sku: string;
   cost?: number | null;
+  fobCost?: number | null;
   mcfFreight?: number | null;
 }
 
@@ -37,6 +38,14 @@ export async function upsertSupplementalData(
         await prisma.costHistory.create({
           data: { id: randomUUID(), productId, cost: row.cost, importId },
         });
+        changed = true;
+      }
+    }
+
+    if (row.fobCost != null && row.fobCost > 0) {
+      const lastFob = await prisma.fobCostHistory.findFirst({ where: { productId }, orderBy: { recordedAt: "desc" } });
+      if (!lastFob || Number(lastFob.cost) !== row.fobCost) {
+        await prisma.fobCostHistory.create({ data: { id: randomUUID(), productId, cost: row.fobCost, importId } });
         changed = true;
       }
     }
