@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { WRITE_SOURCE_LABELS, loadImportInfo, num, previousValues, withinLogWindow } from "@/lib/db/history-common";
 import { SHIP_COMPONENTS } from "@/lib/pricing/shipping";
+import { missingTableAs } from "@/lib/db/missing-table";
 
 export interface CostRecordDetail {
   previous: number | null;
@@ -169,7 +170,7 @@ export async function loadFobCostHistory(productId: string, take = 50): Promise<
     where: { productId },
     orderBy: { recordedAt: "desc" },
     include: { recordedBy: { select: { name: true } } },
-  });
+  }).catch(missingTableAs("FobCostHistory", []));
   const shown = rows.slice(0, take);
   const imports = await loadImportInfo(shown.map((r) => r.importId));
   const prev = previousValues(rows, () => "fob", (r) => Number(r.cost));

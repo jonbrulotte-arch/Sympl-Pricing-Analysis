@@ -26,10 +26,12 @@ echo "[3/5] Installing dependencies..."
 npm install
 echo "  Done."
 
-# 4. Generate Prisma client and run migrations
-echo "[4/5] Running Prisma generate + migrate..."
+# 4. Generate Prisma client and sync the database schema
+# This project has no migrations folder, so `prisma migrate deploy` does nothing; `db push`
+# creates new tables and columns. Without --accept-data-loss it stops rather than drop data.
+echo "[4/5] Running Prisma generate + db push..."
 npx prisma generate
-npx prisma migrate deploy
+npx prisma db push
 echo "  Database synced."
 
 # 5. Restart the service

@@ -1,3 +1,4 @@
+import { missingTableAs } from "@/lib/db/missing-table";
 import { prisma } from "@/lib/prisma";
 import type { ProductRow } from "@/lib/pricing/types";
 
@@ -43,7 +44,7 @@ export async function loadProductRows(
       SELECT DISTINCT ON ("productId") "productId", "cost"
       FROM "FobCostHistory"
       WHERE "productId" = ANY(${productIds}::text[])
-      ORDER BY "productId", "recordedAt" DESC`,
+      ORDER BY "productId", "recordedAt" DESC`.catch(missingTableAs("FobCostHistory", [] as { productId: string; cost: Amount }[])),
     prisma.$queryRaw<{ productId: string; shippingType: string; amount: Amount }[]>`
       SELECT DISTINCT ON ("productId", "shippingType") "productId", "shippingType", "amount"
       FROM "ShippingCostHistory"
